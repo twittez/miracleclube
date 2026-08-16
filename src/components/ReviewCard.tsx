@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Star, CheckCircle, ThumbsUp } from "lucide-react";
+import { Star, CheckCircle, ThumbsUp, X } from "lucide-react";
 import type { ReviewItem } from "../data/product";
 import "./ReviewCard.css";
 
@@ -10,6 +10,7 @@ interface ReviewCardProps {
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
   const [likes, setLikes] = useState(review.likes);
   const [liked, setLiked] = useState(false);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   const handleLike = () => {
     if (liked) {
@@ -56,6 +57,36 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
       {review.title && <h4 className="review-card__title">{review.title}</h4>}
       <p className="review-card__comment">{review.comment}</p>
 
+      {/* Photos Media Gallery */}
+      {review.photos && review.photos.length > 0 && (
+        <div className="review-card__media-grid">
+          {review.photos.map((photoUrl, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className="review-card__photo-thumb-btn"
+              onClick={() => setActiveImage(photoUrl)}
+              aria-label={`Ver foto ${idx + 1}`}
+            >
+              <img src={photoUrl} alt={`Foto cliente ${idx + 1}`} className="review-card__photo-thumb" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Video Player */}
+      {review.video && (
+        <div className="review-card__video-wrapper">
+          <video
+            src={review.video}
+            controls
+            playsInline
+            preload="metadata"
+            className="review-card__video"
+          />
+        </div>
+      )}
+
       <div className="review-card__footer">
         <button
           type="button"
@@ -66,6 +97,26 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
           <span>Útil ({likes})</span>
         </button>
       </div>
+
+      {/* Photo Lightbox Modal */}
+      {activeImage && (
+        <div className="review-card__lightbox-overlay" onClick={() => setActiveImage(null)}>
+          <button
+            type="button"
+            className="review-card__lightbox-close"
+            onClick={() => setActiveImage(null)}
+            aria-label="Fechar imagem"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={activeImage}
+            alt="Foto em tamanho grande"
+            className="review-card__lightbox-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };

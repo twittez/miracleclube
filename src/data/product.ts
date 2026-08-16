@@ -57,6 +57,8 @@ export interface ReviewItem {
   comment: string;
   likes: number;
   avatarUrl?: string;
+  photos?: string[];
+  video?: string;
 }
 
 export interface ProductData {
@@ -256,37 +258,47 @@ export const product: ProductData = {
       color: "Preto",
       title: "Maravilhoso! Modela perfeitamente",
       comment: "Comprei para usar em um casamento e fiquei impressionada. O vestido ficou impecável no corpo, afina muito a cintura e é surpreendentemente confortável!",
-      likes: 24
+      likes: 24,
+      photos: [
+        "https://down-br.img.susercontent.com/file/br-11134103-81zuk-mkslh66qa3urc2.webp",
+        "https://down-br.img.susercontent.com/file/br-11134103-7r98o-m815qmkpc3xt4d.webp"
+      ]
     },
     {
       id: "r2",
       author: "Camila R.",
       rating: 5,
-      date: "Há 1 semana",
+      date: "Há 4 dias",
       verified: true,
       size: "P",
       color: "Nude (Akaroa)",
-      title: "Excelente qualidade de tecido",
-      comment: "O tecido é bem encorpado mas ao mesmo tempo muito macio. Não pinuca e não enrola. A cor nude é discreta sob camisetas brancas.",
-      likes: 18
+      title: "Vídeo mostrando a qualidade e o caimento!",
+      comment: "Gente, gravei esse vídeo curto pra mostrar como o tecido é encorpado e o fecho inferior super forte. Fica perfeito no corpo!",
+      likes: 38,
+      video: "https://down-zl-br.vod.susercontent.com/api/v4/11110103/mms/br-11110103-6v6x6-mo020o7idn2a5d.16000051778263444.mp4"
     },
     {
       id: "r3",
       author: "Patrícia M.",
       rating: 5,
-      date: "Há 2 semanas",
+      date: "Há 1 semana",
       verified: true,
       size: "G",
       color: "Preto",
-      title: "Sustentação incrível para as costas",
-      comment: "Tenho dores na coluna por trabalhar muito tempo no computador e me ajudou demais com a postura. Além de me deixar muito mais elegante!",
-      likes: 31
+      title: "Fotos reais da peça ao chegar!",
+      comment: "Chegou super rápido aqui em SP. O acabamento das costuras é perfeito e a sustentação nas costas é incrível.",
+      likes: 31,
+      photos: [
+        "https://down-br.img.susercontent.com/file/br-11134103-820m1-mnpvsw7nbbwif2.webp",
+        "https://down-br.img.susercontent.com/file/br-11134103-820mb-mnpvsw7pcdfl2d.webp",
+        "https://down-br.img.susercontent.com/file/br-11134103-820lz-mnpvsw82q6848b.webp"
+      ]
     },
     {
       id: "r4",
       author: "Fernanda L.",
       rating: 5,
-      date: "Há 3 semanas",
+      date: "Há 2 semanas",
       verified: true,
       size: "GG",
       color: "Preto",
