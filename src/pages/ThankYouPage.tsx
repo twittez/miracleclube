@@ -79,8 +79,17 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
 
   const isPaid = order?.status === "paid" || order?.orderStatus === "paid";
   const pixData = order?.pix;
-  const qrCodeUrl = pixData?.qrCode || pixData?.qrcode || pixData?.qrCodeUrl;
   const copyPasteText = pixData?.copyPaste || pixData?.copy_paste;
+  let rawQr = pixData?.qrCode || pixData?.qrcode || pixData?.qrCodeUrl || copyPasteText;
+  let qrCodeUrl = "";
+
+  if (rawQr && typeof rawQr === "string") {
+    if (rawQr.startsWith("http://") || rawQr.startsWith("https://") || rawQr.startsWith("data:image/")) {
+      qrCodeUrl = rawQr;
+    } else {
+      qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(rawQr)}`;
+    }
+  }
 
   return (
     <div className="checkout-container">

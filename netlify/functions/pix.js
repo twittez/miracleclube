@@ -104,15 +104,20 @@ exports.handler = async (event) => {
 
         if (bhResponse.ok) {
           const bhData = JSON.parse(bhText);
-          const qrCodeUrl = bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '';
-          const copyPasteStr = bhData.pix?.copy_paste || bhData.pix?.copyPaste || bhData.pix?.qrcode || '';
-          
-          if (copyPasteStr) {
+          const rawQr = bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '';
+          const copyPasteStr = bhData.pix?.copy_paste || bhData.pix?.copyPaste || rawQr || '';
+
+          let qrCodeImg = rawQr;
+          if (!qrCodeImg || (!qrCodeImg.startsWith('http://') && !qrCodeImg.startsWith('https://') && !qrCodeImg.startsWith('data:image/'))) {
+            qrCodeImg = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(copyPasteStr || rawQr)}`;
+          }
+
+          if (copyPasteStr || qrCodeImg) {
             pixResult = {
               transactionId: bhData.id || `BH-${Date.now()}`,
-              qrCode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              qrCode: qrCodeImg,
               copyPaste: copyPasteStr,
-              qrcode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              qrcode: qrCodeImg,
               copy_paste: copyPasteStr
             };
           }
@@ -126,8 +131,8 @@ exports.handler = async (event) => {
     if (!pixResult || !pixResult.copyPaste) {
       console.warn('[Netlify Function Pix] Using fallback testing Pix (Beehive SK missing or API refused payload)');
       const mockCopyPaste = `00020126580014br.gov.bcb.pix0136${crypto.randomUUID()}5204000053039865405${(calculatedAmountCentavos / 100).toFixed(2)}5802BR5915MIRACLE STORE6009SAO PAULO62070503***6304`;
-      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(mockCopyPaste)}`;
-      
+      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(mockCopyPaste)}`;
+
       pixResult = {
         transactionId: `BH-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
         qrCode: mockQrCode,
