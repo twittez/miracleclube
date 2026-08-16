@@ -1,0 +1,32 @@
+.rating-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-size-sm);
+  margin-bottom: 0.5rem;
+}
+
+.rating-header__stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rating-header__score {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+}
+
+.rating-header__divider {
+  color: var(--color-border);
+}
+
+.rating-header__link {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.rating-header__link:hover {
+  color: var(--color-primary);
+}

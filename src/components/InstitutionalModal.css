@@ -1,0 +1,205 @@
+﻿.inst-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background-color: rgba(0, 0, 0, 0.65);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.inst-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90dvh;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.inst-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #E0E0E0;
+  background-color: #FAFAFA;
+}
+
+.inst-modal__header h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 0;
+}
+
+.inst-modal__close {
+  background: none;
+  border: none;
+  color: #666666;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inst-modal__content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.inst-modal__body h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 16px 0 6px 0;
+}
+
+.inst-modal__body p,
+.inst-modal__body li {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #444444;
+  margin-bottom: 8px;
+}
+
+.inst-modal__body ul {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+
+.inst-modal__hero-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #FDF2F6;
+  border: 1px solid #F9D0E0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.inst-modal__hero-badge strong {
+  font-size: 0.9rem;
+  color: #111111;
+  display: block;
+}
+
+.inst-modal__hero-badge p {
+  font-size: 0.75rem;
+  margin: 0;
+  color: #666666;
+}
+
+/* Tracking Form */
+.inst-modal__track-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.inst-modal__track-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111111;
+}
+
+.inst-modal__track-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.inst-modal__track-input-group input {
+  flex: 1;
+  border: 1px solid #CCCCCC;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.inst-modal__track-input-group input:focus {
+  border-color: #E54E88;
+}
+
+.inst-modal__track-input-group button {
+  background-color: #E54E88;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+/* Tracking Timeline */
+.inst-modal__track-timeline {
+  border-top: 1px dashed #E0E0E0;
+  padding-top: 16px;
+}
+
+.inst-modal__track-timeline h4 {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.status-highlight {
+  color: #2563EB;
+  font-weight: 700;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.timeline-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #E0E0E0;
+  color: #666666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.timeline-item.completed .timeline-icon {
+  background-color: #DCFCE7;
+  color: #16A34A;
+}
+
+.timeline-item.active .timeline-icon {
+  background-color: #DBEAFE;
+  color: #2563EB;
+}
+
+.timeline-content strong {
+  font-size: 0.85rem;
+  color: #111111;
+  display: block;
+}
+
+.timeline-content small {
+  font-size: 0.75rem;
+  color: #666666;
+}

@@ -1,0 +1,87 @@
+.benefits-section {
+  background-color: var(--color-bg-soft);
+  padding: 2.25rem 0;
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--color-border-light);
+  width: 100%;
+  max-width: 100%;
+}
+
+.benefits-section__header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 2.5rem auto;
+  width: 100%;
+}
+
+.benefits-section__tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.benefits-section__title {
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  margin-top: 0.25rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.benefits-section__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  width: 100%;
+}
+
+.benefits-section__card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.benefits-section__card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-focus);
+}
+
+.benefits-section__icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem auto;
+}
+
+.benefits-section__card-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  margin-bottom: 0.5rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.benefits-section__card-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+

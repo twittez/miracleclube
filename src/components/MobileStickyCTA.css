@@ -1,0 +1,62 @@
+.mobile-sticky-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
+  background-color: #FFFFFF;
+  border-top: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sticky);
+  z-index: var(--z-sticky-cta);
+  padding: 0.75rem 1rem;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  animation: slideUp 200ms ease-out;
+  box-sizing: border-box;
+}
+
+.mobile-sticky-cta__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.mobile-sticky-cta__price-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-sticky-cta__price {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.mobile-sticky-cta__installment {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.mobile-sticky-cta__btn {
+  flex: 1;
+  width: auto;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-sm);
+  border: none;
+  box-shadow: 0 4px 10px rgba(229, 78, 136, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

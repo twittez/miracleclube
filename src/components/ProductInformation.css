@@ -1,0 +1,79 @@
+.product-info {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-info__sku {
+  font-size: 0.7rem;
+  color: var(--color-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.product-info__title {
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.product-info__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.product-info__action-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.product-info__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  width: 100%;
+}
+
+.product-info__whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: transparent;
+  color: #F48FB1;
+  border: 1px solid #F48FB1;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.6rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-height: 42px;
+}
+
+.product-info__whatsapp-btn:hover {
+  background-color: #FDF2F6;
+  border-color: #E54E88;
+  color: #E54E88;
+}
+
+.wa-icon-emoji {
+  font-size: 0.9rem;
+}

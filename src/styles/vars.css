@@ -1,0 +1,81 @@
+:root {
+  /* Container & Layout Tokens */
+  --container-width: 100%;
+  --container-padding-desktop: 2rem;
+  --container-padding-mobile: 1rem;
+  --mobile-padding: 16px;
+  --mobile-max-width: 480px;
+
+  /* Color Palette (Driven by brand configuration defaults) */
+  --color-primary: #E54E88;
+  --color-primary-hover: #D63B76;
+  --color-primary-light: #FDF2F6;
+  --color-primary-focus: rgba(229, 78, 136, 0.25);
+  
+  --color-dark: #111111;
+  --color-secondary: #1A1A1A;
+  --color-text-main: #2B2B2B;
+  --color-text-muted: #666666;
+  --color-text-light: #888888;
+  
+  --color-bg-white: #FFFFFF;
+  --color-bg-soft: #F9F9F9;
+  --color-bg-subtle: #F4F5F7;
+  
+  --color-border: #E5E5E5;
+  --color-border-light: #F0F0F0;
+  
+  --color-badge-green: #25D366;
+  --color-badge-green-bg: #E8F8EE;
+  --color-star: #FFB800;
+
+  /* Typography System */
+  --font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.375rem;   /* 22px */
+  --font-size-2xl: 1.75rem;   /* 28px */
+  --font-size-3xl: 2.25rem;   /* 36px */
+
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing Scale */
+  --spacing-3xs: 0.25rem;  /* 4px */
+  --spacing-2xs: 0.5rem;   /* 8px */
+  --spacing-xs: 0.75rem;   /* 12px */
+  --spacing-sm: 1rem;      /* 16px */
+  --spacing-md: 1.5rem;    /* 24px */
+  --spacing-lg: 2rem;      /* 32px */
+  --spacing-xl: 3rem;      /* 48px */
+  --spacing-2xl: 4rem;     /* 64px */
+
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Elevation Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.12);
+  --shadow-sticky: 0 -4px 16px rgba(0, 0, 0, 0.08);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-Index Hierarchy */
+  --z-header: 100;
+  --z-sticky-cta: 200;
+  --z-drawer: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

@@ -1,0 +1,68 @@
+.mobile-store {
+  width: 100%;
+  max-width: var(--mobile-max-width, 480px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow-x: clip;
+  background: #fff;
+}
+
+/* On screens smaller than 480px, use full width */
+@media (max-width: 480px) {
+  .mobile-store {
+    max-width: 100%;
+  }
+}
+
+.mobile-store main {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Mobile section padding utility */
+.mobile-section {
+  width: 100%;
+  padding-left: var(--mobile-padding, 16px);
+  padding-right: var(--mobile-padding, 16px);
+}
+
+/* Full-bleed sections (gallery, banners) */
+.full-bleed {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Container - override any desktop container class */
+.container {
+  width: 100%;
+  max-width: 100%;
+  padding-left: var(--mobile-padding, 16px);
+  padding-right: var(--mobile-padding, 16px);
+  margin: 0;
+}
+
+/* Toast notification */
+.toast-notification {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
+  background-color: #16A34A;
+  color: #FFFFFF;
+  padding: 12px var(--mobile-padding, 16px);
+  padding-top: calc(12px + env(safe-area-inset-top));
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  z-index: 600;
+  animation: slideDown 300ms ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}

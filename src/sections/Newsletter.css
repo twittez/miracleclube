@@ -1,0 +1,97 @@
+.newsletter-section {
+  padding: 3rem 0;
+  background-color: var(--color-dark);
+  color: #FFFFFF;
+  width: 100%;
+  max-width: 100%;
+}
+
+.newsletter-section__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.newsletter-section__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.newsletter-section__icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.newsletter-section__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.newsletter-section__desc {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.25rem;
+}
+
+.newsletter-section__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.newsletter-section__input {
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-size: 16px; /* Prevents iOS auto-zoom */
+  color: #FFFFFF;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.newsletter-section__input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.newsletter-section__input:focus {
+  border-color: var(--color-primary);
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.newsletter-section__btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.newsletter-section__btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.newsletter-section__success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-size-xs);
+  color: #4ADE80;
+  font-weight: var(--font-weight-semibold);
+}
+

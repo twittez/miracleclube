@@ -1,0 +1,23 @@
+.product-main-section {
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-main-section__grid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+}
+
+.product-main-section__gallery-col {
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-main-section__info-col {
+  width: 100%;
+  max-width: 100%;
+  padding: 16px var(--mobile-padding, 16px);
+}

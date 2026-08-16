@@ -1,0 +1,524 @@
+/* Checkout Page & Thank You Page Styles (Matching Reference) */
+
+:root {
+  --checkout-primary: #d8158a;
+  --checkout-primary-hover: #c0107a;
+  --checkout-bg: #FFFFFF;
+  --checkout-card-bg: #FFFFFF;
+  --checkout-banner-bg: #000000;
+  --checkout-footer-bg: #F3F4F6;
+  --checkout-border: #DEDEDE;
+  --checkout-text: #111827;
+  --checkout-muted: #6B7280;
+  --checkout-success: #16A34A;
+}
+
+.checkout-container {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100dvh;
+  background-color: #FFFFFF;
+  color: var(--checkout-text);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Header */
+.checkout-header {
+  background-color: var(--checkout-primary);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.checkout-header__logo {
+  max-width: 140px;
+  height: auto;
+  max-height: 42px;
+  object-fit: contain;
+}
+
+/* Top Announcement Banner */
+.checkout-banner {
+  background-color: var(--checkout-banner-bg);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.checkout-banner strong {
+  font-weight: 700;
+}
+
+.checkout-banner em {
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* Main Body */
+.checkout-body {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Steps Counter Indicator */
+.checkout-steps-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #F9FAFB;
+  border: 1px solid var(--checkout-border);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.checkout-steps-bar__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--checkout-text);
+}
+
+.checkout-steps-bar__counter {
+  font-size: 0.8rem;
+  color: var(--checkout-muted);
+  font-weight: 600;
+}
+
+/* Form Cards */
+.checkout-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--checkout-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+
+.checkout-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--checkout-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border-bottom: 1px solid #F3F4F6;
+  padding-bottom: 10px;
+}
+
+.checkout-card__title-badge {
+  background-color: var(--checkout-primary);
+  color: #FFFFFF;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* Form Elements */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.form-group label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-input, .form-select {
+  height: 46px;
+  width: 100%;
+  border: 1px solid var(--checkout-border);
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  color: #1F2937;
+  background-color: #FFFFFF;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--checkout-primary);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-row--3 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+
+/* Payment Method Tabs (Pix vs Card) */
+.payment-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.payment-tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border: 1.5px solid var(--checkout-border);
+  background-color: #FFFFFF;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.payment-tab-btn.active {
+  border-color: var(--checkout-primary);
+  background-color: #FDF2F6;
+  box-shadow: 0 0 0 1px var(--checkout-primary);
+}
+
+.payment-tab-btn__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.payment-tab-btn__badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--checkout-success);
+}
+
+/* Shipping Option Card */
+.shipping-option-card {
+  border: 1px solid var(--checkout-border);
+  background-color: #FFFFFF;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.shipping-option-card.selected {
+  border: 2px solid var(--checkout-primary);
+  background-color: #FDF2F6;
+}
+
+/* Credit Card Recusal Alert Box */
+.card-declined-alert {
+  background-color: #FEF2F2;
+  border: 1.5px solid #F87171;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.card-declined-alert__title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #991B1B;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-declined-alert__text {
+  font-size: 0.8rem;
+  color: #7F1D1D;
+  line-height: 1.35;
+}
+
+.card-declined-alert__cta {
+  background-color: var(--checkout-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Order Summary Box */
+.checkout-summary {
+  background-color: #FAFAFA;
+  border: 1px solid var(--checkout-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.checkout-item-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.checkout-item-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--checkout-border);
+  flex-shrink: 0;
+}
+
+.checkout-item-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkout-item-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--checkout-text);
+  line-height: 1.2;
+}
+
+.checkout-item-variant {
+  font-size: 0.75rem;
+  color: var(--checkout-muted);
+}
+
+.checkout-item-price {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--checkout-text);
+  margin-top: 2px;
+}
+
+/* Totals List */
+.checkout-totals {
+  border-top: 1px dashed var(--checkout-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkout-totals-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: #4B5563;
+}
+
+.checkout-totals-row.total {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--checkout-text);
+  border-top: 1px solid var(--checkout-border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.free-shipping-tag {
+  color: var(--checkout-success);
+  font-weight: 700;
+}
+
+/* Primary Submit Button */
+.checkout-submit-btn {
+  width: 100%;
+  height: 50px;
+  background-color: var(--checkout-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(216, 21, 138, 0.3);
+  transition: background-color 0.15s ease;
+}
+
+.checkout-submit-btn:hover:not(:disabled) {
+  background-color: var(--checkout-primary-hover);
+}
+
+.checkout-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Thank You & Tracking Page Classes */
+.ty-status-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.ty-status-icon.paid {
+  background-color: #DCFCE7;
+  color: #16A34A;
+}
+
+.ty-status-icon.pending {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+
+.ty-order-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #F3F4F6;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.ty-copypaste-box {
+  background-color: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #4B5563;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.ty-tracking-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #FDF2F6;
+  border: 1px dashed #d8158a;
+  padding: 12px 16px;
+  border-radius: 6px;
+}
+
+.ty-copy-btn {
+  background-color: #FFFFFF;
+  border: 1px solid #d8158a;
+  color: #d8158a;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ty-whatsapp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #25D366;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 10px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.tracking-step-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Footer */
+.checkout-footer {
+  background-color: var(--checkout-footer-bg);
+  padding: 24px 16px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
+  border-top: 1px solid #E5E7EB;
+}
+
+.checkout-footer__text {
+  font-size: 0.75rem;
+  color: #4B5563;
+  margin-bottom: 12px;
+}
+
+.checkout-footer__security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #111827;
+  font-weight: 700;
+}

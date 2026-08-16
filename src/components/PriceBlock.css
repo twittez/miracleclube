@@ -1,0 +1,96 @@
+.price-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.1rem 0;
+  border-top: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
+  margin: 0.75rem 0 1.25rem 0;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Large Pink 5x de R$ 31,98 */
+.price-block__installment-highlight {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #E54E88;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.price-block__installment-highlight .inst-de {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #E54E88;
+}
+
+/* Struck R$ 299,90 vs R$ 159,90 */
+.price-block__prices-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.price-block__struck {
+  font-size: 1rem;
+  color: #999999;
+  text-decoration: line-through;
+}
+
+.price-block__final {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222222;
+}
+
+/* Light Grey Pix Pill Box */
+.price-block__pix-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #F4F6F7;
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin-top: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.pix-diamond {
+  color: #E54E88;
+  font-size: 0.95rem;
+}
+
+.pix-text {
+  font-size: 0.85rem;
+  color: #222222;
+}
+
+.pix-text strong {
+  font-weight: 700;
+  color: #111111;
+}
+
+/* More Payment Options Link */
+.price-block__more-payments {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #333333;
+  text-decoration: underline;
+  margin-top: 8px;
+  transition: color 0.15s ease;
+}
+
+.price-block__more-payments:hover {
+  color: #E54E88;
+}

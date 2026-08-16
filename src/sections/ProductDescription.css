@@ -1,0 +1,106 @@
+.product-description {
+  padding: 1.5rem 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-description__row {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.5rem 0;
+  width: 100%;
+}
+
+.product-description__row--reverse {
+  direction: rtl;
+}
+
+.product-description__row--reverse > * {
+  direction: ltr;
+}
+
+.product-description__image-col {
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-description__img {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 380px;
+  object-fit: contain;
+  background-color: #F9F9F9;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  display: block;
+}
+
+.product-description__text-col {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-description__tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.product-description__title {
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  line-height: 1.25;
+  margin-bottom: 0.5rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.product-description__subtitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.product-description__text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-main);
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.product-description__bullets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.product-description__bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-dark);
+  font-weight: var(--font-weight-semibold);
+}
+
+.product-description__bullet-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
