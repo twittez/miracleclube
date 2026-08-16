@@ -71,7 +71,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     size: cartItem?.size || product.sizes[1].label,
     image: cartItem?.image || product.images[0],
     quantity: cartItem?.quantity || 1,
-    unitPrice: 159.90,
+    unitPrice: product.price,
   };
 
   const basePrice = selectedProduct.unitPrice * selectedProduct.quantity;
@@ -734,7 +734,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                     Pix - Aprovação Instantânea (-10% OFF)
                   </strong>
                   <span style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 600 }}>
-                    ✓ Desconto de 10% aplicado automaticamente (Economia de R$ 15,99)
+                    ✓ Desconto de 10% aplicado automaticamente (Economia de {formatCurrency(pixDiscount)})
                   </span>
                 </div>
               </div>

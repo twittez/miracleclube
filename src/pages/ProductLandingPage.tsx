@@ -38,7 +38,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
     trackViewContent({
       id: "CMFBPM001-BFPP",
       name: product.name,
-      price: 159.90,
+      price: product.price,
     });
   }, []);
 
@@ -57,7 +57,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
     trackAddToCart({
       id: "CMFBPM001-BFPP",
       name: product.name,
-      price: 159.90,
+      price: product.price,
       quantity: qty,
     });
 

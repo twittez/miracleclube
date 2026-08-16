@@ -98,7 +98,7 @@ app.post('/api/payments/pix', async (req, res) => {
     const orderId = `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const trackingRef = generateTrackingRef();
 
-    let calculatedAmountCentavos = 15990;
+    let calculatedAmountCentavos = 7990;
     if (amount && typeof amount === 'number' && amount > 0) {
       calculatedAmountCentavos = Math.round(amount * 100);
     }

@@ -23,7 +23,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
     trackInitiateCheckout({
       id: "CMFBPM001-BFPP",
       name: product.name,
-      price: 159.90,
+      price: product.price,
       quantity: totalQty
     });
 
