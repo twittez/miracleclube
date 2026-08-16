@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA redirect for React Router routes (/checkout, /obrigado, /rastreio)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
