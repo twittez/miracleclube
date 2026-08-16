@@ -9,6 +9,11 @@ function generateTrackingRef() {
   return result;
 }
 
+function hashSHA256(val) {
+  if (!val || typeof val !== 'string') return undefined;
+  return crypto.createHash('sha256').update(val.trim().toLowerCase()).digest('hex');
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -142,6 +147,52 @@ exports.handler = async (event) => {
         qrcode: mockQrCode,
         copy_paste: mockCopyPaste
       };
+    }
+
+    // Dispatch Meta CAPI Purchase Server-Side immediately on Pix creation
+    const META_PIXEL_ID = process.env.META_PIXEL_ID || process.env.VITE_META_PIXEL_ID || '2645703275845738';
+    const META_CAPI_ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '';
+    const META_TEST_EVENT_CODE = process.env.META_TEST_EVENT_CODE || '';
+
+    if (META_CAPI_ACCESS_TOKEN && !META_CAPI_ACCESS_TOKEN.includes('PLACEHOLDER')) {
+      try {
+        const capiPayload = {
+          data: [
+            {
+              event_name: 'Purchase',
+              event_time: Math.floor(Date.now() / 1000),
+              event_id: `purchase_${orderId}`,
+              action_source: 'website',
+              event_source_url: 'https://miraclebelt.com.br/checkout',
+              user_data: {
+                em: customer.email ? [hashSHA256(customer.email)] : undefined,
+                ph: customer.phone ? [hashSHA256(customer.phone)] : undefined,
+                client_ip_address: event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for']?.split(',')[0] || '127.0.0.1',
+                client_user_agent: event.headers['user-agent'] || ''
+              },
+              custom_data: {
+                currency: 'BRL',
+                value: calculatedAmountCentavos / 100,
+                order_id: orderId,
+                content_type: 'product',
+                content_ids: ['CMFBPM001-BFPP']
+              }
+            }
+          ]
+        };
+
+        if (META_TEST_EVENT_CODE) {
+          capiPayload.test_event_code = META_TEST_EVENT_CODE;
+        }
+
+        fetch(`https://graph.facebook.com/v19.0/${META_PIXEL_ID}/events?access_token=${META_CAPI_ACCESS_TOKEN}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(capiPayload)
+        }).catch(e => console.error('[Netlify Pix CAPI Error]:', e));
+      } catch (e) {
+        console.error('[CAPI Server Dispatch Exception]:', e);
+      }
     }
 
     return {

@@ -78,7 +78,6 @@ export function trackViewContent(product: {
 }): void {
   if (typeof window === "undefined" || !window.fbq) return;
 
-  // Prevent multiple ViewContent events in the same session
   if (sessionStorage.getItem("meta_vc_tracked")) return;
   sessionStorage.setItem("meta_vc_tracked", "true");
 
@@ -182,14 +181,28 @@ export function trackInitiateCheckout(
 }
 
 /**
- * PixGenerated Custom Event (Triggered when Pix QR code is created)
- * NOTE: DOES NOT DISPATCH PURCHASE EVENT!
+ * Track Purchase & PixGenerated immediately on Pix order creation
  */
 export function trackPixGenerated(order: { id: string; total: number }): void {
   if (typeof window === "undefined" || !window.fbq) return;
 
-  const eventId = generateEventId("pix_gen");
+  const eventId = `purchase_${order.id}`;
 
+  // 1. Dispatch Standard Purchase Event
+  window.fbq(
+    "track",
+    "Purchase",
+    {
+      value: Number(order.total.toFixed(2)),
+      currency: "BRL",
+      content_type: "product",
+      content_ids: ["CMFBPM001-BFPP"],
+      order_id: order.id,
+    },
+    { eventID: eventId }
+  );
+
+  // 2. Dispatch Custom PixGenerated Event
   window.fbq(
     "trackCustom",
     "PixGenerated",
@@ -198,8 +211,8 @@ export function trackPixGenerated(order: { id: string; total: number }): void {
       currency: "BRL",
       order_id: order.id,
     },
-    { eventID: eventId }
+    { eventID: `pix_gen_${order.id}` }
   );
 
-  console.log("[Meta Pixel] PixGenerated custom event tracked (NO PURCHASE):", order);
+  console.log("[Meta Pixel] Purchase & PixGenerated tracked immediately on Pix creation:", { order, eventId });
 }
