@@ -84,7 +84,9 @@ exports.handler = async (event) => {
             order_id: orderId,
             ...(utm || {})
           },
-          postbackUrl: 'https://miracleclube.netlify.app/.netlify/functions/webhook',
+          postbackUrl: event.headers.host && !event.headers.host.includes('localhost')
+            ? `https://${event.headers.host}/.netlify/functions/webhook`
+            : 'https://miracleclube.netlify.app/.netlify/functions/webhook',
           pix: { expiresInSeconds: 1800 }
         };
 
