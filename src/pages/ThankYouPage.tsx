@@ -8,8 +8,16 @@ interface ThankYouPageProps {
 }
 
 export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateToTracking }) => {
-  const [order, setOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState<any>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = sessionStorage.getItem("miracle_order_" + orderId) || sessionStorage.getItem("miracle_latest_order");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return null;
+  });
+
+  const [loading, setLoading] = useState(!order);
   const [copiedPix, setCopiedPix] = useState(false);
   const [copiedTracking, setCopiedTracking] = useState(false);
 
@@ -21,7 +29,11 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
         const res = await fetch("/api/orders/" + orderId + "/status");
         if (res.ok) {
           const data = await res.json();
-          setOrder(data);
+          setOrder((prev: any) => ({
+            ...prev,
+            ...data,
+            pix: data.pix || data.pixResult || prev?.pix
+          }));
         }
       } catch (err) {
         console.error("Error fetching order status:", err);
@@ -39,16 +51,18 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
   }, [orderId]);
 
   const handleCopyPix = () => {
-    if (order?.pix?.copyPaste) {
-      navigator.clipboard.writeText(order.pix.copyPaste);
+    const copyText = order?.pix?.copyPaste || order?.pix?.copy_paste || order?.pix?.qrCode;
+    if (copyText) {
+      navigator.clipboard.writeText(copyText);
       setCopiedPix(true);
       setTimeout(() => setCopiedPix(false), 3000);
     }
   };
 
   const handleCopyTracking = () => {
-    if (order?.trackingReference) {
-      navigator.clipboard.writeText(order.trackingReference);
+    const trackingCode = order?.trackingReference || order?.tracking_reference;
+    if (trackingCode) {
+      navigator.clipboard.writeText(trackingCode);
       setCopiedTracking(true);
       setTimeout(() => setCopiedTracking(false), 3000);
     }
@@ -56,14 +70,17 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
 
   if (loading) {
     return (
-      <div className="checkout-container" style={{ justifyContent: "center", alignItems: "center" }}>
+      <div className="checkout-container" style={{ justifyContent: "center", alignItems: "center", minHeight: "80dvh" }}>
         <div className="checkout-loading-spinner" />
         <p style={{ marginTop: "16px", fontWeight: 600 }}>Carregando dados do pedido...</p>
       </div>
     );
   }
 
-  const isPaid = order?.status === "paid";
+  const isPaid = order?.status === "paid" || order?.orderStatus === "paid";
+  const pixData = order?.pix;
+  const qrCodeUrl = pixData?.qrCode || pixData?.qrcode || pixData?.qrCodeUrl;
+  const copyPasteText = pixData?.copyPaste || pixData?.copy_paste;
 
   return (
     <div className="checkout-container">
@@ -96,16 +113,17 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
           </div>
         </div>
 
-        {!isPaid && order?.pix && (
+        {/* PIX QR CODE & COPY-PASTE BLOCK */}
+        {!isPaid && (pixData || copyPasteText || qrCodeUrl) && (
           <div className="checkout-card" style={{ textAlign: "center", alignItems: "center" }}>
             <h2 className="checkout-card__title" style={{ justifyContent: "center", width: "100%" }}>
               <QrCode size={20} color="#d8158a" />
               Pague com Pix para Liberar a Entrega
             </h2>
 
-            {order.pix.qrCode && (
+            {qrCodeUrl && (
               <img
-                src={order.pix.qrCode}
+                src={qrCodeUrl}
                 alt="QR Code Pix"
                 style={{
                   maxWidth: "240px",
@@ -119,14 +137,16 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
               />
             )}
 
-            <div style={{ width: "100%", textAlign: "left" }}>
-              <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "4px" }}>
-                Pix Copia e Cola:
-              </label>
-              <div className="ty-copypaste-box">
-                {order.pix.copyPaste}
+            {copyPasteText && (
+              <div style={{ width: "100%", textAlign: "left" }}>
+                <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "4px" }}>
+                  Pix Copia e Cola:
+                </label>
+                <div className="ty-copypaste-box">
+                  {copyPasteText}
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               type="button"
@@ -153,6 +173,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
           </div>
         )}
 
+        {/* TRACKING CODE BLOCK */}
         <div className="checkout-card">
           <h2 className="checkout-card__title">
             <Truck size={18} color="#d8158a" />
@@ -165,7 +186,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
                 Código de Acompanhamento
               </span>
               <strong style={{ fontSize: "1.1rem", color: "#d8158a", letterSpacing: "1px" }}>
-                {order?.trackingReference || "MB-8F3K92"}
+                {order?.trackingReference || order?.tracking_reference || "MB-8F3K92"}
               </strong>
             </div>
 
@@ -184,7 +205,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
             {onNavigateToTracking && (
               <button
                 type="button"
-                onClick={() => onNavigateToTracking(order?.trackingReference)}
+                onClick={() => onNavigateToTracking(order?.trackingReference || order?.tracking_reference || "MB-8F3K92")}
                 style={{
                   background: "none",
                   border: "none",
@@ -201,6 +222,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
           </p>
         </div>
 
+        {/* SUPPORT BLOCK */}
         <div className="checkout-card" style={{ backgroundColor: "#F9FAFB" }}>
           <h3 style={{ fontSize: "0.88rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
             <MessageSquare size={16} color="#25D366" />

@@ -81,10 +81,15 @@ exports.handler = async (event) => {
 
         if (bhResponse.ok) {
           const bhData = await bhResponse.json();
+          const qrCodeUrl = bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '';
+          const copyPasteStr = bhData.pix?.copy_paste || bhData.pix?.copyPaste || bhData.pix?.qrcode || '';
+          
           pixResult = {
             transactionId: bhData.id || `BH-${Date.now()}`,
-            qrCode: bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || '',
-            copyPaste: bhData.pix?.copy_paste || bhData.pix?.qrcode || ''
+            qrCode: qrCodeUrl,
+            copyPaste: copyPasteStr,
+            qrcode: qrCodeUrl,
+            copy_paste: copyPasteStr
           };
         }
       } catch (e) {
@@ -95,10 +100,14 @@ exports.handler = async (event) => {
     // Fallback Mock Pix
     if (!pixResult || !pixResult.copyPaste) {
       const mockCopyPaste = `00020126580014br.gov.bcb.pix0136${crypto.randomUUID()}5204000053039865405${(calculatedAmountCentavos / 100).toFixed(2)}5802BR5915MIRACLE STORE6009SAO PAULO62070503***6304`;
+      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(mockCopyPaste)}`;
+      
       pixResult = {
         transactionId: `BH-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
-        qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(mockCopyPaste)}`,
-        copyPaste: mockCopyPaste
+        qrCode: mockQrCode,
+        copyPaste: mockCopyPaste,
+        qrcode: mockQrCode,
+        copy_paste: mockCopyPaste
       };
     }
 

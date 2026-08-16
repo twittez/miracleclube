@@ -245,6 +245,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       setIsSubmitting(false);
 
       if (response.ok && data.orderId) {
+        try {
+          sessionStorage.setItem("miracle_order_" + data.orderId, JSON.stringify(data));
+          sessionStorage.setItem("miracle_latest_order", JSON.stringify(data));
+        } catch (e) {}
+
         // Track Custom Event PixGenerated (NO Purchase event at this stage)
         trackPixGenerated({ id: data.orderId, total: finalPrice });
 
