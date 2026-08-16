@@ -13,7 +13,12 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.SERVER_PORT || 3002;
-const BEEHIVE_SECRET_KEY = process.env.BEEHIVE_SECRET_KEY || 'sec_live_placeholder';
+const BEEHIVE_SECRET_KEY =
+  process.env.BEEHIVE_SECRET_KEY ||
+  process.env.BEEHIVE_SK ||
+  process.env.VITE_BEEHIVE_SK ||
+  process.env.PAYBEEHIVE_SECRET_KEY ||
+  'sec_live_placeholder';
 
 // Simple file-based order database for persistence
 const DB_FILE = path.resolve('orders_db.json');
@@ -90,11 +95,9 @@ app.post('/api/payments/pix', async (req, res) => {
 
     const db = readDB();
 
-    // Idempotency: Check if order exists or generate unique order ID
     const orderId = `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const trackingRef = generateTrackingRef();
 
-    // Calculate total on server (don't trust frontend)
     let calculatedAmountCentavos = 15990;
     if (amount && typeof amount === 'number' && amount > 0) {
       calculatedAmountCentavos = Math.round(amount * 100);
@@ -102,26 +105,36 @@ app.post('/api/payments/pix', async (req, res) => {
 
     const beehivePayload = {
       amount: calculatedAmountCentavos,
-      payment_method: 'pix',
+      paymentMethod: 'pix',
       customer: {
         name: customer.name,
         email: customer.email,
-        document: customer.cpf.replace(/\D/g, ''),
-        phone: customer.phone ? customer.phone.replace(/\D/g, '') : '37991550358'
+        phone: customer.phone ? customer.phone.replace(/\D/g, '') : '37991550358',
+        document: {
+          type: 'cpf',
+          number: customer.cpf.replace(/\D/g, '')
+        }
       },
       items: [
         {
           title: items?.[0]?.title || 'Cinta Body Modelador - Miracle Belt',
-          unit_price: calculatedAmountCentavos,
+          unitPrice: calculatedAmountCentavos,
           quantity: 1,
           tangible: true
         }
-      ]
+      ],
+      metadata: {
+        provider: 'miracle',
+        user_email: customer.email,
+        order_id: orderId,
+        ...(utm || {})
+      },
+      postbackUrl: 'https://miracleclube.netlify.app/.netlify/functions/webhook',
+      pix: { expiresInSeconds: 1800 }
     };
 
     let pixResult = null;
 
-    // Call Beehive Live API if secret key is configured
     if (BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
       try {
         const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SECRET_KEY}:x`).toString('base64')}`;
@@ -134,26 +147,40 @@ app.post('/api/payments/pix', async (req, res) => {
           body: JSON.stringify(beehivePayload)
         });
 
+        const bhText = await bhResponse.text();
+        console.log(`[Beehive Response] Status ${bhResponse.status}:`, bhText);
+
         if (bhResponse.ok) {
-          const bhData = await bhResponse.json();
-          pixResult = {
-            transactionId: bhData.id || `BH-${Date.now()}`,
-            qrCode: bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || '',
-            copyPaste: bhData.pix?.copy_paste || bhData.pix?.qrcode || ''
-          };
+          const bhData = JSON.parse(bhText);
+          const qrCodeUrl = bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '';
+          const copyPasteStr = bhData.pix?.copy_paste || bhData.pix?.copyPaste || bhData.pix?.qrcode || '';
+
+          if (copyPasteStr) {
+            pixResult = {
+              transactionId: bhData.id || `BH-${Date.now()}`,
+              qrCode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              copyPaste: copyPasteStr,
+              qrcode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              copy_paste: copyPasteStr
+            };
+          }
         }
       } catch (e) {
         console.error('Beehive Live API call error:', e);
       }
     }
 
-    // Fallback: Generate valid testing Pix payload if Beehive key is placeholder or offline
+    // Fallback Mock Pix
     if (!pixResult || !pixResult.copyPaste) {
       const mockCopyPaste = `00020126580014br.gov.bcb.pix0136${crypto.randomUUID()}5204000053039865405${(calculatedAmountCentavos / 100).toFixed(2)}5802BR5915MIRACLE STORE6009SAO PAULO62070503***6304`;
+      const mockQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(mockCopyPaste)}`;
+
       pixResult = {
         transactionId: `BH-${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
-        qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(mockCopyPaste)}`,
-        copyPaste: mockCopyPaste
+        qrCode: mockQrCode,
+        copyPaste: mockCopyPaste,
+        qrcode: mockQrCode,
+        copy_paste: mockCopyPaste
       };
     }
 
