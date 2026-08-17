@@ -63,6 +63,25 @@ exports.handler = async (event) => {
       try {
         const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SK}:x`).toString('base64')}`;
         
+        // Build Beehive items from the real cart sent by the checkout frontend
+        const beehiveItems = Array.isArray(items) && items.length > 0
+          ? items.map(item => ({
+              title: item.title || 'Cinta Body Modelador - Miracle Belt',
+              unitPrice: typeof item.unitPrice === 'number' && item.unitPrice > 0
+                ? item.unitPrice
+                : calculatedAmountCentavos,
+              quantity: typeof item.quantity === 'number' && item.quantity > 0
+                ? item.quantity
+                : 1,
+              tangible: true
+            }))
+          : [{
+              title: 'Cinta Body Modelador - Miracle Belt',
+              unitPrice: calculatedAmountCentavos,
+              quantity: 1,
+              tangible: true
+            }];
+
         const beehivePayload = {
           amount: calculatedAmountCentavos,
           paymentMethod: 'pix',
@@ -75,14 +94,7 @@ exports.handler = async (event) => {
               number: customer.cpf.replace(/\D/g, '')
             }
           },
-          items: [
-            {
-              title: items?.[0]?.title || 'Cinta Body Modelador - Miracle Belt',
-              unitPrice: calculatedAmountCentavos,
-              quantity: 1,
-              tangible: true
-            }
-          ],
+          items: beehiveItems,
           metadata: {
             provider: 'miracle',
             user_email: customer.email,

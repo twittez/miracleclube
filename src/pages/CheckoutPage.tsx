@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Lock, QrCode, CreditCard, ArrowRight, ArrowLeft, Loader2, Truck, AlertTriangle } from "lucide-react";
-import { product } from "../data/product";
 import { useCart } from "../contexts/CartContext";
 import { fetchAddressByCep } from "../utils/viacep";
 import { formatCurrency, formatCPF, formatPhone, formatCEP } from "../utils/formatters";
@@ -63,21 +62,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Real Product data from cart or default product
-  const cartItem = cartItems[0];
-  const selectedProduct = {
-    name: cartItem?.name || product.name,
-    color: cartItem?.color || product.variations[0].name,
-    size: cartItem?.size || product.sizes[1].label,
-    image: cartItem?.image || product.images[0],
-    quantity: cartItem?.quantity || 1,
-    unitPrice: product.price,
-  };
-
-  const basePrice = selectedProduct.unitPrice * selectedProduct.quantity;
+  // Compute subtotal from the FULL cart (all items × their quantities)
+  const cartSubtotal = cartItems.reduce(
+    (acc, item) => acc + item.price * item.quantity,
+    0
+  );
   const shippingCost = shippingOption === "express" ? 16.89 : 0.00;
-  const pixDiscount = paymentMethod === "pix" ? basePrice * 0.10 : 0;
-  const finalPrice = basePrice - pixDiscount + shippingCost;
+  const pixDiscount = paymentMethod === "pix" ? cartSubtotal * 0.10 : 0;
+  const finalPrice = cartSubtotal - pixDiscount + shippingCost;
+
+  // Total item count across all cart entries
+  const totalQty = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   useEffect(() => {
     captureUTMParams();
@@ -224,14 +219,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           state,
           option: shippingOption,
         },
-        items: [
-          {
-            title: selectedProduct.name,
-            unitPrice: Math.round(selectedProduct.unitPrice * 100),
-            quantity: selectedProduct.quantity,
-            tangible: true,
-          },
-        ],
+        // Send the full cart — every item with its real quantity
+        items: cartItems.map((item) => ({
+          title: item.name,
+          unitPrice: Math.round(item.price * 100),
+          quantity: item.quantity,
+          tangible: true,
+          size: item.size,
+          color: item.color,
+          image: item.image,
+        })),
         utm: captureUTMParams(),
       };
 
@@ -707,11 +704,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                     value={installments}
                     onChange={(e) => setInstallments(e.target.value)}
                   >
-                    <option value="1">1x de {formatCurrency(basePrice + shippingCost)} (à vista)</option>
-                    <option value="2">2x de {formatCurrency((basePrice + shippingCost) / 2)} sem juros</option>
-                    <option value="3">3x de {formatCurrency((basePrice + shippingCost) / 3)} sem juros</option>
-                    <option value="5">5x de {formatCurrency((basePrice + shippingCost) / 5)} sem juros</option>
-                    <option value="10">10x de {formatCurrency((basePrice + shippingCost) / 10)} sem juros</option>
+                    <option value="1">1x de {formatCurrency(cartSubtotal + shippingCost)} (à vista)</option>
+                    <option value="2">2x de {formatCurrency((cartSubtotal + shippingCost) / 2)} sem juros</option>
+                    <option value="3">3x de {formatCurrency((cartSubtotal + shippingCost) / 3)} sem juros</option>
+                    <option value="5">5x de {formatCurrency((cartSubtotal + shippingCost) / 5)} sem juros</option>
+                    <option value="10">10x de {formatCurrency((cartSubtotal + shippingCost) / 10)} sem juros</option>
                   </select>
                 </div>
               </div>
@@ -740,21 +737,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
               </div>
             )}
 
-            {/* Product Summary */}
+            {/* Product Summary — renders ALL cart items */}
             <div className="checkout-summary">
-              <div className="checkout-item-row">
-                <img src={selectedProduct.image} alt={selectedProduct.name} className="checkout-item-img" />
-                <div className="checkout-item-details">
-                  <span className="checkout-item-name">{selectedProduct.name}</span>
-                  <span className="checkout-item-variant">Cor: {selectedProduct.color} | Tam: {selectedProduct.size}</span>
-                  <span className="checkout-item-price">{formatCurrency(selectedProduct.unitPrice)} x {selectedProduct.quantity}</span>
+              {cartItems.map((item, idx) => (
+                <div key={`${item.productId}-${item.size}-${item.color}-${idx}`} className="checkout-item-row">
+                  <img src={item.image} alt={item.name} className="checkout-item-img" />
+                  <div className="checkout-item-details">
+                    <span className="checkout-item-name">{item.name}</span>
+                    <span className="checkout-item-variant">Cor: {item.color} | Tam: {item.size}</span>
+                    <span className="checkout-item-price">{formatCurrency(item.price)} x {item.quantity} = {formatCurrency(item.price * item.quantity)}</span>
+                  </div>
                 </div>
-              </div>
+              ))}
 
               <div className="checkout-totals">
                 <div className="checkout-totals-row">
-                  <span>Subtotal ({selectedProduct.quantity}x)</span>
-                  <span>{formatCurrency(basePrice)}</span>
+                  <span>Subtotal ({totalQty} {totalQty === 1 ? 'item' : 'itens'})</span>
+                  <span>{formatCurrency(cartSubtotal)}</span>
                 </div>
                 {paymentMethod === "pix" && (
                   <div className="checkout-totals-row">

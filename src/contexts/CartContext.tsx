@@ -33,7 +33,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        setCartItems(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Sanitize: ensure quantity is always a valid positive integer
+        const sanitized = (Array.isArray(parsed) ? parsed : []).map((item: CartItem) => ({
+          ...item,
+          quantity: Math.max(1, parseInt(String(item.quantity), 10) || 1),
+        }));
+        setCartItems(sanitized);
       }
     } catch (e) {
       console.error('Error loading cart from localStorage', e);
@@ -55,9 +61,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       );
 
       if (existingItemIndex >= 0) {
-        const updated = [...prev];
-        updated[existingItemIndex].quantity += newItem.quantity;
-        return updated;
+        // Immutable update: create a new array with a new item object
+        return prev.map((item, idx) =>
+          idx === existingItemIndex
+            ? { ...item, quantity: item.quantity + newItem.quantity }
+            : item
+        );
       }
 
       return [...prev, newItem];
