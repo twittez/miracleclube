@@ -71,7 +71,7 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <button type="button" onClick={onOpenExchanges} className="site-footer__text-btn">
-                  Trocas e Devoluções
+                  Política de Devolução e Reembolso
                 </button>
               </li>
               <li>

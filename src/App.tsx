@@ -3,6 +3,7 @@ import { ProductLandingPage } from "./pages/ProductLandingPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { ThankYouPage } from "./pages/ThankYouPage";
 import { TrackingPage } from "./pages/TrackingPage";
+import { RefundPolicyPage } from "./pages/RefundPolicyPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
 import { captureUTMParams } from "./utils/utm";
 
@@ -69,6 +70,18 @@ export function App() {
     return (
       <TrackingPage
         initialCode={trackingCode}
+        onNavigateHome={() => navigateTo("/")}
+      />
+    );
+  }
+
+  if (
+    currentPath === "/politica-de-reembolso" ||
+    currentPath === "/politica-de-devolucao" ||
+    currentPath === "/trocas-e-devolucoes"
+  ) {
+    return (
+      <RefundPolicyPage
         onNavigateHome={() => navigateTo("/")}
       />
     );

@@ -33,7 +33,7 @@ export const InstitutionalModal: React.FC<InstitutionalModalProps> = ({ activeTa
         {/* Header */}
         <div className="inst-modal__header">
           <h2>
-            {activeTab === "exchanges" && "Trocas e Devoluções"}
+            {activeTab === "exchanges" && "Política de Devolução e Reembolso"}
             {activeTab === "privacy" && "Política de Privacidade"}
             {activeTab === "tracking" && "Rastreio de Pedido"}
           </h2>
@@ -44,38 +44,46 @@ export const InstitutionalModal: React.FC<InstitutionalModalProps> = ({ activeTa
 
         {/* Content Body */}
         <div className="inst-modal__content">
-          {/* TAB 1: TROCAS E DEVOLUÇÕES */}
+          {/* TAB 1: TROCAS E DEVOLUÇÕES / POLÍTICA DE REEMBOLSO */}
           {activeTab === "exchanges" && (
             <div className="inst-modal__body">
               <div className="inst-modal__hero-badge">
                 <RefreshCw size={24} color="#E54E88" />
                 <div>
-                  <strong>Garantia Incondicional de 7 Dias</strong>
-                  <p>Sua satisfação é nossa prioridade absoluta.</p>
+                  <strong>Política de Devolução e Reembolso</strong>
+                  <p>Ao comprar em miraclebrasil.com, você concorda com este regulamento.</p>
                 </div>
               </div>
 
-              <h3>1. Direito de Arrependimento (CDC Art. 49)</h3>
-              <p>
-                Você tem até <strong>7 (sete) dias corridos</strong> após o recebimento do seu produto para solicitar a troca ou devolução por qualquer motivo. A primeira troca é 100% gratuita!
+              <p style={{ fontSize: "0.82rem", color: "#444", marginBottom: "12px" }}>
+                Caro Cliente, aqui você encontrará informações importantes sobre seus direitos e responsabilidades. Caso tenha dúvidas, fale conosco em <strong>suporte@miracle.com</strong> ou WhatsApp <strong>(37) 99155-0358</strong>.
               </p>
 
-              <h3>2. Condições Gerais para Troca ou Devolução</h3>
-              <ul>
-                <li>O produto deve estar com as etiquetas e lacres originais intactos.</li>
-                <li>Não deve conter indícios de uso, lavagem, odores ou modificações no tecido.</li>
-                <li>Deve ser enviado na embalagem original acompanhado do comprovante de compra.</li>
-              </ul>
+              <h3>1. Pedido</h3>
+              <p><strong>1.1)</strong> Os pedidos só serão válidos se realizados através do site oficial <strong>miraclebrasil.com</strong>. A Miracle não se responsabiliza por compras feitas em sites de terceiros.</p>
+              <p><strong>1.2)</strong> Após a conclusão do pedido, você receberá um e-mail com a confirmação da compra e o número do pedido.</p>
+              <p><strong>1.3)</strong> Verifique o e-mail de confirmação para garantir a exatidão do pedido e notifique qualquer discrepância imediatamente.</p>
 
-              <h3>3. Como Solicitar</h3>
-              <p>
-                Entre em contato com nossa equipe de suporte pelo WhatsApp <strong>(37) 99155-0358</strong> ou pelo e-mail <strong>suporte@miracle.com</strong> informando o número do pedido e o motivo da troca.
-              </p>
+              <h3>2. Formas de Pagamento</h3>
+              <p><strong>2.1)</strong> Opções: boleto bancário (à vista), cartão de crédito e Pix.</p>
+              <p><strong>2.1.1) Boleto:</strong> Entre em contato com nossa equipe para emissão. O boleto será enviado por e-mail e WhatsApp.</p>
+              <p><strong>2.1.2) Cartão de Crédito:</strong> O Cliente deve utilizar cartão de sua titularidade ou com autorização expressa do titular.</p>
+              <p><strong>2.1.3) Pix:</strong> Pagamento direto via QR Code no checkout ou enviado por e-mail e WhatsApp.</p>
 
-              <h3>4. Prazos de Restituição</h3>
-              <p>
-                Em caso de devolução, o reembolso é efetuado em até <strong>2 dias úteis</strong> após o recebimento do produto no nosso centro de distribuição (para Pix/Boleto) ou estorno imediato na fatura do seu cartão de crédito.
-              </p>
+              <h3>3. Confirmação de Pagamento</h3>
+              <p><strong>3.1)</strong> O pedido só é processado após confirmação bancária. Pagamentos não confirmados acarretam cancelamento automático.</p>
+              <p><strong>3.2/3.3)</strong> A Miracle reserva-se o direito de validação prévia de dados ou cancelamento em caso de suspeita de fraude comunicada pelas operadoras.</p>
+
+              <h3>4. Entrega</h3>
+              <p><strong>4.1)</strong> O prazo de entrega informado é uma estimativa sujeita a fatores externos.</p>
+              <p><strong>4.2)</strong> Não nos responsabilizamos por prazos afetados por dados de entrega incorretos ou incompletos.</p>
+              <p><strong>4.3/4.4)</strong> Em caso de recusa ou endereço incorreto fornecido pelo Cliente, o custo do reenvio será de responsabilidade do comprador.</p>
+
+              <h3>5. Trocas e Devoluções</h3>
+              <p><strong>5.1.1) Direito de Arrependimento:</strong> O Cliente pode exercer o direito de arrependimento em até <strong>7 dias corridos</strong> a partir do recebimento (Art. 49 do CDC). Não realizamos estornos de pedidos ainda em trânsito.</p>
+              <p><strong>5.1.2)</strong> Solicitação via e-mail <strong>suporte@miracle.com</strong>.</p>
+              <p><strong>5.1.3)</strong> O produto deve ser devolvido na embalagem original, sem danos, com todos os acessórios e manuais.</p>
+              <p><strong>5.1.4)</strong> Enviaremos código de postagem reversa válido por 7 dias corridos para envio sem custos.</p>
             </div>
           )}
 
