@@ -50,7 +50,7 @@ export const brand: BrandConfig = {
   },
   company: {
     cnpj: "59.291.162/0001-79",
-    email: "atendimento@miraclebelt.com.br",
+    email: "suporte@miracle.com",
     whatsapp: "(37) 99155-0358",
     phone: "(37) 99155-0358",
     whatsappLink: "5537991550358",

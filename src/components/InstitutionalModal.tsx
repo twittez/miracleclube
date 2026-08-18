@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { X, ShieldCheck, RefreshCw, Truck, Search, PackageCheck, CheckCircle2 } from "lucide-react";
 import "./InstitutionalModal.css";
 
@@ -69,7 +69,7 @@ export const InstitutionalModal: React.FC<InstitutionalModalProps> = ({ activeTa
 
               <h3>3. Como Solicitar</h3>
               <p>
-                Entre em contato com nossa equipe de suporte pelo WhatsApp <strong>(37) 99155-0358</strong> ou pelo e-mail <strong>atendimento@miraclebelt.com.br</strong> informando o número do pedido e o motivo da troca.
+                Entre em contato com nossa equipe de suporte pelo WhatsApp <strong>(37) 99155-0358</strong> ou pelo e-mail <strong>suporte@miracle.com</strong> informando o número do pedido e o motivo da troca.
               </p>
 
               <h3>4. Prazos de Restituição</h3>
