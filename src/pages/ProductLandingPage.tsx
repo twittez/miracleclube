@@ -69,10 +69,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   };
 
   const handleMobileStickyBuy = () => {
-    // Directly add product to cart and open cart drawer
-    const defaultVariant = product.variations[0];
-    const defaultSize = product.sizes[2] || product.sizes[0];
-    handleAddToCart(1, defaultVariant, defaultSize);
+    const elem = document.querySelector(".size-selector") || document.querySelector(".product-main-section");
+    if (elem) {
+      elem.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   };
 
   return (

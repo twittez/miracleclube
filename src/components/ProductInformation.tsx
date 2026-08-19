@@ -21,9 +21,10 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
   onVariantChange,
 }) => {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariation>(product.variations[0]);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(product.sizes[2] || product.sizes[0]);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [showSizeError, setShowSizeError] = useState<boolean>(false);
+  const [justPurchased, setJustPurchased] = useState<boolean>(false);
 
   const handleVariantSelect = (v: ProductVariation) => {
     setSelectedVariant(v);
@@ -36,14 +37,20 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
   };
 
   const handleBuyClick = () => {
-    const sizeToUse = selectedSize || product.sizes[2] || product.sizes[0];
-    if (!sizeToUse) {
+    if (!selectedSize) {
       setShowSizeError(true);
+      const elem = document.querySelector(".size-selector");
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       return;
     }
 
+    setJustPurchased(true);
+    setTimeout(() => setJustPurchased(false), 2500);
+
     if (onBuySuccess) {
-      onBuySuccess(quantity, selectedVariant, sizeToUse);
+      onBuySuccess(quantity, selectedVariant, selectedSize);
     }
   };
 
@@ -91,7 +98,7 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
         />
 
         <div className="product-info__buttons">
-          <BuyButton onClick={handleBuyClick} />
+          <BuyButton onClick={handleBuyClick} success={justPurchased} />
           <a 
             href={`https://wa.me/${brand.company.whatsappLink}?text=Ol%C3%A1!%20Gostaria%20de%20comprar%20o%20Body%20Modelador`}
             target="_blank"

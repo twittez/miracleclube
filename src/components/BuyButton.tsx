@@ -1,29 +1,22 @@
-import React, { useState } from "react";
+import React from "react";
 import { Check } from "lucide-react";
 import "./BuyButton.css";
 
 interface BuyButtonProps {
   onClick: () => void;
   loading?: boolean;
+  success?: boolean;
 }
 
-export const BuyButton: React.FC<BuyButtonProps> = ({ onClick, loading = false }) => {
-  const [purchased, setPurchased] = useState(false);
-
-  const handleClick = () => {
-    onClick();
-    setPurchased(true);
-    setTimeout(() => setPurchased(false), 2500);
-  };
-
+export const BuyButton: React.FC<BuyButtonProps> = ({ onClick, loading = false, success = false }) => {
   return (
     <button
       type="button"
-      className={`buy-button ${purchased ? "buy-button--success" : ""}`}
-      onClick={handleClick}
+      className={`buy-button ${success ? "buy-button--success" : ""}`}
+      onClick={onClick}
       disabled={loading}
     >
-      {purchased ? (
+      {success ? (
         <>
           <Check size={20} />
           <span>ADICIONADO!</span>
