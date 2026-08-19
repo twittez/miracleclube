@@ -132,12 +132,12 @@ export const InstitutionalModal: React.FC<InstitutionalModalProps> = ({ activeTa
               </div>
 
               <form onSubmit={handleTrackSubmit} className="inst-modal__track-form">
-                <label htmlFor="trackingInput">Digite seu Código de Rastreio ou CPF:</label>
+                <label htmlFor="trackingInput">Digite seu CPF:</label>
                 <div className="inst-modal__track-input-group">
                   <input
                     id="trackingInput"
                     type="text"
-                    placeholder="Ex: MB987654321BR ou 000.000.000-00"
+                    placeholder="Ex: 000.000.000-00"
                     value={trackingCode}
                     onChange={(e) => setTrackingCode(e.target.value)}
                   />

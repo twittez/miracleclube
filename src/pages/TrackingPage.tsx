@@ -29,7 +29,7 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
   const handleSearch = async (codeToSearch?: string) => {
     const searchTerm = (codeToSearch || query).trim();
     if (!searchTerm) {
-      setErrorMsg("Digite um código de acompanhamento (ex: MB-8F3K92) ou CPF.");
+      setErrorMsg("Digite o seu CPF para acompanhar o pedido.");
       return;
     }
 
@@ -114,14 +114,14 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
             Rastreamento de Pedido
           </h1>
           <p style={{ fontSize: "0.8rem", color: "#666", margin: 0 }}>
-            Acompanhe o status de entrega do seu produto digitando o Código de Acompanhamento (ex: <strong>MB-8F3K92</strong>) ou seu CPF.
+            Acompanhe o status do seu produto digitando o CPF.
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
             <input
               type="text"
               className="form-input"
-              placeholder="Código MB-XXXXXX ou CPF"
+              placeholder="Digite o seu CPF"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{ flex: 1 }}

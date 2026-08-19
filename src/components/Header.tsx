@@ -9,12 +9,14 @@ interface HeaderProps {
   onCartClick?: () => void;
   onAuthClick?: () => void;
   onOpenCategory?: (category: string) => void;
+  onTrackingClick?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   onCartClick, 
   onAuthClick,
-  onOpenCategory
+  onOpenCategory,
+  onTrackingClick
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { getItemCount } = useCart();
@@ -176,6 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
         navLinks={navLinks}
+        onTrackingClick={onTrackingClick}
       />
     </>
   );

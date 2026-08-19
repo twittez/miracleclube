@@ -88,7 +88,8 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       <AnnouncementBar />
       <Header 
         onCartClick={() => setCartDrawerOpen(true)} 
-        onAuthClick={() => setAuthModalOpen(true)} 
+        onAuthClick={() => setAuthModalOpen(true)}
+        onTrackingClick={onNavigateToTracking}
       />
 
       {/* Breadcrumb Path */}

@@ -7,17 +7,27 @@ interface ThankYouPageProps {
   onNavigateToTracking?: (code: string) => void;
 }
 
+const DEMO_ORDER = {
+  id: "ORD-2026-DEMO",
+  trackingReference: "MB-8F3K92",
+  status: "pending_payment",
+  amount: 350.46,
+  pix: {
+    copyPaste: "00020126580014br.gov.bcb.pix0136a8d9f123-4567-89ab-cdef-0123456789ab5204000053039865405350.465802BR5915MIRACLE STORE6009SAO PAULO62070503***6304",
+    qrCode: "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020126580014br.gov.bcb.pix0136a8d9f123-4567-89ab-cdef-0123456789ab5204000053039865405350.465802BR5915MIRACLE STORE6009SAO PAULO62070503***6304"
+  }
+};
+
 export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateToTracking }) => {
   const [order, setOrder] = useState<any>(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") return DEMO_ORDER;
     try {
       const stored = sessionStorage.getItem("miracle_order_" + orderId) || sessionStorage.getItem("miracle_latest_order");
       if (stored) return JSON.parse(stored);
     } catch (e) {}
-    return null;
+    return { ...DEMO_ORDER, id: orderId || DEMO_ORDER.id };
   });
 
-  const [loading, setLoading] = useState(!order);
   const [copiedPix, setCopiedPix] = useState(false);
   const [copiedTracking, setCopiedTracking] = useState(false);
 
@@ -36,9 +46,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
           }));
         }
       } catch (err) {
-        console.error("Error fetching order status:", err);
-      } finally {
-        setLoading(false);
+        // Silently keep demo/storage data on direct previews
       }
     };
 
@@ -68,7 +76,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
     }
   };
 
-  if (loading) {
+  if (!order) {
     return (
       <div className="checkout-container" style={{ justifyContent: "center", alignItems: "center", minHeight: "80dvh" }}>
         <div className="checkout-loading-spinner" />

@@ -13,10 +13,20 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   navLinks: NavLink[];
+  onTrackingClick?: () => void;
 }
 
-export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, navLinks }) => {
+export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, navLinks, onTrackingClick }) => {
   if (!isOpen) return null;
+
+  const handleTracking = () => {
+    onClose();
+    if (onTrackingClick) {
+      onTrackingClick();
+    } else {
+      window.location.href = "/rastreio";
+    }
+  };
 
   return (
     <div className="mobile-menu-overlay" onClick={onClose}>
@@ -44,6 +54,18 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, navLink
                 </a>
               </li>
             ))}
+
+            {/* ITEM DE RASTREIO DE PEDIDO */}
+            <li className="mobile-menu-drawer__item">
+              <button
+                type="button"
+                className="mobile-menu-drawer__link mobile-menu-drawer__btn-link"
+                onClick={handleTracking}
+              >
+                <span>Rastreio de Pedido</span>
+                <ChevronRight size={16} />
+              </button>
+            </li>
           </ul>
         </nav>
 
