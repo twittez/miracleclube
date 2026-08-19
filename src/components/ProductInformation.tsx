@@ -21,7 +21,7 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
   onVariantChange,
 }) => {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariation>(product.variations[0]);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(product.sizes[2] || product.sizes[0]);
   const [quantity, setQuantity] = useState<number>(1);
   const [showSizeError, setShowSizeError] = useState<boolean>(false);
 
@@ -36,13 +36,14 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
   };
 
   const handleBuyClick = () => {
-    if (!selectedSize) {
+    const sizeToUse = selectedSize || product.sizes[2] || product.sizes[0];
+    if (!sizeToUse) {
       setShowSizeError(true);
       return;
     }
 
     if (onBuySuccess) {
-      onBuySuccess(quantity, selectedVariant, selectedSize);
+      onBuySuccess(quantity, selectedVariant, sizeToUse);
     }
   };
 
