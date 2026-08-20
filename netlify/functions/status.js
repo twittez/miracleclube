@@ -1,3 +1,5 @@
+const db = require('./lib/db');
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -11,7 +13,25 @@ exports.handler = async (event) => {
   }
 
   const orderId = event.queryStringParameters?.orderId || 'ORD-2026-DEMO';
+  const order = db.getOrder(orderId);
 
+  if (order) {
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        orderId: order.id,
+        trackingReference: order.trackingReference,
+        status: order.status,
+        orderStatus: order.orderStatus,
+        amount: order.amount,
+        pix: order.pixResult,
+        createdAt: order.createdAt
+      })
+    };
+  }
+
+  // Fallback for direct previews or demo orders
   return {
     statusCode: 200,
     headers,

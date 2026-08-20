@@ -4,7 +4,11 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { createRequire } from 'module';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
+
+const require = createRequire(import.meta.url);
+const { sendUtmifyOrder } = require('./netlify/functions/lib/utmify.js');
 
 dotenv.config();
 
@@ -218,6 +222,13 @@ app.post('/api/payments/pix', async (req, res) => {
     db.transactions[pixResult.transactionId] = orderId;
     writeDB(db);
 
+    // Dispatch PENDING Event Server-Side to UTMify
+    try {
+      await sendUtmifyOrder(orderRecord, 'waiting_payment', { clientIp: req.ip });
+    } catch (utmErr) {
+      console.error('[Express Pix] UTMify Pending Order Dispatch Error:', utmErr.message);
+    }
+
     return res.json({
       success: true,
       orderId,
@@ -274,11 +285,15 @@ app.post('/api/webhooks/beehive', async (req, res) => {
       if (eventStatus === 'paid' || eventStatus === 'approved' || eventStatus === 'settled') {
         order.status = 'paid';
         order.orderStatus = 'paid';
+        order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
         db.orders[orderId] = order;
         writeDB(db);
 
         console.log(`Order ${orderId} updated to PAID via Webhook`);
+
+        // Dispatch PAID Event to UTMify Server-Side (with Idempotency Guard)
+        await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
 
         // Trigger Meta CAPI Purchase with Deduplication Guard
         await triggerCapiPurchase(order, req);
@@ -304,11 +319,15 @@ app.post('/api/test/confirm-payment/:orderId', async (req, res) => {
 
   order.status = 'paid';
   order.orderStatus = 'paid';
+  order.approvedAt = new Date().toISOString();
   order.updatedAt = new Date().toISOString();
   db.orders[orderId] = order;
   writeDB(db);
 
   console.log(`[Test API] Order ${orderId} manually confirmed as PAID.`);
+
+  // Dispatch to UTMify
+  await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
 
   const capiResult = await triggerCapiPurchase(order, req);
 

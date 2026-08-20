@@ -24,6 +24,26 @@
   to = "/.netlify/functions/webhook"
   status = 200
 
+[[redirects]]
+  from = "/api/webhooks/payment"
+  to = "/.netlify/functions/webhook"
+  status = 200
+
+[[redirects]]
+  from = "/.netlify/functions/payment-webhook"
+  to = "/.netlify/functions/webhook"
+  status = 200
+
+[[redirects]]
+  from = "/api/utmify/backfill"
+  to = "/.netlify/functions/utmify-backfill"
+  status = 200
+
+[[redirects]]
+  from = "/api/utmify/order"
+  to = "/.netlify/functions/utmify-order"
+  status = 200
+
 # SPA Catch-All Redirect for React Router
 [[redirects]]
   from = "/*"
