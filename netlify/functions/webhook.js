@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     const transactionId = body?.id || body?.transactionId || body?.data?.id || `TEST-${Date.now()}`;
     const eventStatus = isTestTrigger ? 'paid' : (body?.status || body?.data?.status || '');
     const userEmail = body?.customer?.email || body?.data?.customer?.email || event.queryStringParameters?.email || 'cliente@exemplo.com.br';
-    const userPhone = body?.customer?.phone || body?.data?.customer?.phone || '37991550358';
+    const userPhone = body?.customer?.phone || body?.data?.customer?.phone || '12982890411';
     const orderId = body?.metadata?.order_id || body?.orderId || `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const amountVal = (body?.amount || body?.data?.amount || 7191) / 100;
 

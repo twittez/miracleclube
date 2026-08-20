@@ -249,13 +249,13 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
             Nossa equipe de atendimento no WhatsApp está disponível para tirar qualquer dúvida:
           </p>
           <a
-            href="https://wa.me/5537991550358?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20meu%20pedido."
+            href="https://wa.me/5512982890411?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20meu%20pedido."
             target="_blank"
             rel="noopener noreferrer"
             className="ty-whatsapp-btn"
           >
             <MessageSquare size={16} />
-            Falar com Suporte no WhatsApp (37) 99155-0358
+            Falar com Suporte no WhatsApp (12) 98289-0411
           </a>
         </div>
       </main>

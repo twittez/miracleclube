@@ -88,7 +88,7 @@ exports.handler = async (event) => {
           customer: {
             name: customer.name,
             email: customer.email,
-            phone: customer.phone ? customer.phone.replace(/\D/g, '') : '37991550358',
+            phone: customer.phone ? customer.phone.replace(/\D/g, '') : '12982890411',
             document: {
               type: 'cpf',
               number: customer.cpf.replace(/\D/g, '')

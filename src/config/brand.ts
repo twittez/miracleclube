@@ -51,9 +51,9 @@ export const brand: BrandConfig = {
   company: {
     cnpj: "59.291.162/0001-79",
     email: "suporte@miracle.com",
-    whatsapp: "(37) 99155-0358",
-    phone: "(37) 99155-0358",
-    whatsappLink: "5537991550358",
+    whatsapp: "(12) 98289-0411",
+    phone: "(12) 98289-0411",
+    whatsappLink: "5512982890411",
     address: "",
     copyright: "MIRACLE - CNPJ: 59.291.162/0001-79 | Todos os direitos reservados.",
   },

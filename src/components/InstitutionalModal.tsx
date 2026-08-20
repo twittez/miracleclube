@@ -56,7 +56,7 @@ export const InstitutionalModal: React.FC<InstitutionalModalProps> = ({ activeTa
               </div>
 
               <p style={{ fontSize: "0.82rem", color: "#444", marginBottom: "12px" }}>
-                Caro Cliente, aqui você encontrará informações importantes sobre seus direitos e responsabilidades. Caso tenha dúvidas, fale conosco em <strong>suporte@miracle.com</strong> ou WhatsApp <strong>(37) 99155-0358</strong>.
+                Caro Cliente, aqui você encontrará informações importantes sobre seus direitos e responsabilidades. Caso tenha dúvidas, fale conosco em <strong>suporte@miracle.com</strong> ou WhatsApp <strong>(12) 98289-0411</strong>.
               </p>
 
               <h3>1. Pedido</h3>

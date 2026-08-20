@@ -6,13 +6,30 @@ import "./ProductMainSection.css";
 
 interface ProductMainSectionProps {
   onAddToCart?: (qty: number, variation: ProductVariation, size: ProductSize) => void;
+  selectedVariant?: ProductVariation;
+  selectedSize?: ProductSize | null;
+  quantity?: number;
+  showSizeError?: boolean;
+  onVariantChange?: (variation: ProductVariation) => void;
+  onSizeChange?: (size: ProductSize | null) => void;
+  onQuantityChange?: (qty: number) => void;
 }
 
-export const ProductMainSection: React.FC<ProductMainSectionProps> = ({ onAddToCart }) => {
+export const ProductMainSection: React.FC<ProductMainSectionProps> = ({ 
+  onAddToCart,
+  selectedVariant,
+  selectedSize,
+  quantity,
+  showSizeError,
+  onVariantChange,
+  onSizeChange,
+  onQuantityChange,
+}) => {
   const [selectedGalleryIdx, setSelectedGalleryIdx] = useState(0);
 
   const handleVariantChange = (variant: ProductVariation) => {
     setSelectedGalleryIdx(variant.imageIndex);
+    if (onVariantChange) onVariantChange(variant);
   };
 
   return (
@@ -31,7 +48,13 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({ onAddToC
         {/* Right Column: Product Information */}
         <div className="product-main-section__info-col">
           <ProductInformation
+            selectedVariant={selectedVariant}
+            selectedSize={selectedSize}
+            quantity={quantity}
+            showSizeError={showSizeError}
             onVariantChange={handleVariantChange}
+            onSizeChange={onSizeChange}
+            onQuantityChange={onQuantityChange}
             onBuySuccess={(qty, varObj, sizeObj) => {
               if (onAddToCart) onAddToCart(qty, varObj, sizeObj);
             }}

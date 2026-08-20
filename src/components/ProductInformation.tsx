@@ -14,31 +14,54 @@ import "./ProductInformation.css";
 interface ProductInformationProps {
   onBuySuccess?: (qty: number, variation: ProductVariation, size: ProductSize) => void;
   onVariantChange?: (variation: ProductVariation) => void;
+  onSizeChange?: (size: ProductSize | null) => void;
+  onQuantityChange?: (qty: number) => void;
+  selectedVariant?: ProductVariation;
+  selectedSize?: ProductSize | null;
+  quantity?: number;
+  showSizeError?: boolean;
 }
 
 export const ProductInformation: React.FC<ProductInformationProps> = ({
   onBuySuccess,
   onVariantChange,
+  onSizeChange,
+  onQuantityChange,
+  selectedVariant: propVariant,
+  selectedSize: propSize,
+  quantity: propQuantity,
+  showSizeError: propShowSizeError,
 }) => {
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariation>(product.variations[0]);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [showSizeError, setShowSizeError] = useState<boolean>(false);
+  const [internalVariant, setInternalVariant] = useState<ProductVariation>(product.variations[0]);
+  const [internalSize, setInternalSize] = useState<ProductSize | null>(null);
+  const [internalQuantity, setInternalQuantity] = useState<number>(1);
+  const [internalShowSizeError, setInternalShowSizeError] = useState<boolean>(false);
   const [justPurchased, setJustPurchased] = useState<boolean>(false);
 
+  const selectedVariant = propVariant !== undefined ? propVariant : internalVariant;
+  const selectedSize = propSize !== undefined ? propSize : internalSize;
+  const quantity = propQuantity !== undefined ? propQuantity : internalQuantity;
+  const showSizeError = propShowSizeError !== undefined ? propShowSizeError : internalShowSizeError;
+
   const handleVariantSelect = (v: ProductVariation) => {
-    setSelectedVariant(v);
+    setInternalVariant(v);
     if (onVariantChange) onVariantChange(v);
   };
 
   const handleSizeSelect = (s: ProductSize) => {
-    setSelectedSize(s);
-    setShowSizeError(false);
+    setInternalSize(s);
+    setInternalShowSizeError(false);
+    if (onSizeChange) onSizeChange(s);
+  };
+
+  const handleQuantityChange = (newQty: number) => {
+    setInternalQuantity(newQty);
+    if (onQuantityChange) onQuantityChange(newQty);
   };
 
   const handleBuyClick = () => {
     if (!selectedSize) {
-      setShowSizeError(true);
+      setInternalShowSizeError(true);
       const elem = document.querySelector(".size-selector");
       if (elem) {
         elem.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -93,8 +116,8 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
       <div className="product-info__action-row">
         <QuantitySelector
           quantity={quantity}
-          onIncrement={() => setQuantity((q) => q + 1)}
-          onDecrement={() => setQuantity((q) => Math.max(1, q - 1))}
+          onIncrement={() => handleQuantityChange(quantity + 1)}
+          onDecrement={() => handleQuantityChange(Math.max(1, quantity - 1))}
         />
 
         <div className="product-info__buttons">

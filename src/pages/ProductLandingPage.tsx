@@ -31,6 +31,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [instModalTab, setInstModalTab] = useState<InstitutionalTab>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariation>(product.variations[0]);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [showSizeError, setShowSizeError] = useState<boolean>(false);
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -69,9 +73,16 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   };
 
   const handleMobileStickyBuy = () => {
-    const elem = document.querySelector(".size-selector") || document.querySelector(".product-main-section");
-    if (elem) {
-      elem.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (selectedSize) {
+      // JÁ SELECIONOU TAMANHO: Adiciona diretamente ao carrinho e abre a gaveta!
+      handleAddToCart(quantity, selectedVariant, selectedSize);
+    } else {
+      // NÃO SELECIONOU TAMANHO: Rola até o seletor e mostra aviso
+      setShowSizeError(true);
+      const elem = document.querySelector(".size-selector") || document.querySelector(".product-main-section");
+      if (elem) {
+        elem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     }
   };
 
@@ -98,7 +109,19 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       {/* Primary Main Product Section (Gallery + Right Column) */}
       <main>
         <div id="product-section">
-          <ProductMainSection onAddToCart={handleAddToCart} />
+          <ProductMainSection 
+            selectedVariant={selectedVariant}
+            selectedSize={selectedSize}
+            quantity={quantity}
+            showSizeError={showSizeError}
+            onVariantChange={setSelectedVariant}
+            onSizeChange={(s) => {
+              setSelectedSize(s);
+              setShowSizeError(false);
+            }}
+            onQuantityChange={setQuantity}
+            onAddToCart={handleAddToCart} 
+          />
         </div>
 
         {/* Feature Highlights Grid */}

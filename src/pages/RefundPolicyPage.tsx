@@ -62,7 +62,7 @@ export const RefundPolicyPage: React.FC<RefundPolicyPageProps> = ({ onNavigateHo
               Caro Cliente, aqui você encontrará informações importantes sobre seus direitos e responsabilidades, bem como os procedimentos que precisam ser seguidos. Recomendamos que leia com atenção todas as orientações abaixo.
             </p>
             <p style={{ margin: 0 }}>
-              Caso tenha qualquer dúvida, entre em contato conosco através dos canais de atendimento disponíveis em nosso site (E-mail: <strong>suporte@miracle.com</strong> | WhatsApp: <strong>(37) 99155-0358</strong>).
+              Caso tenha qualquer dúvida, entre em contato conosco através dos canais de atendimento disponíveis em nosso site (E-mail: <strong>suporte@miracle.com</strong> | WhatsApp: <strong>(12) 98289-0411</strong>).
             </p>
 
             {/* SEÇÃO 1: PEDIDO */}
