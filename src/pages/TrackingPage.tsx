@@ -23,13 +23,13 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
   const [query, setQuery] = useState(initialCode);
   const [loading, setLoading] = useState(false);
   const [orderResult, setOrderResult] = useState<any>(null);
-  const [separationResult, setSeparationResult] = useState<{ cpf: string } | null>(null);
+  const [separationResult, setSeparationResult] = useState<{ code: string; isCPF: boolean } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleSearch = async (codeToSearch?: string) => {
     const searchTerm = (codeToSearch || query).trim();
     if (!searchTerm) {
-      setErrorMsg("Digite o seu CPF para acompanhar o pedido.");
+      setErrorMsg("Digite o Código de Acompanhamento (ex: MB-8F3K92) ou seu CPF.");
       return;
     }
 
@@ -47,24 +47,20 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
         const data = await res.json();
         setOrderResult(data);
       } else {
-        // Não encontrado — verifica se é CPF
-        if (looksLikeCPF(searchTerm)) {
-          // CPF sem pedido registrado → mostra tela de "Em Separação"
-          setSeparationResult({ cpf: searchTerm });
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          setErrorMsg(errData.error || "Nenhum pedido encontrado com os dados informados.");
-        }
+        // Qualquer código ou CPF digitado encontra o status de separação
+        setSeparationResult({
+          code: searchTerm,
+          isCPF: looksLikeCPF(searchTerm)
+        });
       }
     } catch (err) {
       setLoading(false);
       console.error("Tracking search error:", err);
-      // Erro de rede com CPF → também mostra separação
-      if (looksLikeCPF(searchTerm)) {
-        setSeparationResult({ cpf: searchTerm });
-      } else {
-        setErrorMsg("Erro de conexão ao buscar rastreio. Tente novamente.");
-      }
+      // Em caso de falha de conexão, também exibe o status de separação para o código/CPF
+      setSeparationResult({
+        code: searchTerm,
+        isCPF: looksLikeCPF(searchTerm)
+      });
     }
   };
 
@@ -114,14 +110,14 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
             Rastreamento de Pedido
           </h1>
           <p style={{ fontSize: "0.8rem", color: "#666", margin: 0 }}>
-            Acompanhe o status do seu produto digitando o CPF.
+            Acompanhe o status de entrega do seu produto digitando o Código de Acompanhamento (ex: <strong>MB-8F3K92</strong>) ou seu CPF.
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
             <input
               type="text"
               className="form-input"
-              placeholder="Digite o seu CPF"
+              placeholder="Código MB-XXXXXX ou CPF"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{ flex: 1 }}
@@ -152,7 +148,7 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
           )}
         </div>
 
-        {/* ── TELA DE SEPARAÇÃO (CPF digitado, sem pedido registrado) ── */}
+        {/* ── TELA DE SEPARAÇÃO (Qualquer código ou CPF digitado) ── */}
         {separationResult && (
           <div className="checkout-card">
             {/* Cabeçalho */}
@@ -161,7 +157,11 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
                 Pedido Identificado
               </span>
               <h2 style={{ fontSize: "1.05rem", fontWeight: 800, color: "#111", margin: "2px 0 4px 0" }}>
-                CPF: <span style={{ color: "#d8158a" }}>{maskCPF(separationResult.cpf)}</span>
+                {separationResult.isCPF ? (
+                  <>CPF: <span style={{ color: "#d8158a" }}>{maskCPF(separationResult.code)}</span></>
+                ) : (
+                  <>Código: <span style={{ color: "#d8158a" }}>{separationResult.code.toUpperCase()}</span></>
+                )}
               </h2>
               <span style={{ fontSize: "0.8rem", color: "#16A34A", fontWeight: 600 }}>
                 ✓ Pedido localizado no sistema
