@@ -98,9 +98,9 @@ function buildUtmifyPayload(order, mappedStatus, options = {}) {
     };
   });
 
-  const createdAtFormatted = formatUtmifyDate(order.createdAt);
+  const createdAtFormatted = formatUtmifyDate(order.createdAt || order.created_at);
   const isPaid = mappedStatus === 'paid';
-  const approvedDateFormatted = isPaid ? formatUtmifyDate(order.approvedAt || order.updatedAt || new Date()) : null;
+  const approvedDateFormatted = isPaid ? formatUtmifyDate(order.approvedAt || order.updatedAt || order.updated_at || new Date()) : null;
 
   const payload = {
     orderId: String(order.id),
@@ -153,7 +153,7 @@ async function sendUtmifyOrder(order, targetStatus, options = {}) {
     return { success: false, error: 'INVALID_ORDER' };
   }
 
-  const token = process.env.UTMIFY_API_TOKEN || 'FsJgKEwd4drMgkHF2zdOVRbwyH2o0C61ZGJ4';
+  const token = process.env.UTMIFY_API_TOKEN || '';
   if (!token) {
     console.error('[MIRACLE][UTMIFY][ERROR] UTMIFY_API_TOKEN is missing in environment variables');
     return { success: false, error: 'UTMIFY_API_TOKEN_MISSING' };
@@ -162,8 +162,8 @@ async function sendUtmifyOrder(order, targetStatus, options = {}) {
   const mappedStatus = mapStatusToUtmify(targetStatus);
   const idempotencyKey = `miracle_${order.id}_${mappedStatus}`;
 
-  // 1. Idempotency Check: verify if already sent successfully
-  const existingEvent = db.getIntegrationEvent(idempotencyKey);
+  // 1. Idempotency Check: verify if already sent successfully (via Supabase and local cache)
+  const existingEvent = await db.getIntegrationEventAsync(idempotencyKey);
   if (existingEvent && existingEvent.status === 'success' && !options.force) {
     console.log(`[MIRACLE][UTMIFY] order=${order.id} status=${mappedStatus} already_sent`);
     return {
@@ -202,8 +202,8 @@ async function sendUtmifyOrder(order, targetStatus, options = {}) {
     if (response.ok) {
       console.log(`[MIRACLE][UTMIFY] order=${order.id} status=${mappedStatus} success`);
 
-      // Record successful integration event
-      db.saveIntegrationEvent({
+      // Record successful integration event into Supabase and local DB
+      await db.saveIntegrationEventAsync({
         idempotency_key: idempotencyKey,
         provider: 'utmify',
         order_id: order.id,
@@ -229,7 +229,7 @@ async function sendUtmifyOrder(order, targetStatus, options = {}) {
       console.error(`[MIRACLE][UTMIFY][ERROR] order=${order.id} status=${mappedStatus} http=${response.status}`);
 
       // Record failed integration event for retry
-      db.saveIntegrationEvent({
+      await db.saveIntegrationEventAsync({
         idempotency_key: idempotencyKey,
         provider: 'utmify',
         order_id: order.id,
@@ -255,7 +255,7 @@ async function sendUtmifyOrder(order, targetStatus, options = {}) {
   } catch (err) {
     console.error(`[MIRACLE][UTMIFY][ERROR] order=${order.id} status=${mappedStatus} exception=${err.message}`);
 
-    db.saveIntegrationEvent({
+    await db.saveIntegrationEventAsync({
       idempotency_key: idempotencyKey,
       provider: 'utmify',
       order_id: order.id,

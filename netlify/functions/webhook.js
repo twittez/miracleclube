@@ -28,9 +28,9 @@ exports.handler = async (event) => {
     const metaOrderId = body?.metadata?.order_id || body?.orderId;
     
     // 1. Locate order by transaction ID or Order ID
-    let order = db.getOrderByTransactionId(transactionId);
+    let order = await db.getOrderByTransactionIdAsync(transactionId);
     if (!order && metaOrderId) {
-      order = db.getOrder(metaOrderId);
+      order = await db.getOrderAsync(metaOrderId);
     }
 
     const orderId = order?.id || metaOrderId || `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -46,7 +46,7 @@ exports.handler = async (event) => {
     if (isPaidEvent) {
       // 2. Check Idempotency: if already processed and sent to UTMify, avoid duplicate work
       const idempotencyKey = `miracle_${orderId}_paid`;
-      const existingIntegration = db.getIntegrationEvent(idempotencyKey);
+      const existingIntegration = await db.getIntegrationEventAsync(idempotencyKey);
       if (existingIntegration && existingIntegration.status === 'success') {
         console.log(`[Gateway Webhook] Order ${orderId} already processed (idempotency key: ${idempotencyKey}). Skipping duplicate execution.`);
         return {
@@ -67,7 +67,7 @@ exports.handler = async (event) => {
         order.orderStatus = 'paid';
         order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
-        db.saveOrder(order);
+        await db.saveOrderAsync(order);
       } else {
         // Create order placeholder if webhook came without prior local record
         order = {
@@ -86,7 +86,7 @@ exports.handler = async (event) => {
           approvedAt: new Date().toISOString(),
           createdAt: new Date().toISOString()
         };
-        db.saveOrder(order);
+        await db.saveOrderAsync(order);
       }
 
       // 4. Dispatch PAID Event to UTMify Server-Side

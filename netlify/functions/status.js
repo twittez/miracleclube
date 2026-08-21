@@ -13,7 +13,7 @@ exports.handler = async (event) => {
   }
 
   const orderId = event.queryStringParameters?.orderId || 'ORD-2026-DEMO';
-  const order = db.getOrder(orderId);
+  const order = await db.getOrderAsync(orderId);
 
   if (order) {
     return {

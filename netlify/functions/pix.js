@@ -184,7 +184,7 @@ exports.handler = async (event) => {
       updatedAt: new Date().toISOString()
     };
 
-    db.saveOrder(orderRecord);
+    await db.saveOrderAsync(orderRecord);
 
     // 2. Dispatch PENDING Event Server-Side to UTMify
     try {

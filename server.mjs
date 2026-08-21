@@ -218,9 +218,8 @@ app.post('/api/payments/pix', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    db.orders[orderId] = orderRecord;
-    db.transactions[pixResult.transactionId] = orderId;
-    writeDB(db);
+    // Save order record into Supabase and local cache
+    await db.saveOrderAsync(orderRecord);
 
     // Dispatch PENDING Event Server-Side to UTMify
     try {
@@ -244,10 +243,9 @@ app.post('/api/payments/pix', async (req, res) => {
 });
 
 // API 2: Get Order Status for ThankYou Polling
-app.get('/api/orders/:orderId/status', (req, res) => {
+app.get('/api/orders/:orderId/status', async (req, res) => {
   const { orderId } = req.params;
-  const db = readDB();
-  const order = db.orders[orderId];
+  const order = await db.getOrderAsync(orderId);
 
   if (!order) {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
@@ -276,21 +274,20 @@ app.post('/api/webhooks/beehive', async (req, res) => {
       return res.status(400).json({ error: 'ID de transação não informado.' });
     }
 
-    const db = readDB();
-    const orderId = db.transactions[transactionId];
+    let order = await db.getOrderByTransactionIdAsync(transactionId);
+    if (!order && event?.metadata?.order_id) {
+      order = await db.getOrderAsync(event.metadata.order_id);
+    }
 
-    if (orderId && db.orders[orderId]) {
-      const order = db.orders[orderId];
-
+    if (order) {
       if (eventStatus === 'paid' || eventStatus === 'approved' || eventStatus === 'settled') {
         order.status = 'paid';
         order.orderStatus = 'paid';
         order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
-        db.orders[orderId] = order;
-        writeDB(db);
+        await db.saveOrderAsync(order);
 
-        console.log(`Order ${orderId} updated to PAID via Webhook`);
+        console.log(`Order ${order.id} updated to PAID via Webhook in Supabase`);
 
         // Dispatch PAID Event to UTMify Server-Side (with Idempotency Guard)
         await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
@@ -310,8 +307,7 @@ app.post('/api/webhooks/beehive', async (req, res) => {
 // API 3.5: Manual Test Confirm Endpoint (To simulate webhook in dev/tests)
 app.post('/api/test/confirm-payment/:orderId', async (req, res) => {
   const { orderId } = req.params;
-  const db = readDB();
-  const order = db.orders[orderId];
+  const order = await db.getOrderAsync(orderId);
 
   if (!order) {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
@@ -321,10 +317,9 @@ app.post('/api/test/confirm-payment/:orderId', async (req, res) => {
   order.orderStatus = 'paid';
   order.approvedAt = new Date().toISOString();
   order.updatedAt = new Date().toISOString();
-  db.orders[orderId] = order;
-  writeDB(db);
+  await db.saveOrderAsync(order);
 
-  console.log(`[Test API] Order ${orderId} manually confirmed as PAID.`);
+  console.log(`[Test API] Order ${orderId} manually confirmed as PAID in Supabase.`);
 
   // Dispatch to UTMify
   await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
@@ -340,14 +335,49 @@ app.post('/api/test/confirm-payment/:orderId', async (req, res) => {
 });
 
 // API 4: Tracking Lookup Endpoint
-app.get('/api/orders/track/:query', (req, res) => {
+app.get('/api/orders/track/:query', async (req, res) => {
   const query = (req.params.query || '').trim().toUpperCase();
-  const db = readDB();
+  const digitsOnly = query.replace(/\D/g, '');
 
-  const found = Object.values(db.orders).find(o => 
+  // 1. Query Supabase
+  if (db.supabase) {
+    try {
+      let sbQuery = db.supabase
+        .from('orders')
+        .select('*')
+        .or(`id.ilike.%${query}%,tracking_reference.ilike.%${query}%`);
+
+      if (digitsOnly.length >= 11) {
+        sbQuery = db.supabase
+          .from('orders')
+          .select('*')
+          .eq('customer_cpf', digitsOnly);
+      }
+
+      const { data, error } = await sbQuery.limit(1).maybeSingle();
+      if (!error && data) {
+        return res.json({
+          orderId: data.id,
+          trackingReference: data.tracking_reference,
+          status: data.status,
+          orderStatus: data.order_status,
+          customerName: data.customer_name,
+          amount: Number(data.amount),
+          createdAt: data.created_at,
+          items: data.items
+        });
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase Tracking Error]:', sbErr.message);
+    }
+  }
+
+  // 2. Fallback to Local/Memory DB
+  const localDb = db.readDB();
+  const found = Object.values(localDb.orders || {}).find(o => 
     (o.trackingReference && o.trackingReference.toUpperCase() === query) ||
     (o.id && o.id.toUpperCase() === query) ||
-    (o.customer?.cpf && o.customer.cpf.replace(/\D/g, '') === query.replace(/\D/g, ''))
+    (o.customer?.cpf && o.customer.cpf.replace(/\D/g, '') === digitsOnly)
   );
 
   if (!found) {
