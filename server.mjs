@@ -16,7 +16,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.SERVER_PORT || 3002;
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 const BEEHIVE_SECRET_KEY =
   process.env.BEEHIVE_SECRET_KEY ||
   process.env.BEEHIVE_SK ||
