@@ -127,6 +127,10 @@ app.post('/api/payments/pix', async (req, res) => {
           tangible: true
         }];
 
+    const host = req.get('host') || 'miraclebrasil.com';
+    const proto = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'https';
+    const postbackUrl = `${proto}://${host}/api/webhooks/beehive`;
+
     const beehivePayload = {
       amount: calculatedAmountCentavos,
       paymentMethod: 'pix',
@@ -146,7 +150,7 @@ app.post('/api/payments/pix', async (req, res) => {
         order_id: orderId,
         ...(utm || {})
       },
-      postbackUrl: 'https://miracleclube.netlify.app/.netlify/functions/webhook',
+      postbackUrl: postbackUrl,
       pix: { expiresInSeconds: 1800 }
     };
 
@@ -154,7 +158,9 @@ app.post('/api/payments/pix', async (req, res) => {
 
     if (BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
       try {
-        const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SECRET_KEY}:x`).toString('base64')}`;
+        const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SECRET_KEY.trim()}:x`).toString('base64')}`;
+        console.log(`[Beehive Request] Creating PIX for Order ${orderId}...`, { amount: calculatedAmountCentavos, email: customer.email });
+
         const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
           method: 'POST',
           headers: {
@@ -165,7 +171,7 @@ app.post('/api/payments/pix', async (req, res) => {
         });
 
         const bhText = await bhResponse.text();
-        console.log(`[Beehive Response] Status ${bhResponse.status}:`, bhText);
+        console.log(`[Beehive Response] HTTP ${bhResponse.status}:`, bhText);
 
         if (bhResponse.ok) {
           const bhData = JSON.parse(bhText);
@@ -181,10 +187,14 @@ app.post('/api/payments/pix', async (req, res) => {
               copy_paste: copyPasteStr
             };
           }
+        } else {
+          console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
         }
       } catch (e) {
-        console.error('Beehive Live API call error:', e);
+        console.error('[Beehive API Exception]:', e.message);
       }
+    } else {
+      console.warn('[Beehive Warning] BEEHIVE_SECRET_KEY is missing or contains placeholder. Please set BEEHIVE_SECRET_KEY in your .env file.');
     }
 
     // Fallback Mock Pix
