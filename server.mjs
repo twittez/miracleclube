@@ -8,6 +8,7 @@ import { createRequire } from 'module';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 
 const require = createRequire(import.meta.url);
+const db = require('./netlify/functions/lib/db.js');
 const { sendUtmifyOrder } = require('./netlify/functions/lib/utmify.js');
 
 dotenv.config();
