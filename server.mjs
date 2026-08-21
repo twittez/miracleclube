@@ -71,9 +71,7 @@ async function triggerCapiPurchase(order, req) {
   order.meta_purchase_event_id = purchaseEventId;
   order.meta_purchase_sent_at = new Date().toISOString();
 
-  const db = readDB();
-  db.orders[order.id] = order;
-  writeDB(db);
+  await db.saveOrderAsync(order);
 
   return await sendMetaCapiEvent('Purchase', purchaseEventId, order, req);
 }
@@ -97,8 +95,6 @@ app.post('/api/payments/pix', async (req, res) => {
     if (!customer?.name || !customer?.email || !customer?.cpf) {
       return res.status(400).json({ error: 'Dados do cliente incompletos.' });
     }
-
-    const db = readDB();
 
     const orderId = `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const trackingRef = generateTrackingRef();
