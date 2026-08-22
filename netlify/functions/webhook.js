@@ -38,7 +38,7 @@ exports.handler = async (event) => {
     const userEmail = order?.customer?.email || body?.customer?.email || body?.data?.customer?.email || 'cliente@miracle.com';
     const userPhone = order?.customer?.phone || body?.data?.customer?.phone || '12982890411';
 
-    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'paid_out', 'success'];
+    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'paid_out', 'success', 'pago'];
     const isPaidEvent = validPaidStatuses.includes(eventStatus.toLowerCase());
 
     console.log(`[Gateway Webhook] Event status received: "${eventStatus}" for Order: ${orderId} (Tx: ${transactionId})`);

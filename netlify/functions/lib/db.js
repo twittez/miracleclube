@@ -148,25 +148,39 @@ function getOrder(orderId) {
  */
 async function getOrderByTransactionIdAsync(transactionId) {
   if (!transactionId) return null;
+  const cleanTxId = String(transactionId).trim();
 
   if (supabase) {
     try {
+      // 1. Search by exact contains
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .contains('pix_result', { transactionId })
+        .contains('pix_result', { transactionId: cleanTxId })
         .limit(1)
         .maybeSingle();
 
       if (!error && data) {
         return fromSupabaseOrderRow(data);
       }
+
+      // 2. Fallback search by text match inside JSON
+      const { data: textData, error: textErr } = await supabase
+        .from('orders')
+        .select('*')
+        .textSearch('pix_result', cleanTxId, { type: 'plain' })
+        .limit(1)
+        .maybeSingle();
+
+      if (!textErr && textData) {
+        return fromSupabaseOrderRow(textData);
+      }
     } catch (err) {
       console.warn('[Supabase getOrderByTransactionIdAsync Warning]:', err.message);
     }
   }
 
-  return getOrderByTransactionId(transactionId);
+  return getOrderByTransactionId(cleanTxId);
 }
 
 function getOrderByTransactionId(transactionId) {

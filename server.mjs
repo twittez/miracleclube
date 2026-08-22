@@ -249,13 +249,50 @@ app.post('/api/payments/pix', async (req, res) => {
   }
 });
 
-// API 2: Get Order Status for ThankYou Polling
+// API 2: Get Order Status for ThankYou Polling (with automatic Beehive sync)
 app.get('/api/orders/:orderId/status', async (req, res) => {
   const { orderId } = req.params;
-  const order = await db.getOrderAsync(orderId);
+  let order = await db.getOrderAsync(orderId);
 
   if (!order) {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
+  }
+
+  // Auto-sync with Beehive API if still pending
+  if (order.status !== 'paid' && order.orderStatus !== 'paid') {
+    const txId = order.pixResult?.transactionId || order.pix?.transactionId;
+    if (txId && BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
+      try {
+        const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SECRET_KEY.trim()}:x`).toString('base64')}`;
+        const bhCheck = await fetch(`https://api.conta.paybeehive.com.br/v1/transactions/${txId}`, {
+          method: 'GET',
+          headers: { 'Authorization': authHeader }
+        });
+
+        if (bhCheck.ok) {
+          const bhData = await bhCheck.json();
+          const bhStatus = String(bhData.status || bhData.data?.status || '').toLowerCase().trim();
+          const validPaid = ['paid', 'approved', 'settled', 'completed', 'paid_out', 'success', 'pago'];
+
+          if (validPaid.includes(bhStatus)) {
+            console.log(`[Auto-Sync] Order ${order.id} detected as PAID on Beehive. Updating status...`);
+            order.status = 'paid';
+            order.orderStatus = 'paid';
+            order.approvedAt = new Date().toISOString();
+            order.updatedAt = new Date().toISOString();
+            await db.saveOrderAsync(order);
+
+            // Dispatch PAID event to UTMify Server-Side
+            await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+
+            // Dispatch Meta CAPI
+            await triggerCapiPurchase(order, req);
+          }
+        }
+      } catch (checkErr) {
+        // Silently continue
+      }
+    }
   }
 
   return res.json({
@@ -270,43 +307,70 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
   });
 });
 
-// API 3: Webhook Handler from Beehive
+// API 3: Webhook Handler from Beehive (Ultra-Resilient)
 app.post('/api/webhooks/beehive', async (req, res) => {
   try {
     const event = req.body;
-    const transactionId = event?.id || event?.transactionId || event?.data?.id;
-    const eventStatus = event?.status || event?.data?.status;
+    console.log('[Beehive Webhook Received]:', JSON.stringify(event));
 
-    if (!transactionId) {
-      return res.status(400).json({ error: 'ID de transação não informado.' });
-    }
+    const transactionId = String(event?.id || event?.transactionId || event?.data?.id || event?.transaction_id || '').trim();
+    const rawStatus = String(event?.status || event?.data?.status || event?.event || '').toLowerCase().trim();
+    const metaOrderId = event?.metadata?.order_id || event?.metadata?.orderId || event?.orderId || event?.order_id || event?.data?.metadata?.order_id;
 
-    let order = await db.getOrderByTransactionIdAsync(transactionId);
-    if (!order && event?.metadata?.order_id) {
-      order = await db.getOrderAsync(event.metadata.order_id);
-    }
+    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'paid_out', 'success', 'pago'];
+    const isPaid = validPaidStatuses.includes(rawStatus);
 
-    if (order) {
-      if (eventStatus === 'paid' || eventStatus === 'approved' || eventStatus === 'settled') {
+    if (isPaid) {
+      let order = null;
+      if (transactionId) {
+        order = await db.getOrderByTransactionIdAsync(transactionId);
+      }
+      if (!order && metaOrderId) {
+        order = await db.getOrderAsync(metaOrderId);
+      }
+
+      const orderId = order?.id || metaOrderId || `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      const amountVal = order?.amount || Number(event?.amount || event?.data?.amount || 7990) / 100;
+
+      if (order) {
         order.status = 'paid';
         order.orderStatus = 'paid';
         order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
         await db.saveOrderAsync(order);
-
-        console.log(`Order ${order.id} updated to PAID via Webhook in Supabase`);
-
-        // Dispatch PAID Event to UTMify Server-Side (with Idempotency Guard)
-        await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
-
-        // Trigger Meta CAPI Purchase with Deduplication Guard
-        await triggerCapiPurchase(order, req);
+      } else {
+        // Create order placeholder if not found
+        order = {
+          id: orderId,
+          status: 'paid',
+          orderStatus: 'paid',
+          amount: amountVal,
+          customer: {
+            name: event?.customer?.name || 'Cliente Miracle',
+            email: event?.customer?.email || 'cliente@miracle.com',
+            phone: event?.customer?.phone || '12982890411',
+            cpf: event?.customer?.document?.number || event?.customer?.cpf || ''
+          },
+          items: [{ title: 'Cinta Body Modelador - Miracle Belt', unitPrice: Math.round(amountVal * 100), quantity: 1 }],
+          utm: event?.metadata || {},
+          approvedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        };
+        await db.saveOrderAsync(order);
       }
+
+      console.log(`[Beehive Webhook] Order ${order.id} confirmed as PAID. Dispatching to UTMify...`);
+
+      // Dispatch PAID Event to UTMify Server-Side (with Idempotency Guard)
+      await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+
+      // Trigger Meta CAPI Purchase with Deduplication Guard
+      await triggerCapiPurchase(order, req);
     }
 
     return res.json({ received: true });
   } catch (err) {
-    console.error('Webhook error:', err);
+    console.error('[Beehive Webhook Error]:', err);
     return res.status(500).json({ error: 'Erro no processamento do webhook.' });
   }
 });
