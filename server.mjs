@@ -1288,9 +1288,13 @@ app.post('/api/admin/utmify/manual-sale', async (req, res) => {
 });
 
 // Serve static frontend build if dist folder exists
-const DIST_PATH = path.resolve('dist');
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_PATH = path.join(__dirname, 'dist');
+
 if (fs.existsSync(DIST_PATH)) {
-  app.use(express.static(DIST_PATH));
+  app.use(express.static(DIST_PATH, { maxAge: '1h' }));
   app.use((req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile('index.html', { root: DIST_PATH });
