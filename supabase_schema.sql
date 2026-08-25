@@ -74,8 +74,14 @@ CREATE TABLE IF NOT EXISTS public.orders (
   pix_result JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  approved_at TIMESTAMPTZ
+  approved_at TIMESTAMPTZ,
+  custom_logistic_status TEXT
 );
+
+-- Garantia de colunas caso a tabela orders já exista
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tracking_reference TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS custom_logistic_status TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(created_at DESC);
