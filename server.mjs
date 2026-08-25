@@ -5,7 +5,11 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const require = createRequire(import.meta.url);
 const db = require('./netlify/functions/lib/db.js');
@@ -1288,9 +1292,6 @@ app.post('/api/admin/utmify/manual-sale', async (req, res) => {
 });
 
 // Serve static frontend build if dist folder exists
-import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const DIST_PATH = path.join(__dirname, 'dist');
 
 if (fs.existsSync(DIST_PATH)) {
