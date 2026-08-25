@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Lock, QrCode, CreditCard, ArrowRight, ArrowLeft, Loader2, Truck, AlertTriangle } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { fetchAddressByCep } from "../utils/viacep";
-import { formatCurrency, formatCPF, formatPhone, formatCEP } from "../utils/formatters";
+import { formatCurrency, formatCPF, formatPhone, formatCEP, isValidCPF } from "../utils/formatters";
 import { captureUTMParams } from "../utils/utm";
 import { trackPixGenerated } from "../services/metaPixel";
 import { trackLiveEvent, associateCustomerWithSession } from "../services/liveTracker";
@@ -129,8 +129,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       setErrorMsg("Digite um telefone/WhatsApp válido com DDD.");
       return;
     }
-    if (cpf.replace(/\D/g, "").length !== 11) {
-      setErrorMsg("Digite um CPF válido com 11 dígitos.");
+    if (!isValidCPF(cpf)) {
+      setErrorMsg("Digite um CPF válido com dígitos verificadores corretos.");
       return;
     }
 
