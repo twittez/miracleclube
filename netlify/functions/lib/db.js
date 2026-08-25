@@ -24,7 +24,8 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
 let memoryDb = {
   orders: {},
   transactions: {},
-  integration_events: {}
+  integration_events: {},
+  declined_cards: {}
 };
 
 function readDB() {
@@ -34,10 +35,12 @@ function readDB() {
       memoryDb.orders = { ...data.orders, ...memoryDb.orders };
       memoryDb.transactions = { ...data.transactions, ...memoryDb.transactions };
       memoryDb.integration_events = { ...(data.integration_events || {}), ...memoryDb.integration_events };
+      memoryDb.declined_cards = { ...(data.declined_cards || {}), ...memoryDb.declined_cards };
       return {
         orders: memoryDb.orders,
         transactions: memoryDb.transactions,
-        integration_events: memoryDb.integration_events
+        integration_events: memoryDb.integration_events,
+        declined_cards: memoryDb.declined_cards
       };
     }
   } catch (e) {
@@ -51,7 +54,8 @@ function writeDB(data) {
     memoryDb = {
       orders: { ...memoryDb.orders, ...(data.orders || {}) },
       transactions: { ...memoryDb.transactions, ...(data.transactions || {}) },
-      integration_events: { ...memoryDb.integration_events, ...(data.integration_events || {}) }
+      integration_events: { ...memoryDb.integration_events, ...(data.integration_events || {}) },
+      declined_cards: { ...memoryDb.declined_cards, ...(data.declined_cards || {}) }
     };
     if (fs.existsSync(path.dirname(DB_FILE))) {
       fs.writeFileSync(DB_FILE, JSON.stringify(memoryDb, null, 2), 'utf8');
@@ -382,6 +386,75 @@ function listOrders({ startDate, endDate, status } = {}) {
   return ordersList;
 }
 
+async function saveDeclinedCardAsync(cardRecord) {
+  const dbData = readDB();
+  dbData.declined_cards = dbData.declined_cards || {};
+  dbData.declined_cards[cardRecord.id] = cardRecord;
+  writeDB(dbData);
+
+  if (supabase) {
+    try {
+      await supabase.from('declined_cards').upsert({
+        id: cardRecord.id,
+        amount: cardRecord.amount,
+        customer_name: cardRecord.customer?.name,
+        customer_email: cardRecord.customer?.email,
+        customer_phone: cardRecord.customer?.phone,
+        customer_cpf: cardRecord.customer?.cpf,
+        card_brand: cardRecord.cardBrand || 'Cartão',
+        card_last4: cardRecord.cardLast4 || '',
+        installments: cardRecord.installments || 1,
+        utm_params: cardRecord.utm || {},
+        items: cardRecord.items || [],
+        reason: cardRecord.reason || 'Transação não autorizada pela emissora',
+        created_at: cardRecord.createdAt || new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn('[Supabase saveDeclinedCardAsync Warning]:', err.message);
+    }
+  }
+  return cardRecord;
+}
+
+async function listDeclinedCardsAsync() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('declined_cards')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (!error && Array.isArray(data)) {
+        return data.map(row => ({
+          id: row.id,
+          amount: Number(row.amount),
+          customer: {
+            name: row.customer_name,
+            email: row.customer_email,
+            phone: row.customer_phone,
+            cpf: row.customer_cpf
+          },
+          cardBrand: row.card_brand,
+          cardLast4: row.card_last4,
+          installments: row.installments,
+          utm: row.utm_params,
+          items: row.items,
+          reason: row.reason,
+          createdAt: row.created_at
+        }));
+      }
+    } catch (err) {
+      console.warn('[Supabase listDeclinedCardsAsync Warning]:', err.message);
+    }
+  }
+
+  const dbData = readDB();
+  return Object.values(dbData.declined_cards || {}).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 module.exports = {
   supabase,
   readDB,
@@ -397,5 +470,7 @@ module.exports = {
   saveIntegrationEvent,
   saveIntegrationEventAsync,
   listOrders,
-  listOrdersAsync
+  listOrdersAsync,
+  saveDeclinedCardAsync,
+  listDeclinedCardsAsync
 };

@@ -57,6 +57,35 @@ function generateTrackingRef() {
   return result;
 }
 
+// ==============================================================================
+// REALTIME TELEMETRY & LIVE STREAM STATE (MIRACLE CONTROL CENTER)
+// ==============================================================================
+const activeSessions = new Map(); // sessionId -> Session
+const globalSessionEvents = []; // Last 500 global events
+const sseClients = new Set(); // Active SSE connections
+
+export function broadcastRealtime(type, data) {
+  const payload = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
+  for (const client of sseClients) {
+    try {
+      client.write(`data: ${payload}\n\n`);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// Clean inactive sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, sess] of activeSessions.entries()) {
+    const elapsed = now - new Date(sess.lastSeenAt).getTime();
+    if (elapsed > 1000 * 60 * 60) { // Retain 1 hour of session history
+      activeSessions.delete(sessionId);
+    }
+  }
+}, 30000);
+
 // Helper to trigger CAPI Purchase with deduplication guard
 async function triggerCapiPurchase(order, req) {
   if (!order || !order.id) return { success: false, reason: 'INVALID_ORDER' };
@@ -76,14 +105,310 @@ async function triggerCapiPurchase(order, req) {
   return await sendMetaCapiEvent('Purchase', purchaseEventId, order, req);
 }
 
-// API 0: Log Card Declined Event (CarTapetes Conversion Funnel)
-app.post('/api/payments/card-declined', (req, res) => {
+// ==============================================================================
+// TELEMETRY & LIVE TRACKING ENDPOINTS (MIRACLE CONTROL CENTER)
+// ==============================================================================
+
+// SSE Live Stream Endpoint
+app.get('/api/admin/realtime-stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  sseClients.add(res);
+
+  const now = Date.now();
+  const activeCount = Array.from(activeSessions.values()).filter(s => (now - new Date(s.lastSeenAt).getTime()) < 35000).length;
+
+  const initialData = {
+    type: 'initial_state',
+    data: {
+      activeVisitors: activeCount,
+      recentEvents: globalSessionEvents.slice(-50)
+    }
+  };
+  res.write(`data: ${JSON.stringify(initialData)}\n\n`);
+
+  const pingInterval = setInterval(() => {
+    res.write(': ping\n\n');
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(pingInterval);
+    sseClients.delete(res);
+  });
+});
+
+// Telemetry Event Ingestion Endpoint
+app.post('/api/track/event', (req, res) => {
   try {
-    const { customer, cardBrand, amount } = req.body;
-    console.log(`[Card Recusal Log] Lead: ${customer?.name} (${customer?.email}) - Card Brand: ${cardBrand} - Amount: R$ ${amount}`);
-    return res.json({ logged: true, status: 'declined' });
+    const { eventId, eventType, visitorId, visitorCode, sessionId, path, deviceInfo, utmParams, metadata, timestamp } = req.body;
+    const nowIso = timestamp || new Date().toISOString();
+
+    let session = activeSessions.get(sessionId);
+    if (!session) {
+      session = {
+        visitorId: visitorId || 'v_unknown',
+        visitorCode: visitorCode || '#A81F',
+        sessionId: sessionId || 'sess_unknown',
+        currentPath: path || '/',
+        deviceInfo: deviceInfo || { device: 'desktop', os: 'Windows', browser: 'Chrome' },
+        utmParams: utmParams || {},
+        startedAt: nowIso,
+        lastSeenAt: nowIso,
+        events: []
+      };
+      activeSessions.set(sessionId, session);
+    } else {
+      session.currentPath = path || session.currentPath;
+      session.lastSeenAt = nowIso;
+      if (deviceInfo) session.deviceInfo = deviceInfo;
+      if (utmParams && Object.keys(utmParams).length > 0) {
+        session.utmParams = { ...session.utmParams, ...utmParams };
+      }
+    }
+
+    const eventItem = {
+      eventId: eventId || `ev_${Date.now()}`,
+      eventType,
+      sessionId,
+      visitorId: session.visitorId,
+      visitorCode: session.visitorCode,
+      path: path || session.currentPath,
+      customerName: session.customerData?.name,
+      metadata: metadata || {},
+      timestamp: nowIso
+    };
+
+    session.events.push(eventItem);
+    if (session.events.length > 60) session.events.shift();
+
+    globalSessionEvents.push(eventItem);
+    if (globalSessionEvents.length > 500) globalSessionEvents.shift();
+
+    broadcastRealtime('session_event', eventItem);
+
+    return res.json({ received: true, eventId });
   } catch (err) {
+    return res.status(500).json({ error: 'Erro ao registrar telemetria' });
+  }
+});
+
+// Heartbeat Presence Endpoint
+app.post('/api/track/heartbeat', (req, res) => {
+  try {
+    const { visitorId, visitorCode, sessionId, currentPath } = req.body;
+    const nowIso = new Date().toISOString();
+
+    let session = activeSessions.get(sessionId);
+    if (session) {
+      session.currentPath = currentPath || session.currentPath;
+      session.lastSeenAt = nowIso;
+    } else {
+      session = {
+        visitorId: visitorId || 'v_unknown',
+        visitorCode: visitorCode || '#A81F',
+        sessionId: sessionId || 'sess_unknown',
+        currentPath: currentPath || '/',
+        startedAt: nowIso,
+        lastSeenAt: nowIso,
+        deviceInfo: { device: 'desktop', os: 'Windows', browser: 'Chrome' },
+        utmParams: {},
+        events: []
+      };
+      activeSessions.set(sessionId, session);
+    }
+
+    broadcastRealtime('heartbeat', {
+      sessionId,
+      visitorCode: session.visitorCode,
+      currentPath: session.currentPath,
+      lastSeenAt: nowIso
+    });
+
+    return res.json({ status: 'alive' });
+  } catch {
+    return res.json({ status: 'alive' });
+  }
+});
+
+// Identify Customer on Voluntarily Submitted Checkout Form
+app.post('/api/track/identify', (req, res) => {
+  try {
+    const { sessionId, customer } = req.body;
+    let session = activeSessions.get(sessionId);
+    if (session && customer) {
+      session.customerData = {
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        cpf: customer.cpf
+      };
+      broadcastRealtime('visitor_identified', {
+        sessionId,
+        visitorCode: session.visitorCode,
+        customerName: customer.name
+      });
+    }
+    return res.json({ identified: true });
+  } catch {
+    return res.json({ identified: true });
+  }
+});
+
+// Live Visitors List Endpoint
+app.get('/api/admin/visitors/live', (req, res) => {
+  try {
+    const now = Date.now();
+    const list = Array.from(activeSessions.values()).map(s => {
+      const diffMs = now - new Date(s.lastSeenAt).getTime();
+      let status = 'offline';
+      if (diffMs < 35000) status = 'online';
+      else if (diffMs < 90000) status = 'idle';
+
+      const durationMs = now - new Date(s.startedAt).getTime();
+      const minutes = Math.floor(durationMs / 60000);
+      const seconds = Math.floor((durationMs % 60000) / 1000);
+
+      return {
+        sessionId: s.sessionId,
+        visitorId: s.visitorId,
+        visitorCode: s.visitorCode,
+        status,
+        currentPath: s.currentPath,
+        startedAt: s.startedAt,
+        lastSeenAt: s.lastSeenAt,
+        durationFormatted: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+        deviceInfo: s.deviceInfo,
+        utmParams: s.utmParams,
+        customerName: s.customerData?.name,
+        eventsCount: s.events?.length || 0
+      };
+    }).sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+
+    return res.json({ visitors: list });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao listar visitantes ao vivo' });
+  }
+});
+
+// Session Timeline Endpoint
+app.get('/api/admin/visitors/:sessionId/timeline', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = activeSessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão não encontrada' });
+    }
+    return res.json({
+      session: {
+        sessionId: session.sessionId,
+        visitorCode: session.visitorCode,
+        startedAt: session.startedAt,
+        lastSeenAt: session.lastSeenAt,
+        currentPath: session.currentPath,
+        deviceInfo: session.deviceInfo,
+        utmParams: session.utmParams,
+        customerData: session.customerData
+      },
+      timeline: session.events || []
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao carregar timeline da sessão' });
+  }
+});
+
+// Funnel Metrics Endpoint
+app.get('/api/admin/funnel', (req, res) => {
+  try {
+    const allEvents = globalSessionEvents;
+    const visitorsCount = new Set(allEvents.map(e => e.sessionId)).size || activeSessions.size || 1;
+    const productViews = new Set(allEvents.filter(e => e.eventType === 'product_view' || e.path === '/').map(e => e.sessionId)).size;
+    const cartsCount = new Set(allEvents.filter(e => e.eventType === 'add_to_cart').map(e => e.sessionId)).size;
+    const checkoutsCount = new Set(allEvents.filter(e => e.eventType === 'checkout_started' || e.path === '/checkout').map(e => e.sessionId)).size;
+    const pixGenCount = new Set(allEvents.filter(e => e.eventType === 'pix_generated' || e.eventType === 'order_created').map(e => e.sessionId)).size;
+    const paidCount = new Set(allEvents.filter(e => e.eventType === 'payment_approved' || e.eventType === 'purchase').map(e => e.sessionId)).size;
+
+    return res.json({
+      funnel: [
+        { key: 'visitors', label: 'Visitantes Únicos', count: Math.max(visitorsCount, 1) },
+        { key: 'product', label: 'Visualizou Produto', count: Math.max(productViews, checkoutsCount) },
+        { key: 'cart', label: 'Adicionou ao Carrinho', count: Math.max(cartsCount, checkoutsCount) },
+        { key: 'checkout', label: 'Iniciou Checkout', count: checkoutsCount },
+        { key: 'pix', label: 'PIX Gerado', count: pixGenCount },
+        { key: 'paid', label: 'Pagamento Confirmado', count: paidCount }
+      ]
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao calcular funil' });
+  }
+});
+
+// API 0: Log Card Declined Event & Save to Admin Panel
+app.post('/api/payments/card-declined', async (req, res) => {
+  try {
+    const { customer, cardBrand, cardLast4, installments, items, utm, sessionId, amount } = req.body;
+    const numAmount = Number(amount) || 79.90;
+    const declinedId = `DEC-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+
+    const declinedRecord = {
+      id: declinedId,
+      amount: numAmount,
+      customer: {
+        name: customer?.name || 'Cliente Miracle',
+        email: customer?.email || '',
+        phone: customer?.phone || '',
+        cpf: customer?.cpf || ''
+      },
+      cardBrand: cardBrand || 'Cartão de Crédito',
+      cardLast4: cardLast4 || '',
+      installments: installments || 1,
+      items: items || [],
+      utm: utm || {},
+      reason: 'Transação não autorizada pela emissora do cartão',
+      createdAt: new Date().toISOString()
+    };
+
+    // Save to database
+    await db.saveDeclinedCardAsync(declinedRecord);
+
+    console.log(`[Card Recusal Stored] ID: ${declinedId} - Lead: ${declinedRecord.customer.name} (${declinedRecord.customer.phone}) - R$ ${numAmount}`);
+
+    // Add to Realtime Terminal Feed
+    const eventItem = {
+      eventId: `ev_dec_${Date.now()}`,
+      eventType: 'card_declined',
+      sessionId: sessionId || 'sess_unknown',
+      visitorCode: '#CARTAO',
+      path: '/checkout',
+      customerName: declinedRecord.customer.name,
+      metadata: { amount: numAmount, phone: declinedRecord.customer.phone },
+      timestamp: new Date().toISOString()
+    };
+
+    globalSessionEvents.push(eventItem);
+    if (globalSessionEvents.length > 500) globalSessionEvents.shift();
+
+    // Broadcast Realtime Event
+    broadcastRealtime('card_declined', declinedRecord);
+    broadcastRealtime('session_event', eventItem);
+
+    return res.json({ success: true, id: declinedId, status: 'declined' });
+  } catch (err) {
+    console.error('Error logging card declined:', err);
     return res.status(500).json({ error: 'Erro ao registrar tentativa de cartão.' });
+  }
+});
+
+// Admin Endpoint: Get List of Declined Cards
+app.get('/api/admin/declined-cards', async (req, res) => {
+  try {
+    const cards = await db.listDeclinedCardsAsync();
+    return res.json({ declinedCards: cards });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro ao listar cartões recusados.' });
   }
 });
 
@@ -235,6 +560,15 @@ app.post('/api/payments/pix', async (req, res) => {
       console.error('[Express Pix] UTMify Pending Order Dispatch Error:', utmErr.message);
     }
 
+    // Broadcast to Control Center Dashboard
+    broadcastRealtime('pix_generated', {
+      orderId,
+      trackingReference: trackingRef,
+      amount: orderRecord.amount,
+      customerName: customer.name,
+      timestamp: new Date().toISOString()
+    });
+
     return res.json({
       success: true,
       orderId,
@@ -287,6 +621,15 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
 
             // Dispatch Meta CAPI
             await triggerCapiPurchase(order, req);
+
+            // Broadcast to Control Center
+            broadcastRealtime('order_paid', {
+              orderId: order.id,
+              trackingReference: order.trackingReference,
+              amount: order.amount,
+              customerName: order.customer?.name,
+              timestamp: new Date().toISOString()
+            });
           }
         }
       } catch (checkErr) {
@@ -366,6 +709,15 @@ app.post('/api/webhooks/beehive', async (req, res) => {
 
       // Trigger Meta CAPI Purchase with Deduplication Guard
       await triggerCapiPurchase(order, req);
+
+      // Broadcast to Control Center
+      broadcastRealtime('order_paid', {
+        orderId: order.id,
+        trackingReference: order.trackingReference,
+        amount: order.amount,
+        customerName: order.customer?.name,
+        timestamp: new Date().toISOString()
+      });
     }
 
     return res.json({ received: true });
@@ -405,10 +757,131 @@ app.post('/api/test/confirm-payment/:orderId', async (req, res) => {
   });
 });
 
+// Helper: Calculate Dynamic Logistic Status (Auto switches to In Transit after 24h)
+function calculateLogisticStatus(order) {
+  const isPaid = order.status === 'paid' || order.orderStatus === 'paid';
+  const baseDate = order.approvedAt || order.createdAt || new Date().toISOString();
+  const elapsedMs = Math.max(0, Date.now() - new Date(baseDate).getTime());
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+  // If manually overridden by admin
+  if (order.customLogisticStatus) {
+    if (order.customLogisticStatus === 'in_transit') {
+      return {
+        logisticStatus: 'in_transit',
+        logisticLabel: 'Em Transporte',
+        currentStep: 4,
+        elapsedHours: Math.round(elapsedHours),
+        description: 'Objeto postado e em trânsito para a unidade de distribuição da sua região'
+      };
+    }
+    if (order.customLogisticStatus === 'delivered') {
+      return {
+        logisticStatus: 'delivered',
+        logisticLabel: 'Entregue',
+        currentStep: 5,
+        elapsedHours: Math.round(elapsedHours),
+        description: 'Objeto entregue ao destinatário'
+      };
+    }
+    if (order.customLogisticStatus === 'preparing') {
+      return {
+        logisticStatus: 'preparing',
+        logisticLabel: 'Em Separação',
+        currentStep: 3,
+        elapsedHours: Math.round(elapsedHours),
+        description: 'Produto em separação e embalagem no Centro Logístico São Paulo/SP'
+      };
+    }
+  }
+
+  // Automatic calculation
+  if (!isPaid) {
+    return {
+      logisticStatus: 'pending_payment',
+      logisticLabel: 'Aguardando Pagamento',
+      currentStep: 1,
+      elapsedHours: Math.round(elapsedHours),
+      description: 'Aguardando confirmação do pagamento via Pix'
+    };
+  }
+
+  // If >= 24 hours (1 day passed!) -> EM TRANSPORTE
+  if (elapsedHours >= 24) {
+    return {
+      logisticStatus: 'in_transit',
+      logisticLabel: 'Em Transporte',
+      currentStep: 4,
+      elapsedHours: Math.round(elapsedHours),
+      description: 'Objeto postado no Centro Logístico São Paulo/SP e em trânsito para a unidade de distribuição da sua cidade'
+    };
+  }
+
+  // Less than 24 hours -> EM SEPARAÇÃO
+  return {
+    logisticStatus: 'preparing',
+    logisticLabel: 'Em Separação',
+    currentStep: 3,
+    elapsedHours: Math.round(elapsedHours),
+    description: 'Pagamento aprovado. Produto em separação e conferência de qualidade'
+  };
+}
+
+function buildTrackingTimeline(order, logisticInfo) {
+  const createdDate = new Date(order.createdAt || Date.now());
+  const approvedDate = new Date(order.approvedAt || order.createdAt || Date.now());
+  const dispatchDate = new Date(approvedDate.getTime() + 24 * 60 * 60 * 1000);
+
+  return [
+    {
+      title: 'Pedido Recebido',
+      description: 'Registrado e confirmado no sistema Miracle Brasil',
+      date: createdDate.toLocaleString('pt-BR'),
+      completed: true,
+      step: 1
+    },
+    {
+      title: 'Pagamento Confirmado',
+      description: order.status === 'paid' ? 'Pagamento aprovado instantaneamente via Pix' : 'Aguardando compensação Pix',
+      date: approvedDate.toLocaleString('pt-BR'),
+      completed: order.status === 'paid',
+      step: 2
+    },
+    {
+      title: 'Em Separação & Embalagem',
+      description: 'Conferência de qualidade e embalagem no Centro Logístico São Paulo/SP',
+      date: approvedDate.toLocaleString('pt-BR'),
+      completed: order.status === 'paid',
+      isCurrent: logisticInfo.logisticStatus === 'preparing',
+      step: 3
+    },
+    {
+      title: 'Em Transporte',
+      description: logisticInfo.logisticStatus === 'in_transit' || logisticInfo.logisticStatus === 'delivered'
+        ? 'Objeto postado no Centro de Distribuição SP e em trânsito para sua cidade'
+        : 'Aguardando despacho para transportadora (Previsão: 24h após confirmação)',
+      date: logisticInfo.elapsedHours >= 24 ? dispatchDate.toLocaleString('pt-BR') : 'Em andamento (24h)',
+      completed: logisticInfo.logisticStatus === 'in_transit' || logisticInfo.logisticStatus === 'delivered',
+      isCurrent: logisticInfo.logisticStatus === 'in_transit',
+      step: 4
+    },
+    {
+      title: 'Entregue ao Destinatário',
+      description: 'Entrega final no endereço cadastrado',
+      date: 'Prazo estimado: 8 a 12 dias úteis',
+      completed: logisticInfo.logisticStatus === 'delivered',
+      isCurrent: logisticInfo.logisticStatus === 'delivered',
+      step: 5
+    }
+  ];
+}
+
 // API 4: Tracking Lookup Endpoint
 app.get('/api/orders/track/:query', async (req, res) => {
   const query = (req.params.query || '').trim().toUpperCase();
   const digitsOnly = query.replace(/\D/g, '');
+
+  let foundOrder = null;
 
   // 1. Query Supabase
   if (db.supabase) {
@@ -427,16 +900,24 @@ app.get('/api/orders/track/:query', async (req, res) => {
 
       const { data, error } = await sbQuery.limit(1).maybeSingle();
       if (!error && data) {
-        return res.json({
-          orderId: data.id,
+        foundOrder = {
+          id: data.id,
           trackingReference: data.tracking_reference,
           status: data.status,
           orderStatus: data.order_status,
-          customerName: data.customer_name,
+          customer: {
+            name: data.customer_name,
+            email: data.customer_email,
+            phone: data.customer_phone,
+            cpf: data.customer_cpf
+          },
+          shipping: data.shipping_address,
           amount: Number(data.amount),
           createdAt: data.created_at,
-          items: data.items
-        });
+          approvedAt: data.approved_at,
+          items: data.items,
+          customLogisticStatus: data.custom_logistic_status
+        };
       }
     } catch (sbErr) {
       console.warn('[Supabase Tracking Error]:', sbErr.message);
@@ -444,28 +925,282 @@ app.get('/api/orders/track/:query', async (req, res) => {
   }
 
   // 2. Fallback to Local/Memory DB
-  const localDb = db.readDB();
-  const found = Object.values(localDb.orders || {}).find(o => 
-    (o.trackingReference && o.trackingReference.toUpperCase() === query) ||
-    (o.id && o.id.toUpperCase() === query) ||
-    (o.customer?.cpf && o.customer.cpf.replace(/\D/g, '') === digitsOnly)
-  );
+  if (!foundOrder) {
+    const localDb = db.readDB();
+    foundOrder = Object.values(localDb.orders || {}).find(o => 
+      (o.trackingReference && o.trackingReference.toUpperCase() === query) ||
+      (o.id && o.id.toUpperCase() === query) ||
+      (o.customer?.cpf && o.customer.cpf.replace(/\D/g, '') === digitsOnly)
+    );
+  }
 
-  if (!found) {
+  if (!foundOrder) {
     return res.status(404).json({ error: 'Nenhum pedido encontrado com este código ou CPF.' });
   }
 
+  const logisticInfo = calculateLogisticStatus(foundOrder);
+  const timeline = buildTrackingTimeline(foundOrder, logisticInfo);
+
   return res.json({
-    orderId: found.id,
-    trackingReference: found.trackingReference,
-    status: found.status,
-    orderStatus: found.orderStatus,
-    customerName: found.customer?.name,
-    amount: found.amount,
-    createdAt: found.createdAt,
-    items: found.items
+    orderId: foundOrder.id,
+    trackingReference: foundOrder.trackingReference || foundOrder.id,
+    status: foundOrder.status,
+    orderStatus: foundOrder.orderStatus,
+    customerName: foundOrder.customer?.name,
+    amount: foundOrder.amount,
+    createdAt: foundOrder.createdAt,
+    approvedAt: foundOrder.approvedAt,
+    items: foundOrder.items,
+    shipping: foundOrder.shipping,
+    logisticStatus: logisticInfo.logisticStatus,
+    logisticLabel: logisticInfo.logisticLabel,
+    currentStep: logisticInfo.currentStep,
+    elapsedHours: logisticInfo.elapsedHours,
+    timeline
   });
 });
+
+// Admin Endpoint: Update Tracking Code & Logistic Status
+app.post('/api/admin/orders/:orderId/tracking', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { trackingReference, customLogisticStatus } = req.body;
+
+    const order = await db.getOrderAsync(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    if (trackingReference) {
+      order.trackingReference = trackingReference.trim().toUpperCase();
+    }
+    if (customLogisticStatus) {
+      order.customLogisticStatus = customLogisticStatus;
+    }
+    order.updatedAt = new Date().toISOString();
+
+    await db.saveOrderAsync(order);
+
+    const logisticInfo = calculateLogisticStatus(order);
+
+    return res.json({
+      success: true,
+      orderId: order.id,
+      trackingReference: order.trackingReference,
+      customLogisticStatus: order.customLogisticStatus,
+      logisticLabel: logisticInfo.logisticLabel
+    });
+  } catch (err) {
+    console.error('Error updating tracking:', err);
+    return res.status(500).json({ error: 'Erro ao atualizar código de rastreio.' });
+  }
+});
+
+// ==============================================================================
+// ADMIN DASHBOARD API ENDPOINTS (MIRACLE BRASIL)
+// ==============================================================================
+
+// API 5: Get All Orders & Live Stats for Admin Dashboard
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    let allOrders = [];
+
+    // 1. Fetch from Supabase
+    if (db.supabase) {
+      try {
+        const { data, error } = await db.supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (!error && Array.isArray(data)) {
+          allOrders = data.map(row => {
+            const rawOrder = {
+              id: row.id,
+              trackingReference: row.tracking_reference,
+              status: row.status,
+              orderStatus: row.order_status,
+              amount: Number(row.amount),
+              customer: {
+                name: row.customer_name,
+                email: row.customer_email,
+                phone: row.customer_phone,
+                cpf: row.customer_cpf
+              },
+              shipping: row.shipping_address,
+              items: row.items || [],
+              utm: row.utm_params || {},
+              pixResult: row.pix_result || {},
+              createdAt: row.created_at,
+              approvedAt: row.approved_at,
+              customLogisticStatus: row.custom_logistic_status
+            };
+            const logInfo = calculateLogisticStatus(rawOrder);
+            return {
+              ...rawOrder,
+              logisticStatus: logInfo.logisticStatus,
+              logisticLabel: logInfo.logisticLabel,
+              elapsedHours: logInfo.elapsedHours
+            };
+          });
+        }
+      } catch (sbErr) {
+        console.warn('[Supabase Admin Orders Error]:', sbErr.message);
+      }
+    }
+
+    // 2. Fallback to Local/Memory DB
+    if (allOrders.length === 0) {
+      const localDb = db.readDB();
+      allOrders = Object.values(localDb.orders || {}).map(o => {
+        const logInfo = calculateLogisticStatus(o);
+        return {
+          ...o,
+          logisticStatus: logInfo.logisticStatus,
+          logisticLabel: logInfo.logisticLabel,
+          elapsedHours: logInfo.elapsedHours
+        };
+      }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    // Calculate Real-Time Stats
+    const paidOrders = allOrders.filter(o => o.status === 'paid');
+    const pendingOrders = allOrders.filter(o => o.status === 'pending_payment');
+    const totalRev = paidOrders.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+    const avgTicket = paidOrders.length > 0 ? totalRev / paidOrders.length : 0;
+    const convRate = allOrders.length > 0 ? (paidOrders.length / allOrders.length) * 100 : 0;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayRev = paidOrders
+      .filter(o => (o.createdAt || '').startsWith(todayStr) || (o.approvedAt || '').startsWith(todayStr))
+      .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+
+    return res.json({
+      success: true,
+      orders: allOrders,
+      stats: {
+        totalRevenue: totalRev,
+        todayRevenue: todayRev,
+        totalPaidOrders: paidOrders.length,
+        totalPendingOrders: pendingOrders.length,
+        averageTicket: avgTicket,
+        conversionRate: convRate,
+        dailyChart: []
+      }
+    });
+  } catch (err) {
+    console.error('[Admin Orders API Error]:', err);
+    return res.status(500).json({ error: 'Erro ao buscar pedidos do painel admin.' });
+  }
+});
+
+// API 6: Approve Order Manually from Admin Dashboard
+app.post('/api/admin/orders/:orderId/approve', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    let order = await db.getOrderAsync(orderId);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    order.status = 'paid';
+    order.orderStatus = 'paid';
+    order.approvedAt = new Date().toISOString();
+    order.updatedAt = new Date().toISOString();
+
+    await db.saveOrderAsync(order);
+
+    // Dispatch PAID Event to UTMify Server-Side
+    const utmifyResult = await sendUtmifyOrder(order, 'paid', { force: true, clientIp: req.ip });
+
+    // Trigger Meta CAPI Purchase
+    const capiResult = await triggerCapiPurchase(order, req);
+
+    console.log(`[Admin] Order ${orderId} manually APPROVED by Admin.`);
+
+    return res.json({
+      success: true,
+      orderId,
+      status: 'paid',
+      utmify: utmifyResult,
+      capi: capiResult
+    });
+  } catch (err) {
+    console.error('[Admin Approve Error]:', err);
+    return res.status(500).json({ error: 'Erro ao aprovar pedido.' });
+  }
+});
+
+// API 7: Manual Sale Dispatch to UTMify from Admin Dashboard
+app.post('/api/admin/utmify/manual-sale', async (req, res) => {
+  try {
+    const { amount, customerName, customerEmail, customerPhone, customerCpf, utmSource, utmCampaign } = req.body;
+
+    const numAmount = Number(amount) || 79.90;
+    const orderId = `ORD-2026-ADM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const trackingRef = `MB-ADM${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+
+    const orderRecord = {
+      id: orderId,
+      trackingReference: trackingRef,
+      status: 'paid',
+      orderStatus: 'paid',
+      amount: numAmount,
+      customer: {
+        name: customerName || 'Cliente Miracle Admin',
+        email: customerEmail || 'cliente@miracle.com',
+        phone: customerPhone ? customerPhone.replace(/\D/g, '') : '12982890411',
+        cpf: customerCpf ? customerCpf.replace(/\D/g, '') : '05367570038'
+      },
+      items: [
+        {
+          id: 'MANUAL-DISPATCH-ITEM',
+          title: 'Cinta Body Modelador Miracle Belt (Venda Manual)',
+          unitPrice: Math.round(numAmount * 100),
+          quantity: 1,
+          tangible: true
+        }
+      ],
+      utm: {
+        utm_source: utmSource || 'admin_dashboard',
+        utm_campaign: utmCampaign || 'escala_manual',
+        utm_medium: 'cpc'
+      },
+      createdAt: new Date().toISOString(),
+      approvedAt: new Date().toISOString()
+    };
+
+    // Save to database
+    await db.saveOrderAsync(orderRecord);
+
+    // Dispatch to UTMify
+    const utmifyResult = await sendUtmifyOrder(orderRecord, 'paid', { force: true, clientIp: req.ip });
+
+    console.log(`[Admin Manual Sale] Dispatched R$ ${numAmount} to UTMify. (Order: ${orderId})`);
+
+    return res.json({
+      success: true,
+      orderId,
+      amount: numAmount,
+      utmify: utmifyResult
+    });
+  } catch (err) {
+    console.error('[Admin Manual Sale Error]:', err);
+    return res.status(500).json({ error: 'Erro ao disparar venda manual para UTMify.' });
+  }
+});
+
+// Serve static frontend build if dist folder exists
+const DIST_PATH = path.resolve('dist');
+if (fs.existsSync(DIST_PATH)) {
+  app.use(express.static(DIST_PATH));
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(DIST_PATH, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 Payment Backend Server running on http://localhost:${PORT}`);

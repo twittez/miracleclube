@@ -5,6 +5,7 @@ import { fetchAddressByCep } from "../utils/viacep";
 import { formatCurrency, formatCPF, formatPhone, formatCEP } from "../utils/formatters";
 import { captureUTMParams } from "../utils/utm";
 import { trackPixGenerated } from "../services/metaPixel";
+import { trackLiveEvent, associateCustomerWithSession } from "../services/liveTracker";
 import "../styles/checkout.css";
 
 interface CheckoutPageProps {
@@ -21,6 +22,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   const [timeLeft, setTimeLeft] = useState<number>(600);
 
   useEffect(() => {
+    trackLiveEvent('checkout_started', { path: '/checkout' });
     if (timeLeft <= 0) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
@@ -132,6 +134,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       return;
     }
 
+    associateCustomerWithSession({ name, email, phone, cpf });
     setStep(2);
   };
 
@@ -179,15 +182,35 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       setIsSubmitting(true);
 
       // Log card decline on backend
+      const cleanDigits = cardNumber.replace(/\D/g, "");
+      const cardLast4 = cleanDigits.length >= 4 ? cleanDigits.slice(-4) : "";
+
       fetch("/api/payments/card-declined", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer: { name, email, phone, cpf },
-          cardBrand: "card",
-          amount: finalPrice,
+          cardBrand: "Cartão de Crédito",
+          cardLast4,
+          installments: Number(installments) || 1,
+          items: cartItems.map((item) => ({
+            title: item.name,
+            unitPrice: Math.round(item.price * 100),
+            quantity: item.quantity,
+            size: item.size,
+            color: item.color
+          })),
+          utm: captureUTMParams(),
+          amount: Number(finalPrice.toFixed(2)),
         }),
       }).catch(() => {});
+
+      trackLiveEvent("card_declined", {
+        amount: Number(finalPrice.toFixed(2)),
+        customerName: name,
+        phone,
+        cardLast4
+      });
 
       // Simulate 1.2s bank processing
       setTimeout(() => {
@@ -249,6 +272,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
 
         // Track Custom Event PixGenerated (NO Purchase event at this stage)
         trackPixGenerated({ id: data.orderId, total: finalPrice });
+        trackLiveEvent('pix_generated', { orderId: data.orderId, amount: finalPrice });
 
         onNavigateToThankYou(data.orderId);
       } else {

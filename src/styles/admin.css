@@ -1,0 +1,826 @@
+/* ==============================================================================
+   MIRACLE // CONTROL CENTER - FUTURISTIC CYBER COMMAND INTERFACE (V2 ELITE)
+   ============================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@500;700;900&display=swap');
+
+/* --- Scoped Global Design Tokens --- */
+.cc-app-wrapper,
+.cc-app-wrapper * {
+  box-sizing: border-box !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-app-wrapper {
+  --bg-deep: #050814;
+  --bg-surface: rgba(13, 19, 39, 0.85);
+  --bg-surface-elevated: rgba(19, 28, 58, 0.9);
+  --bg-card: rgba(10, 15, 33, 0.78);
+  
+  --border-subtle: rgba(139, 92, 246, 0.16);
+  --border-bright: rgba(56, 189, 248, 0.4);
+  --border-neon-pink: rgba(236, 72, 153, 0.5);
+
+  --neon-pink: #ec4899;
+  --neon-purple: #8b5cf6;
+  --neon-cyan: #38bdf8;
+  --neon-green: #10b981;
+  --neon-amber: #f59e0b;
+  --neon-red: #ef4444;
+
+  --text-pure: #ffffff;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-orbitron: 'Orbitron', sans-serif;
+
+  min-height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at 50% 0%, #0d152e 0%, #050814 60%, #02040a 100%) !important;
+  color: var(--text-main) !important;
+  position: relative;
+  overflow-x: hidden;
+  display: flex !important;
+}
+
+/* ==============================================================================
+   1. LOGIN COMMAND HUD SCREEN
+   ============================================================================== */
+.cc-login-container {
+  position: relative;
+  z-index: 20;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: transparent;
+}
+
+.cc-login-card {
+  background: var(--bg-surface) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 20px !important;
+  padding: 48px 40px !important;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.9), 0 0 40px rgba(139, 92, 246, 0.15) !important;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cc-login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple), var(--neon-cyan)) !important;
+}
+
+.cc-login-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(236, 72, 153, 0.12) !important;
+  border: 1px solid rgba(236, 72, 153, 0.35) !important;
+  color: var(--neon-pink) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 6px 14px !important;
+  border-radius: 30px !important;
+  letter-spacing: 1.5px !important;
+  margin-bottom: 24px !important;
+}
+
+.cc-login-title {
+  font-family: var(--font-orbitron) !important;
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1px !important;
+  margin: 0 0 8px 0 !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3) !important;
+}
+
+.cc-login-subtitle {
+  font-size: 12px !important;
+  color: var(--neon-cyan) !important;
+  margin-bottom: 36px !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 1px !important;
+}
+
+/* Form Inputs */
+.cc-input-group {
+  margin-bottom: 22px !important;
+  text-align: left !important;
+}
+
+.cc-input-label {
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 8px !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+}
+
+.cc-input-field {
+  width: 100% !important;
+  padding: 14px 18px !important;
+  background: rgba(5, 8, 20, 0.85) !important;
+  border: 1px solid rgba(139, 92, 246, 0.28) !important;
+  border-radius: 10px !important;
+  color: #ffffff !important;
+  font-size: 15px !important;
+  font-family: var(--font-mono) !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.cc-input-field:focus {
+  border-color: var(--neon-cyan) !important;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.3) !important;
+  background: rgba(8, 12, 28, 0.95) !important;
+}
+
+.cc-btn-primary {
+  width: 100% !important;
+  padding: 15px !important;
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #38bdf8 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 1px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  transition: all 0.25s ease !important;
+  box-shadow: 0 10px 30px rgba(236, 72, 153, 0.35) !important;
+}
+
+.cc-btn-primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 40px rgba(236, 72, 153, 0.55) !important;
+  filter: brightness(1.1) !important;
+}
+
+/* ==============================================================================
+   2. MAIN COMMAND CENTER SHELL
+   ============================================================================== */
+.cc-sidebar {
+  width: 270px !important;
+  min-height: 100vh !important;
+  background: rgba(7, 11, 26, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  flex-shrink: 0 !important;
+  box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.cc-sidebar-header {
+  padding: 24px 20px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.14) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.05) 0%, transparent 100%) !important;
+}
+
+.cc-brand-symbol {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple)) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  font-family: var(--font-orbitron) !important;
+  font-weight: 900 !important;
+  font-size: 20px !important;
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.45) !important;
+}
+
+.cc-brand-text {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.cc-brand-title {
+  font-family: var(--font-orbitron) !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1px !important;
+  color: #ffffff !important;
+}
+
+.cc-brand-sub {
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  color: var(--neon-cyan) !important;
+  letter-spacing: 1.5px !important;
+}
+
+.cc-sidebar-nav {
+  padding: 18px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  flex: 1 !important;
+  overflow-y: auto !important;
+}
+
+.cc-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 11px 16px !important;
+  border-radius: 10px !important;
+  color: var(--text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  text-align: left !important;
+  width: 100% !important;
+}
+
+.cc-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  transform: translateX(3px) !important;
+}
+
+.cc-nav-item.active {
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.2), rgba(139, 92, 246, 0.15)) !important;
+  border-color: var(--border-neon-pink) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.2) !important;
+}
+
+.cc-nav-badge {
+  margin-left: auto !important;
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: var(--neon-cyan) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+}
+
+.cc-sidebar-footer {
+  padding: 16px 20px !important;
+  border-top: 1px solid rgba(139, 92, 246, 0.14) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(4, 7, 18, 0.9) !important;
+}
+
+/* ==============================================================================
+   3. TOP COMMAND BAR (HUD HEADER)
+   ============================================================================== */
+.cc-main-wrapper {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.cc-topbar {
+  height: 72px !important;
+  background: rgba(8, 12, 28, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 0 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 90 !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.cc-topbar-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+.cc-status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 14px !important;
+  border-radius: 30px !important;
+  font-size: 11px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: var(--neon-green) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+.cc-pulse-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: var(--neon-green) !important;
+  box-shadow: 0 0 10px var(--neon-green) !important;
+  animation: ccPulseGlow 1.8s infinite !important;
+}
+
+@keyframes ccPulseGlow {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 14px var(--neon-green); }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.cc-topbar-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.cc-clock-display {
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  background: rgba(4, 7, 18, 0.8) !important;
+  padding: 8px 16px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ==============================================================================
+   4. CONTENT BODY & KPI GRID
+   ============================================================================== */
+.cc-content-body {
+  padding: 32px !important;
+  max-width: 1680px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+.cc-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  gap: 20px !important;
+  margin-bottom: 28px !important;
+}
+
+.cc-kpi-card {
+  background: var(--bg-surface) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 16px !important;
+  padding: 22px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all 0.25s ease !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.cc-kpi-card:hover {
+  border-color: var(--border-bright) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.15) !important;
+}
+
+.cc-kpi-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 14px !important;
+}
+
+.cc-kpi-title {
+  font-size: 11px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  color: var(--text-muted) !important;
+  letter-spacing: 1px !important;
+}
+
+.cc-kpi-icon {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.cc-kpi-value {
+  font-family: var(--font-orbitron) !important;
+  font-size: 28px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.5px !important;
+  color: #ffffff !important;
+  line-height: 1.1 !important;
+  margin-bottom: 8px !important;
+}
+
+.cc-kpi-trend {
+  font-size: 11px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.cc-kpi-trend.positive { color: var(--neon-green) !important; }
+.cc-kpi-trend.neutral { color: var(--neon-cyan) !important; }
+.cc-kpi-trend.warning { color: var(--neon-amber) !important; }
+
+/* ==============================================================================
+   5. TWO-COLUMN SPLIT & CARDS
+   ============================================================================== */
+.cc-dashboard-split {
+  display: grid !important;
+  grid-template-columns: 1fr 390px !important;
+  gap: 24px !important;
+  margin-bottom: 28px !important;
+}
+
+.cc-card {
+  background: var(--bg-surface) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.cc-card-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.14) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 14px !important;
+  background: rgba(13, 19, 39, 0.6) !important;
+}
+
+.cc-card-title {
+  font-family: var(--font-orbitron) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  color: #ffffff !important;
+}
+
+/* ==============================================================================
+   6. TERMINAL EVENT STREAM
+   ============================================================================== */
+.cc-terminal-feed {
+  background: rgba(4, 7, 18, 0.95) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: 16px !important;
+  font-family: var(--font-mono) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 560px !important;
+  box-shadow: 0 0 35px rgba(56, 189, 248, 0.12) !important;
+  overflow: hidden !important;
+}
+
+.cc-terminal-header {
+  padding: 14px 18px !important;
+  background: rgba(13, 19, 39, 0.95) !important;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--neon-cyan) !important;
+}
+
+.cc-terminal-body {
+  padding: 14px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.cc-feed-item {
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-left: 3px solid var(--neon-cyan) !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  transition: all 0.2s ease !important;
+  animation: ccSlideFade 0.25s ease-out !important;
+}
+
+@keyframes ccSlideFade {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.cc-feed-item.sale {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-left-color: var(--neon-green) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.2) !important;
+}
+
+.cc-feed-item.checkout {
+  background: rgba(236, 72, 153, 0.1) !important;
+  border-left-color: var(--neon-pink) !important;
+}
+
+.cc-feed-item.pix {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-left-color: var(--neon-amber) !important;
+}
+
+.cc-feed-time {
+  color: var(--text-dim) !important;
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+}
+
+.cc-feed-action {
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* ==============================================================================
+   7. FUNNEL VISUAL MAP
+   ============================================================================== */
+.cc-funnel-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  padding: 24px !important;
+}
+
+.cc-funnel-step {
+  background: rgba(5, 8, 20, 0.75) !important;
+  border: 1px solid rgba(139, 92, 246, 0.22) !important;
+  border-radius: 12px !important;
+  padding: 16px 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.cc-funnel-bar {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.25), rgba(139, 92, 246, 0.15)) !important;
+  z-index: 1 !important;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cc-funnel-content {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.cc-funnel-label {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.cc-funnel-stats {
+  display: flex !important;
+  align-items: center !important;
+  gap: 18px !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* ==============================================================================
+   8. DATA TABLES
+   ============================================================================== */
+.cc-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  text-align: left !important;
+  font-size: 13px !important;
+}
+
+.cc-table th {
+  background: rgba(4, 7, 18, 0.9) !important;
+  padding: 16px 20px !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.cc-table td {
+  padding: 16px 20px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1) !important;
+  color: var(--text-main) !important;
+  vertical-align: middle !important;
+}
+
+.cc-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.cc-status-dot {
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
+}
+
+.cc-status-dot.online {
+  background: var(--neon-green) !important;
+  box-shadow: 0 0 10px var(--neon-green) !important;
+}
+
+.cc-status-dot.idle {
+  background: var(--neon-amber) !important;
+}
+
+.cc-status-dot.offline {
+  background: var(--text-dim) !important;
+}
+
+/* ==============================================================================
+   9. TIMELINE DRAWER
+   ============================================================================== */
+.cc-drawer-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+.cc-drawer {
+  width: 500px !important;
+  max-width: 100% !important;
+  height: 100vh !important;
+  background: #080d20 !important;
+  border-left: 1px solid var(--border-bright) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.8) !important;
+  animation: ccDrawerSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes ccDrawerSlide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.cc-drawer-header {
+  padding: 24px 28px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(13, 19, 39, 0.8) !important;
+}
+
+.cc-drawer-body {
+  padding: 28px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}
+
+.cc-timeline {
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  padding-left: 28px !important;
+  margin-top: 24px !important;
+}
+
+.cc-timeline::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 8px !important;
+  top: 8px !important;
+  bottom: 8px !important;
+  width: 2px !important;
+  background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink)) !important;
+}
+
+.cc-timeline-item {
+  position: relative !important;
+  padding-bottom: 24px !important;
+}
+
+.cc-timeline-dot {
+  position: absolute !important;
+  left: -28px !important;
+  top: 2px !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  background: #080d20 !important;
+  border: 2px solid var(--neon-cyan) !important;
+  box-shadow: 0 0 10px var(--neon-cyan) !important;
+}
+
+.cc-timeline-item.active .cc-timeline-dot {
+  border-color: var(--neon-green) !important;
+  box-shadow: 0 0 14px var(--neon-green) !important;
+}
+
+/* ==============================================================================
+   10. RESPONSIVE ADAPTATIONS
+   ============================================================================== */
+@media (max-width: 1200px) {
+  .cc-dashboard-split {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .cc-sidebar {
+    display: none !important;
+  }
+  .cc-content-body {
+    padding: 16px !important;
+  }
+  .cc-topbar {
+    padding: 0 16px !important;
+  }
+}

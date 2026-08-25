@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle2, Copy, Check, QrCode, Lock, MessageSquare, Truck, ExternalLink } from "lucide-react";
+import { trackLiveEvent } from "../services/liveTracker";
 import "../styles/checkout.css";
 
 interface ThankYouPageProps {
@@ -63,6 +64,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
     if (copyText) {
       navigator.clipboard.writeText(copyText);
       setCopiedPix(true);
+      trackLiveEvent('pix_copied', { orderId: order?.id, path: window.location.pathname });
       setTimeout(() => setCopiedPix(false), 3000);
     }
   };

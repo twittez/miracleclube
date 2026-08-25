@@ -4,7 +4,9 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { ThankYouPage } from "./pages/ThankYouPage";
 import { TrackingPage } from "./pages/TrackingPage";
 import { RefundPolicyPage } from "./pages/RefundPolicyPage";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
+import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveTracker";
 import { captureUTMParams } from "./utils/utm";
 
 export function App() {
@@ -19,13 +21,18 @@ export function App() {
     // 2. Initialize Meta Pixel Browser Script (Once)
     initMetaPixel();
 
-    // 3. Track initial PageView
+    // 3. Initialize Miracle Control Center Live Telemetry Tracker & Heartbeat
+    initLiveTracker();
+
+    // 4. Track initial PageView
     trackPageView(window.location.pathname);
 
     const handlePopState = () => {
       const newPath = window.location.pathname;
       setCurrentPath(newPath);
       trackPageView(newPath);
+      trackLiveEvent('page_view', { path: newPath });
+      sendHeartbeat();
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -36,6 +43,8 @@ export function App() {
     window.history.pushState({}, "", path);
     setCurrentPath(path);
     trackPageView(path);
+    trackLiveEvent('page_view', { path });
+    sendHeartbeat();
     window.scrollTo(0, 0);
   };
 
@@ -73,6 +82,10 @@ export function App() {
         onNavigateHome={() => navigateTo("/")}
       />
     );
+  }
+
+  if (currentPath === "/admin" || currentPath.startsWith("/admin/")) {
+    return <AdminDashboardPage />;
   }
 
   if (

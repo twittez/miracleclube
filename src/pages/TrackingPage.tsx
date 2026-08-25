@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Truck, CheckCircle2, Package, MapPin, Clock, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { Search, Truck, CheckCircle2, Package, MapPin, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import "../styles/checkout.css";
 
 interface TrackingPageProps {
@@ -74,8 +74,6 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
     e.preventDefault();
     handleSearch();
   };
-
-  const isPaid = orderResult?.status === "paid";
 
   return (
     <div className="checkout-container">
@@ -273,61 +271,168 @@ export const TrackingPage: React.FC<TrackingPageProps> = ({ initialCode = "", on
         {orderResult && (
           <div className="checkout-card">
             <div style={{ borderBottom: "1px solid #F3F4F6", paddingBottom: "12px" }}>
-              <span style={{ fontSize: "0.72rem", color: "#666", textTransform: "uppercase" }}>Pedido Identificado</span>
+              <span style={{ fontSize: "0.72rem", color: "#666", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Pedido Identificado
+              </span>
               <h2 style={{ fontSize: "1.05rem", fontWeight: 800, color: "#111", margin: "2px 0 4px 0" }}>
-                Código: <span style={{ color: "#d8158a" }}>{orderResult.trackingReference}</span>
+                Código: <span style={{ color: "#d8158a" }}>{orderResult.trackingReference || orderResult.orderId}</span>
               </h2>
               {orderResult.customerName && (
-                <span style={{ fontSize: "0.8rem", color: "#374151", fontWeight: 600 }}>
-                  Cliente: {orderResult.customerName}
-                </span>
+                <div style={{ fontSize: "0.82rem", color: "#374151", fontWeight: 600 }}>
+                  Destinatário: {orderResult.customerName}
+                </div>
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "8px 0" }}>
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <div className="tracking-step-icon" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
-                  <CheckCircle2 size={18} />
-                </div>
+            {/* Banner de destaque baseado no status logístico */}
+            {orderResult.logisticStatus === 'in_transit' ? (
+              <div style={{
+                backgroundColor: "#F0FDF4",
+                border: "1.5px solid #22C55E",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px"
+              }}>
+                <Truck size={24} color="#16A34A" style={{ flexShrink: 0 }} />
                 <div>
-                  <strong style={{ fontSize: "0.88rem", color: "#111", display: "block" }}>Pedido Recebido</strong>
-                  <span style={{ fontSize: "0.78rem", color: "#666" }}>Registrado no sistema</span>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <div className="tracking-step-icon" style={{ backgroundColor: isPaid ? "#DCFCE7" : "#FEF3C7", color: isPaid ? "#16A34A" : "#D97706" }}>
-                  {isPaid ? <CheckCircle2 size={18} /> : <Clock size={18} />}
-                </div>
-                <div>
-                  <strong style={{ fontSize: "0.88rem", color: "#111", display: "block" }}>
-                    {isPaid ? "Pagamento Confirmado" : "Aguardando Pagamento Pix"}
+                  <strong style={{ fontSize: "0.9rem", color: "#15803D", display: "block" }}>
+                    Seu pedido está em transporte! 🚚
                   </strong>
-                  <span style={{ fontSize: "0.78rem", color: "#666" }}>
-                    {isPaid ? "Pagamento aprovado instantaneamente" : "Aguardando envio do comprovante Pix"}
+                  <span style={{ fontSize: "0.78rem", color: "#16A34A" }}>
+                    Objeto postado e em trânsito para a unidade de distribuição da sua cidade.
                   </span>
                 </div>
               </div>
-
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: isPaid ? 1 : 0.4 }}>
-                <div className="tracking-step-icon" style={{ backgroundColor: isPaid ? "#DBEAFE" : "#E5E7EB", color: isPaid ? "#2563EB" : "#9CA3AF" }}>
-                  <Package size={18} />
-                </div>
+            ) : orderResult.logisticStatus === 'delivered' ? (
+              <div style={{
+                backgroundColor: "#F0FDF4",
+                border: "1.5px solid #16A34A",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px"
+              }}>
+                <CheckCircle2 size={24} color="#16A34A" style={{ flexShrink: 0 }} />
                 <div>
-                  <strong style={{ fontSize: "0.88rem", color: "#111", display: "block" }}>Separação &amp; Embalagem</strong>
-                  <span style={{ fontSize: "0.78rem", color: "#666" }}>Conferência de qualidade em andamento</span>
+                  <strong style={{ fontSize: "0.9rem", color: "#15803D", display: "block" }}>
+                    Pedido Entregue! ✅
+                  </strong>
+                  <span style={{ fontSize: "0.78rem", color: "#16A34A" }}>
+                    Entregue com sucesso no seu endereço.
+                  </span>
                 </div>
               </div>
-
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: 0.4 }}>
-                <div className="tracking-step-icon" style={{ backgroundColor: "#E5E7EB", color: "#9CA3AF" }}>
-                  <MapPin size={18} />
-                </div>
+            ) : (
+              <div style={{
+                backgroundColor: "#EFF6FF",
+                border: "1.5px solid #3B82F6",
+                borderRadius: "8px",
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px"
+              }}>
+                <Package size={24} color="#2563EB" style={{ flexShrink: 0 }} />
                 <div>
-                  <strong style={{ fontSize: "0.88rem", color: "#111", display: "block" }}>Em Transporte para sua Região</strong>
-                  <span style={{ fontSize: "0.78rem", color: "#666" }}>Previsão de entrega em <strong>8 a 12 dias úteis</strong></span>
+                  <strong style={{ fontSize: "0.9rem", color: "#1D4ED8", display: "block" }}>
+                    Seu pedido está em separação! 📦
+                  </strong>
+                  <span style={{ fontSize: "0.78rem", color: "#3B82F6" }}>
+                    Estamos preparando e embalando com cuidado o seu produto no Centro Logístico SP.
+                  </span>
                 </div>
               </div>
+            )}
+
+            {/* Dynamic Timeline */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0px" }}>
+              {Array.isArray(orderResult.timeline) && orderResult.timeline.map((stepItem: any, idx: number) => {
+                const isLast = idx === orderResult.timeline.length - 1;
+                const isCompleted = stepItem.completed;
+                const isCurrent = stepItem.isCurrent;
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "flex-start",
+                      paddingBottom: isLast ? "0px" : "16px",
+                      borderLeft: isLast ? "none" : `2px ${isCurrent ? 'dashed #3B82F6' : isCompleted ? 'solid #DCFCE7' : 'dashed #E5E7EB'}`,
+                      marginLeft: "17px",
+                      paddingLeft: "20px",
+                      position: "relative",
+                      opacity: !isCompleted && !isCurrent ? 0.45 : 1
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: isCurrent ? "-13px" : "-11px",
+                        top: 0,
+                        width: isCurrent ? 24 : 20,
+                        height: isCurrent ? 24 : 20,
+                        borderRadius: "50%",
+                        backgroundColor: isCurrent ? "#DBEAFE" : isCompleted ? "#DCFCE7" : "#E5E7EB",
+                        color: isCurrent ? "#2563EB" : isCompleted ? "#16A34A" : "#9CA3AF",
+                        border: isCurrent ? "2px solid #3B82F6" : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      {idx === 0 ? <CheckCircle2 size={isCurrent ? 14 : 13} /> :
+                       idx === 1 ? <CheckCircle2 size={isCurrent ? 14 : 13} /> :
+                       idx === 2 ? <Package size={isCurrent ? 14 : 13} /> :
+                       idx === 3 ? <Truck size={isCurrent ? 14 : 13} /> :
+                       <MapPin size={isCurrent ? 14 : 13} />}
+                    </div>
+
+                    <div style={{ paddingTop: "1px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <strong style={{ fontSize: "0.88rem", color: isCurrent ? "#2563EB" : "#111" }}>
+                          {stepItem.title}
+                        </strong>
+                        {isCurrent && (
+                          <span style={{ fontSize: "0.72rem", color: "#2563EB", fontWeight: 700, backgroundColor: "#DBEAFE", padding: "1px 6px", borderRadius: "4px" }}>
+                            Status Atual
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: "0.78rem", color: "#666", display: "block", marginTop: "2px" }}>
+                        {stepItem.description}
+                      </span>
+                      {stepItem.date && (
+                        <span style={{ fontSize: "0.72rem", color: "#9CA3AF", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                          {stepItem.date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Aviso de prazo */}
+            <div style={{
+              backgroundColor: "#FFFBEB",
+              border: "1px solid #FCD34D",
+              borderRadius: "6px",
+              padding: "10px 12px",
+              display: "flex",
+              gap: "8px",
+              alignItems: "flex-start"
+            }}>
+              <AlertCircle size={16} color="#D97706" style={{ flexShrink: 0, marginTop: "1px" }} />
+              <p style={{ fontSize: "0.78rem", color: "#92400E", margin: 0, lineHeight: 1.55 }}>
+                {orderResult.logisticStatus === 'in_transit'
+                  ? "Seu pacote está em trânsito com a transportadora. O prazo de entrega estimado é de 8 a 12 dias úteis."
+                  : "Assim que seu pedido for despachado para a transportadora, o status avançará automaticamente para Em Transporte com atualizações diárias."}
+              </p>
             </div>
           </div>
         )}
