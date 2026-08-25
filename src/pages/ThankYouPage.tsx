@@ -65,6 +65,15 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
       navigator.clipboard.writeText(copyText);
       setCopiedPix(true);
       trackLiveEvent('pix_copied', { orderId: order?.id, path: window.location.pathname });
+
+      if (order?.id) {
+        fetch(`/api/orders/${order.id}/pix-copied`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: order.id, sessionId: sessionStorage.getItem('miracle_session_id') || '' })
+        }).catch(() => {});
+      }
+
       setTimeout(() => setCopiedPix(false), 3000);
     }
   };
