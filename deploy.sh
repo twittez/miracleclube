@@ -26,6 +26,12 @@ npm ci --silent
 echo "🔨 3/5 - Compilando frontend Vite para pasta dist/..."
 npm run build
 
+# 3.1 Sincronizar arquivos compilados para o web root do Nginx
+echo "📂 3.1/5 - Copiando build para /var/www/miraclebrasil..."
+sudo mkdir -p /var/www/miraclebrasil
+sudo cp -r "$PROJECT_DIR/dist/"* /var/www/miraclebrasil/
+sudo chmod -R 755 /var/www/miraclebrasil
+
 # 4. Recarregar o backend Node.js no PM2 sem interrupção
 echo "🔄 4/5 - Recarregando backend no PM2..."
 if pm2 list | grep -q "miracle-backend"; then
