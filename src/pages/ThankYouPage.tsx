@@ -24,7 +24,14 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
     if (typeof window === "undefined") return DEMO_ORDER;
     try {
       const stored = sessionStorage.getItem("miracle_order_" + orderId) || sessionStorage.getItem("miracle_latest_order");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          ...parsed,
+          id: parsed.id || parsed.orderId || orderId || DEMO_ORDER.id,
+          pix: parsed.pix || parsed.pixResult
+        };
+      }
     } catch (e) {}
     return { ...DEMO_ORDER, id: orderId || DEMO_ORDER.id };
   });
@@ -43,6 +50,7 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
           setOrder((prev: any) => ({
             ...prev,
             ...data,
+            id: data.id || data.orderId || prev?.id || orderId,
             pix: data.pix || data.pixResult || prev?.pix
           }));
         }
@@ -59,19 +67,51 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
     };
   }, [orderId]);
 
-  const handleCopyPix = () => {
-    const copyText = order?.pix?.copyPaste || order?.pix?.copy_paste || order?.pix?.qrCode;
-    if (copyText) {
-      navigator.clipboard.writeText(copyText);
-      setCopiedPix(true);
-      trackLiveEvent('pix_copied', { orderId: order?.id, path: window.location.pathname });
+  const handleCopyPix = async () => {
+    const currentOrderId = order?.id || order?.orderId || orderId;
+    const pixData = order?.pix || order?.pixResult;
+    const copyText = pixData?.copyPaste || pixData?.copy_paste || pixData?.qrcode || pixData?.qrCode || "";
 
-      if (order?.id) {
-        fetch(`/api/orders/${order.id}/pix-copied`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: order.id, sessionId: sessionStorage.getItem('miracle_session_id') || '' })
-        }).catch(() => {});
+    if (copyText) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(copyText);
+        } else {
+          throw new Error("Clipboard API unavailable");
+        }
+      } catch (clipErr) {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = copyText;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand("copy");
+          textArea.remove();
+        } catch (e) {
+          console.warn("Fallback copy failed", e);
+        }
+      }
+
+      setCopiedPix(true);
+      trackLiveEvent('pix_copied', { orderId: currentOrderId, path: window.location.pathname });
+
+      if (currentOrderId) {
+        try {
+          fetch(`/api/orders/${currentOrderId}/pix-copied`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: currentOrderId,
+              sessionId: sessionStorage.getItem('miracle_session_id') || ''
+            })
+          }).catch(() => {});
+        } catch (apiErr) {
+          console.error("Erro ao registrar pix copiado:", apiErr);
+        }
       }
 
       setTimeout(() => setCopiedPix(false), 3000);
@@ -170,7 +210,12 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
                 <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "4px" }}>
                   Pix Copia e Cola:
                 </label>
-                <div className="ty-copypaste-box">
+                <div
+                  className="ty-copypaste-box"
+                  onClick={handleCopyPix}
+                  style={{ cursor: "pointer" }}
+                  title="Clique para copiar o código Pix"
+                >
                   {copyPasteText}
                 </div>
               </div>

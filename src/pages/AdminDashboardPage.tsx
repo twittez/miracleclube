@@ -436,7 +436,9 @@ export const AdminDashboardPage: React.FC = () => {
             const data = parsed.data;
             setOrders((prev) =>
               prev.map((o) =>
-                o.id === data.orderId ? { ...o, pixCopied: true, pixCopiedAt: data.pixCopiedAt } : o
+                (o.id === data.orderId || o.trackingReference === data.orderId || o.id === data.trackingReference || o.trackingReference === data.trackingReference)
+                  ? { ...o, pixCopied: true, pixCopiedAt: data.pixCopiedAt }
+                  : o
               )
             );
             fetchAllData();

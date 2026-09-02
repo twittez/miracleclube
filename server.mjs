@@ -479,15 +479,37 @@ app.delete('/api/admin/declined-cards/:id', async (req, res) => {
 // API: Register PIX Copied event for an Order
 app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
   try {
-    const { orderId } = req.params;
-    let order = await db.getOrderAsync(orderId);
+    const rawOrderId = req.params.orderId || req.body?.orderId;
+    let order = await db.getOrderAsync(rawOrderId);
+    if (!order && req.body?.orderId) {
+      order = await db.getOrderAsync(req.body.orderId);
+    }
+
+    if (!order) {
+      const all = db.readDB();
+      for (const ord of Object.values(all.orders || {})) {
+        if (ord.id === rawOrderId || ord.trackingReference === rawOrderId || ord.pixResult?.transactionId === rawOrderId) {
+          order = ord;
+          break;
+        }
+      }
+    }
+
     if (!order) {
       return res.status(404).json({ error: 'Pedido não encontrado.' });
     }
 
+    const nowIso = new Date().toISOString();
     order.pixCopied = true;
-    order.pixCopiedAt = new Date().toISOString();
-    order.updatedAt = new Date().toISOString();
+    order.pixCopiedAt = nowIso;
+    if (!order.pixResult) order.pixResult = {};
+    order.pixResult.pixCopied = true;
+    order.pixResult.pixCopiedAt = nowIso;
+    if (order.pix) {
+      order.pix.pixCopied = true;
+      order.pix.pixCopiedAt = nowIso;
+    }
+    order.updatedAt = nowIso;
 
     await db.saveOrderAsync(order);
 
@@ -496,10 +518,10 @@ app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
       eventType: 'pix_copied',
       sessionId: req.body.sessionId || 'sess_unknown',
       visitorCode: '#PIX_COPIADO',
-      path: `/obrigado/${orderId}`,
+      path: `/obrigado/${order.id}`,
       customerName: order.customer?.name,
-      metadata: { orderId, amount: order.amount },
-      timestamp: new Date().toISOString()
+      metadata: { orderId: order.id, trackingReference: order.trackingReference, amount: order.amount },
+      timestamp: nowIso
     };
 
     globalSessionEvents.push(eventItem);
@@ -507,13 +529,14 @@ app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
 
     broadcastRealtime('pix_copied', {
       orderId: order.id,
+      trackingReference: order.trackingReference,
       customerName: order.customer?.name,
       amount: order.amount,
       pixCopiedAt: order.pixCopiedAt
     });
     broadcastRealtime('session_event', eventItem);
 
-    return res.json({ success: true, orderId, pixCopied: true, pixCopiedAt: order.pixCopiedAt });
+    return res.json({ success: true, orderId: order.id, pixCopied: true, pixCopiedAt: order.pixCopiedAt });
   } catch (err) {
     console.error('[Pix Copied API Error]:', err);
     return res.status(500).json({ error: 'Erro ao registrar cópia do Pix.' });
@@ -682,11 +705,13 @@ app.post('/api/payments/pix', async (req, res) => {
 
     return res.json({
       success: true,
+      id: orderId,
       orderId,
       trackingReference: trackingRef,
       status: 'pending_payment',
       amount: orderRecord.amount,
-      pix: pixResult
+      pix: pixResult,
+      pixResult
     });
   } catch (err) {
     console.error('Payment endpoint error:', err);
@@ -750,12 +775,16 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
   }
 
   return res.json({
+    id: order.id,
     orderId: order.id,
     trackingReference: order.trackingReference,
     status: order.status,
     orderStatus: order.orderStatus,
     amount: order.amount,
     pix: order.pixResult,
+    pixResult: order.pixResult,
+    pixCopied: !!(order.pixCopied || order.pixResult?.pixCopied),
+    pixCopiedAt: order.pixCopiedAt || order.pixResult?.pixCopiedAt || null,
     createdAt: order.createdAt,
     meta_purchase_sent: !!order.meta_purchase_sent
   });
