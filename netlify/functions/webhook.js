@@ -148,6 +148,73 @@ exports.handler = async (event) => {
         }
       }
 
+      // 6. Dispatch TikTok Events API CompletePayment Server-Side
+      const TIKTOK_PIXEL_ID = process.env.TIKTOK_PIXEL_ID || 'DAB50ARC77UEOA3OAHCG';
+      const TIKTOK_ACCESS_TOKEN = process.env.TIKTOK_ACCESS_TOKEN || '9eec830b89505ec914c07b60a0ffcaed5e50cc6d';
+      let tiktokSent = false;
+
+      if (TIKTOK_ACCESS_TOKEN && !TIKTOK_ACCESS_TOKEN.includes('PLACEHOLDER')) {
+        try {
+          const clientIp = event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for']?.split(',')[0] || '127.0.0.1';
+          const userAgent = event.headers['user-agent'] || '';
+          const eventId = `purchase_${orderId}`;
+
+          let cleanPhone = (userPhone || '').replace(/\D/g, '');
+          if (cleanPhone && !cleanPhone.startsWith('55')) cleanPhone = '55' + cleanPhone;
+          const hashedPhone = cleanPhone ? crypto.createHash('sha256').update('+' + cleanPhone).digest('hex') : undefined;
+
+          const tiktokPayload = {
+            event_source: 'web',
+            event_source_id: TIKTOK_PIXEL_ID,
+            data: [
+              {
+                event: 'CompletePayment',
+                event_time: Math.floor(Date.now() / 1000),
+                event_id: eventId,
+                user: {
+                  email: userEmail ? hashSHA256(userEmail) : undefined,
+                  phone_number: hashedPhone,
+                  ttclid: order?.utm?.ttclid || undefined,
+                  ttp: order?.utm?.ttp || undefined
+                },
+                context: {
+                  ip: clientIp,
+                  user_agent: userAgent,
+                  page: { url: 'https://miraclebelt.com.br/obrigado' }
+                },
+                properties: {
+                  currency: 'BRL',
+                  value: Number(amountVal),
+                  content_type: 'product',
+                  contents: [
+                    {
+                      content_id: 'CMFBPM001-BFPP',
+                      content_type: 'product',
+                      quantity: 1,
+                      price: Number(amountVal)
+                    }
+                  ]
+                }
+              }
+            ]
+          };
+
+          console.log(`[TikTok Events API Webhook] Dispatching CompletePayment for Order ${orderId}...`);
+          const ttRes = await fetch('https://business-api.tiktok.com/open_api/v1.3/event/track/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Token': TIKTOK_ACCESS_TOKEN
+            },
+            body: JSON.stringify(tiktokPayload)
+          });
+          const ttData = await ttRes.json();
+          tiktokSent = ttRes.ok && ttData.code === 0;
+        } catch (ttErr) {
+          console.error('[TikTok Events API Webhook Error]:', ttErr.message);
+        }
+      }
+
       return {
         statusCode: 200,
         headers,
@@ -157,7 +224,8 @@ exports.handler = async (event) => {
           orderId,
           status: 'paid',
           utmify: utmifyResult,
-          capiSent
+          capiSent,
+          tiktokSent
         })
       };
     }

@@ -16,6 +16,7 @@ import { AuthModal } from "../components/AuthModal";
 import { InstitutionalModal, type InstitutionalTab } from "../components/InstitutionalModal";
 import { useCart } from "../contexts/CartContext";
 import { trackViewContent, trackAddToCart } from "../services/metaPixel";
+import { trackTikTokViewContent, trackTikTokAddToCart } from "../services/tiktokPixel";
 import "./ProductLandingPage.css";
 
 interface ProductLandingPageProps {
@@ -44,6 +45,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       name: product.name,
       price: product.price,
     });
+    trackTikTokViewContent({
+      id: "CMFBPM001-BFPP",
+      name: product.name,
+      price: product.price,
+    });
   }, []);
 
   const handleAddToCart = (qty: number, variation: ProductVariation, size: ProductSize) => {
@@ -59,6 +65,12 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
 
     // Track AddToCart ONLY when product is actually added
     trackAddToCart({
+      id: "CMFBPM001-BFPP",
+      name: product.name,
+      price: product.price,
+      quantity: qty,
+    });
+    trackTikTokAddToCart({
       id: "CMFBPM001-BFPP",
       name: product.name,
       price: product.price,

@@ -8,6 +8,8 @@ export interface UTMParams {
   gclid?: string;
   fbp?: string;
   fbc?: string;
+  ttclid?: string;
+  ttp?: string;
   user_agent?: string;
 }
 
@@ -33,6 +35,7 @@ export function captureUTMParams(): UTMParams {
     "utm_term",
     "fbclid",
     "gclid",
+    "ttclid",
   ];
 
   const currentParams: UTMParams = {};
@@ -56,6 +59,13 @@ export function captureUTMParams(): UTMParams {
     fbc = `fb.1.${Date.now()}.${fbclid}`;
   }
   if (fbc) currentParams.fbc = fbc;
+
+  // TikTok Cookie (_ttp) & ttclid
+  const ttp = getCookie("_ttp");
+  if (ttp) currentParams.ttp = ttp;
+
+  const ttclid = currentParams.ttclid || urlParams.get("ttclid");
+  if (ttclid) currentParams.ttclid = ttclid;
 
   if (typeof navigator !== "undefined") {
     currentParams.user_agent = navigator.userAgent;

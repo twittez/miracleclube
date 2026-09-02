@@ -3,6 +3,7 @@ import { X, Minus, Plus, Trash2, ArrowRight, Sparkles, Check } from 'lucide-reac
 import { useCart } from '../contexts/CartContext';
 import { formatCurrency } from '../utils/formatters';
 import { trackInitiateCheckout } from '../services/metaPixel';
+import { trackTikTokInitiateCheckout } from '../services/tiktokPixel';
 import { product } from '../data/product';
 import './CartDrawer.css';
 
@@ -119,12 +120,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
   const handleFinalizeCheckout = () => {
     // Single Point of Dispatch for InitiateCheckout
     const totalQty = cartItems.reduce((acc, item) => acc + item.quantity, 0) || 1;
-    trackInitiateCheckout({
+    const checkoutEventId = trackInitiateCheckout({
       id: "CMFBPM001-BFPP",
       name: product.name,
       price: product.price,
       quantity: totalQty
     });
+    trackTikTokInitiateCheckout({
+      id: "CMFBPM001-BFPP",
+      name: product.name,
+      price: product.price,
+      quantity: totalQty
+    }, checkoutEventId);
 
     onClose();
     if (onCheckout) onCheckout();

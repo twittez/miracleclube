@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
+import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,23 +91,35 @@ setInterval(() => {
   }
 }, 30000);
 
-// Helper to trigger CAPI Purchase with deduplication guard
+// Helper to trigger Meta CAPI & TikTok Events API Purchase with deduplication guard
 async function triggerCapiPurchase(order, req) {
   if (!order || !order.id) return { success: false, reason: 'INVALID_ORDER' };
 
-  if (order.meta_purchase_sent) {
-    console.log(`[CAPI Guard] Purchase already sent for Order ${order.id} (ID: ${order.meta_purchase_event_id}). Skipping duplicate CAPI call.`);
-    return { success: true, duplicate: true };
+  const purchaseEventId = `purchase_${order.id}`;
+
+  let metaResult = { success: true, duplicate: true };
+  if (!order.meta_purchase_sent) {
+    order.meta_purchase_sent = true;
+    order.meta_purchase_event_id = purchaseEventId;
+    order.meta_purchase_sent_at = new Date().toISOString();
+    await db.saveOrderAsync(order);
+    metaResult = await sendMetaCapiEvent('Purchase', purchaseEventId, order, req);
+  } else {
+    console.log(`[CAPI Guard] Meta Purchase already sent for Order ${order.id} (ID: ${order.meta_purchase_event_id}). Skipping duplicate Meta CAPI call.`);
   }
 
-  const purchaseEventId = `purchase_${order.id}`;
-  order.meta_purchase_sent = true;
-  order.meta_purchase_event_id = purchaseEventId;
-  order.meta_purchase_sent_at = new Date().toISOString();
+  let tiktokResult = { success: true, duplicate: true };
+  if (!order.tiktok_purchase_sent) {
+    order.tiktok_purchase_sent = true;
+    order.tiktok_purchase_event_id = purchaseEventId;
+    order.tiktok_purchase_sent_at = new Date().toISOString();
+    await db.saveOrderAsync(order);
+    tiktokResult = await sendTikTokEvent('CompletePayment', purchaseEventId, order, req);
+  } else {
+    console.log(`[TikTok Guard] TikTok CompletePayment already sent for Order ${order.id} (ID: ${order.tiktok_purchase_event_id}). Skipping duplicate TikTok call.`);
+  }
 
-  await db.saveOrderAsync(order);
-
-  return await sendMetaCapiEvent('Purchase', purchaseEventId, order, req);
+  return { success: true, meta: metaResult, tiktok: tiktokResult };
 }
 
 // ==============================================================================
@@ -592,15 +605,17 @@ app.post('/api/payments/pix', async (req, res) => {
 
         if (bhResponse.ok) {
           const bhData = JSON.parse(bhText);
-          const qrCodeUrl = bhData.pix?.qrcode || bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '';
-          const copyPasteStr = bhData.pix?.copy_paste || bhData.pix?.copyPaste || bhData.pix?.qrcode || '';
+          const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
+          const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
+            ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
+            : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
 
           if (copyPasteStr) {
             pixResult = {
               transactionId: bhData.id || `BH-${Date.now()}`,
-              qrCode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              qrCode: qrCodeUrl,
               copyPaste: copyPasteStr,
-              qrcode: qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`,
+              qrcode: copyPasteStr,
               copy_paste: copyPasteStr
             };
           }
@@ -641,6 +656,7 @@ app.post('/api/payments/pix', async (req, res) => {
       pixResult,
       utm: utm || {},
       meta_purchase_sent: false,
+      tiktok_purchase_sent: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

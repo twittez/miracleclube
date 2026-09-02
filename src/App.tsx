@@ -6,6 +6,7 @@ import { TrackingPage } from "./pages/TrackingPage";
 import { RefundPolicyPage } from "./pages/RefundPolicyPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
+import { initTikTokPixel, trackTikTokPageView } from "./services/tiktokPixel";
 import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveTracker";
 import { captureUTMParams } from "./utils/utm";
 
@@ -58,19 +59,22 @@ export function App() {
     // 1. Capture UTMs and Meta cookies (_fbp, _fbc)
     captureUTMParams();
 
-    // 2. Initialize Meta Pixel Browser Script (Once)
+    // 2. Initialize Meta & TikTok Pixel Browser Scripts (Once)
     initMetaPixel();
+    initTikTokPixel();
 
     // 3. Initialize Miracle Control Center Live Telemetry Tracker & Heartbeat
     initLiveTracker();
 
     // 4. Track initial PageView
     trackPageView(window.location.pathname);
+    trackTikTokPageView(window.location.pathname);
 
     const handlePopState = () => {
       const newPath = window.location.pathname;
       setCurrentPath(newPath);
       trackPageView(newPath);
+      trackTikTokPageView(newPath);
       trackLiveEvent('page_view', { path: newPath });
       sendHeartbeat();
     };
@@ -83,6 +87,7 @@ export function App() {
     window.history.pushState({}, "", path);
     setCurrentPath(path);
     trackPageView(path);
+    trackTikTokPageView(path);
     trackLiveEvent('page_view', { path });
     sendHeartbeat();
     window.scrollTo(0, 0);
