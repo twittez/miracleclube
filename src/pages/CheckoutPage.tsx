@@ -4,8 +4,6 @@ import { useCart } from "../contexts/CartContext";
 import { fetchAddressByCep } from "../utils/viacep";
 import { formatCurrency, formatCPF, formatPhone, formatCEP, isValidCPF } from "../utils/formatters";
 import { captureUTMParams } from "../utils/utm";
-import { trackPixGenerated } from "../services/metaPixel";
-import { trackTikTokCompletePayment } from "../services/tiktokPixel";
 import { trackLiveEvent, associateCustomerWithSession } from "../services/liveTracker";
 import "../styles/checkout.css";
 
@@ -295,9 +293,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           sessionStorage.setItem("miracle_latest_order", JSON.stringify(data));
         } catch (e) {}
 
-        // Track Custom Event PixGenerated & TikTok CompletePayment immediately
-        trackPixGenerated({ id: data.orderId, total: finalPrice });
-        trackTikTokCompletePayment({ id: data.orderId, total: finalPrice });
+        // Somente telemetria de controle interno - NENHUM evento de conversão disparado enquanto estiver pendente
         trackLiveEvent('pix_generated', { orderId: data.orderId, amount: finalPrice });
 
         onNavigateToThankYou(data.orderId);

@@ -181,14 +181,16 @@ export function trackInitiateCheckout(
 }
 
 /**
- * Track Purchase & PixGenerated immediately on Pix order creation
+ * Track Purchase event ONLY when the order is confirmed as PAID
  */
-export function trackPixGenerated(order: { id: string; total: number }): void {
+export function trackPurchase(
+  order: { id: string; total: number },
+  customEventId?: string
+): void {
   if (typeof window === "undefined" || !window.fbq) return;
 
-  const eventId = `purchase_${order.id}`;
+  const eventId = customEventId || `purchase_${order.id}`;
 
-  // 1. Dispatch Standard Purchase Event
   window.fbq(
     "track",
     "Purchase",
@@ -202,7 +204,15 @@ export function trackPixGenerated(order: { id: string; total: number }): void {
     { eventID: eventId }
   );
 
-  // 2. Dispatch Custom PixGenerated Event
+  console.log("[Meta Pixel] Purchase tracked for PAID order:", { order, eventId });
+}
+
+/**
+ * Track Custom PixGenerated event (Optional custom metric for pending PIX - NOT Purchase)
+ */
+export function trackPixGenerated(order: { id: string; total: number }): void {
+  if (typeof window === "undefined" || !window.fbq) return;
+
   window.fbq(
     "trackCustom",
     "PixGenerated",
@@ -214,5 +224,5 @@ export function trackPixGenerated(order: { id: string; total: number }): void {
     { eventID: `pix_gen_${order.id}` }
   );
 
-  console.log("[Meta Pixel] Purchase & PixGenerated tracked immediately on Pix creation:", { order, eventId });
+  console.log("[Meta Pixel] PixGenerated custom metric tracked:", { order });
 }

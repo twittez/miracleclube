@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle2, Copy, Check, QrCode, Lock, MessageSquare, Truck, ExternalLink } from "lucide-react";
 import { trackLiveEvent } from "../services/liveTracker";
+import { trackPurchase } from "../services/metaPixel";
+import { trackTikTokCompletePayment } from "../services/tiktokPixel";
 import "../styles/checkout.css";
 
 interface ThankYouPageProps {
@@ -66,6 +68,28 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
       if (intervalId) clearInterval(intervalId);
     };
   }, [orderId]);
+
+  const isPaid = order?.status === "paid" || order?.orderStatus === "paid";
+
+  // Dispara eventos de conversão (Meta Purchase e TikTok CompletePayment) APENAS SE ESTIVER PAGO
+  useEffect(() => {
+    if (isPaid && order?.id && order.id !== "ORD-2026-DEMO") {
+      const sessionKey = `purchase_tracked_${order.id}`;
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, "true");
+        const eventId = `purchase_${order.id}`;
+        const total = Number(order.amount || 0);
+
+        // 1. Meta Pixel Standard Purchase Event (Browser)
+        trackPurchase({ id: order.id, total }, eventId);
+
+        // 2. TikTok Pixel Standard CompletePayment Event (Browser)
+        trackTikTokCompletePayment({ id: order.id, total }, eventId);
+
+        console.log("[Conversion] Fired Purchase & CompletePayment because order is PAID:", order.id);
+      }
+    }
+  }, [isPaid, order?.id, order?.amount]);
 
   const handleCopyPix = async () => {
     const currentOrderId = order?.id || order?.orderId || orderId;
@@ -136,7 +160,6 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
     );
   }
 
-  const isPaid = order?.status === "paid" || order?.orderStatus === "paid";
   const pixData = order?.pix;
   const copyPasteText = pixData?.copyPaste || pixData?.copy_paste;
   let rawQr = pixData?.qrCode || pixData?.qrcode || pixData?.qrCodeUrl || copyPasteText;
