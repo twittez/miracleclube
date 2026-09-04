@@ -37,7 +37,9 @@ import {
   Truck,
   Copy,
   ExternalLink,
-  X
+  X,
+  Sliders,
+  CheckCheck
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -168,7 +170,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [pinInput, setPinInput] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
 
-  // Active Tab State (12 Navigation Sections)
+  // Active Tab State (13 Navigation Sections)
   const [activeTab, setActiveTab] = useState<
     | 'dashboard'
     | 'live'
@@ -178,11 +180,33 @@ export const AdminDashboardPage: React.FC = () => {
     | 'declined'
     | 'orders'
     | 'payments'
+    | 'gateways'
     | 'receipts'
     | 'traffic'
     | 'analytics'
     | 'settings'
   >('dashboard');
+
+  // Gateway Settings State
+  const [gatewaySettings, setGatewaySettings] = useState<{
+    activeGateway: 'axxonpay' | 'beehive';
+    fallbackToBeehive: boolean;
+    axxonpay: { secretKey: string; publicKey: string };
+    beehive: { apiKey: string };
+  }>({
+    activeGateway: 'axxonpay',
+    fallbackToBeehive: true,
+    axxonpay: {
+      secretKey: 'sk_72642b2864b48ec909e1258a5ec9a8fee63bd57079ce26d3705b32cd43741365',
+      publicKey: 'pk_8519c01597936f76f7d364735a5a36b0'
+    },
+    beehive: { apiKey: '' }
+  });
+  const [isSavingGateway, setIsSavingGateway] = useState<boolean>(false);
+  const [gatewayFeedback, setGatewayFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedGatewayWebhook, setCopiedGatewayWebhook] = useState<string | null>(null);
+  const [testPixLoading, setTestPixLoading] = useState<boolean>(false);
+  const [testPixResult, setTestPixResult] = useState<any | null>(null);
 
   // Realtime Data State
   const [visitors, setVisitors] = useState<LiveVisitor[]>([]);
@@ -328,11 +352,12 @@ export const AdminDashboardPage: React.FC = () => {
   const fetchAllData = async () => {
     try {
       setRefreshing(true);
-      const [ordersRes, visitorsRes, funnelRes, declinedRes] = await Promise.allSettled([
+      const [ordersRes, visitorsRes, funnelRes, declinedRes, gatewayRes] = await Promise.allSettled([
         fetch('/api/admin/orders'),
         fetch('/api/admin/visitors/live'),
         fetch('/api/admin/funnel'),
-        fetch('/api/admin/declined-cards')
+        fetch('/api/admin/declined-cards'),
+        fetch('/api/admin/gateway-settings')
       ]);
 
       if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
@@ -353,6 +378,19 @@ export const AdminDashboardPage: React.FC = () => {
       if (declinedRes.status === 'fulfilled' && declinedRes.value.ok) {
         const data = await declinedRes.value.json();
         setDeclinedCards(data.declinedCards || []);
+      }
+
+      if (gatewayRes.status === 'fulfilled' && gatewayRes.value.ok) {
+        const gData = await gatewayRes.value.json();
+        if (gData.activeGateway) {
+          setGatewaySettings((prev) => ({
+            ...prev,
+            activeGateway: gData.activeGateway,
+            fallbackToBeehive: gData.fallbackToBeehive ?? true,
+            axxonpay: gData.axxonpay || prev.axxonpay,
+            beehive: gData.beehive || prev.beehive
+          }));
+        }
       }
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
@@ -447,6 +485,10 @@ export const AdminDashboardPage: React.FC = () => {
             setDeclinedCards((prev) => prev.filter((c) => c.id !== data.id));
           } else if (parsed.type === 'pix_generated' || parsed.type === 'order_paid') {
             fetchAllData();
+          } else if (parsed.type === 'gateway_updated') {
+            if (parsed.data?.activeGateway) {
+              setGatewaySettings((prev) => ({ ...prev, activeGateway: parsed.data.activeGateway }));
+            }
           }
         } catch {}
       };
@@ -463,6 +505,71 @@ export const AdminDashboardPage: React.FC = () => {
       clearInterval(pollingInterval);
     };
   }, [isAuthenticated]);
+
+  // Save Gateway Settings to Backend
+  const handleSaveGatewaySettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingGateway(true);
+    setGatewayFeedback(null);
+    try {
+      const res = await fetch('/api/admin/gateway-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gatewaySettings)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGatewayFeedback({
+          success: true,
+          message: data.message || `Gateway ativo alterado para ${gatewaySettings.activeGateway.toUpperCase()} com sucesso!`
+        });
+        fetchAllData();
+      } else {
+        setGatewayFeedback({ success: false, message: data.error || 'Erro ao salvar configurações do gateway.' });
+      }
+    } catch {
+      setGatewayFeedback({ success: false, message: 'Erro de conexão com o servidor ao salvar.' });
+    } finally {
+      setIsSavingGateway(false);
+    }
+  };
+
+  // Live Test Pix Generation via Active Gateway
+  const handleTestPixGeneration = async () => {
+    setTestPixLoading(true);
+    setTestPixResult(null);
+    try {
+      const testOrderId = `TEST-${Date.now().toString(36).toUpperCase()}`;
+      const res = await fetch('/api/payments/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: testOrderId,
+          items: [{ id: 'CMFBPM001-BFPP', title: 'Cinta Body Modelador - Teste Admin', unitPrice: 10332, quantity: 1 }],
+          customer: {
+            name: 'Cliente Teste Miracle',
+            email: 'teste@miraclebrasil.com',
+            phone: '11999999999',
+            cpf: '05284345105'
+          },
+          shipping: {
+            street: 'Avenida Paulista',
+            number: '1000',
+            city: 'São Paulo',
+            state: 'SP',
+            cep: '01310100'
+          },
+          utm: { utm_source: 'admin_test' }
+        })
+      });
+      const data = await res.json();
+      setTestPixResult(data);
+    } catch (err: any) {
+      setTestPixResult({ success: false, error: err.message });
+    } finally {
+      setTestPixLoading(false);
+    }
+  };
 
   // Fetch Timeline when Visitor Drawer Opens
   const handleOpenVisitorDrawer = async (sessionId: string) => {
@@ -812,6 +919,21 @@ export const AdminDashboardPage: React.FC = () => {
           <button className={`cc-nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
             <CreditCard size={16} style={{ color: '#06b6d4' }} />
             Pagamentos PIX
+          </button>
+
+          <button className={`cc-nav-item ${activeTab === 'gateways' ? 'active' : ''}`} onClick={() => setActiveTab('gateways')}>
+            <Sliders size={16} style={{ color: '#10b981' }} />
+            Gateways PIX
+            <span
+              className="cc-nav-badge"
+              style={{
+                color: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#06b6d4',
+                borderColor: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#06b6d4',
+                background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16,185,129,0.15)' : 'rgba(6,182,212,0.15)'
+              }}
+            >
+              {gatewaySettings.activeGateway === 'axxonpay' ? 'AXXON' : 'BEEHIVE'}
+            </span>
           </button>
 
           <button className={`cc-nav-item ${activeTab === 'traffic' ? 'active' : ''}`} onClick={() => setActiveTab('traffic')}>
@@ -1870,6 +1992,431 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
                   <div style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>PIX LIVE & WEBHOOK</div>
                   <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>https://miraclebrasil.com/api/webhooks/beehive</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================
+              TAB: ORQUESTRADOR DE GATEWAYS DE PAGAMENTO PIX
+              ========================================================= */}
+          {activeTab === 'gateways' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Top Banner / Feedback */}
+              {gatewayFeedback && (
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    borderRadius: '8px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '13px',
+                    background: gatewayFeedback.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: gatewayFeedback.success ? '#10b981' : '#ef4444',
+                    border: `1px solid ${gatewayFeedback.success ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  {gatewayFeedback.success ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                  <span>{gatewayFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Main Orchestrator Card */}
+              <div className="cc-card">
+                <div className="cc-card-header" style={{ justifyContent: 'space-between' }}>
+                  <div className="cc-card-title">
+                    <Sliders size={18} style={{ color: '#10b981' }} />
+                    <span>Orquestrador de Gateway Pix & Checkout Transparente</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>GATEWAY ATIVO:</span>
+                    <span
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        letterSpacing: '0.05em',
+                        background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                        color: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#38bdf8',
+                        border: `1px solid ${gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`
+                      }}
+                    >
+                      {gatewaySettings.activeGateway === 'axxonpay' ? '⚡ AXXONPAY (PRIMÁRIO)' : '🐝 BEEHIVE (PRIMÁRIO)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ padding: '24px' }}>
+                  <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+                    Escolha qual provedor processará os pagamentos Pix gerados no checkout da Miracle. Você pode alternar instantaneamente entre a <strong style={{ color: '#fff' }}>AxxonPay</strong> e a <strong style={{ color: '#fff' }}>Beehive</strong>, ajustar as chaves de API e configurar os webhooks de confirmação de pagamento.
+                  </p>
+
+                  <form onSubmit={handleSaveGatewaySettings}>
+                    {/* Gateway Selection Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                      
+                      {/* Card 1: AxxonPay */}
+                      <div
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'axxonpay' }))}
+                        style={{
+                          border: `2px solid ${gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.04)' : 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="radio"
+                              name="activeGateway"
+                              checked={gatewaySettings.activeGateway === 'axxonpay'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'axxonpay' }))}
+                              style={{ accentColor: '#10b981', cursor: 'pointer', width: '18px', height: '18px' }}
+                            />
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>AxxonPay</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>
+                              NOVO & RECOMENDADO
+                            </span>
+                          </div>
+                        </div>
+
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                          Gateway moderno com liquidação rápida e suporte a Webhook direto para disparo no UTMify, Meta CAPI e TikTok Events.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">SECRET KEY (sk_...)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.axxonpay.secretKey}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                axxonpay: { ...prev.axxonpay, secretKey: e.target.value }
+                              }))}
+                              placeholder="sk_..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">PUBLIC KEY / SELLER ID (pk_...)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.axxonpay.publicKey}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                axxonpay: { ...prev.axxonpay, publicKey: e.target.value }
+                              }))}
+                              placeholder="pk_..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          {/* Webhook Box */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK PARA O PAINEL AXXONPAY:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/axxonpay');
+                                  setCopiedGatewayWebhook('axxonpay');
+                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: copiedGatewayWebhook === 'axxonpay' ? '#10b981' : '#38bdf8',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: 0
+                                }}
+                              >
+                                {copiedGatewayWebhook === 'axxonpay' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'axxonpay' ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                              https://miraclebrasil.com/api/webhooks/axxonpay
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 2: Beehive */}
+                      <div
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
+                        style={{
+                          border: `2px solid ${gatewaySettings.activeGateway === 'beehive' ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'beehive' ? 'rgba(56, 189, 248, 0.04)' : 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="radio"
+                              name="activeGateway"
+                              checked={gatewaySettings.activeGateway === 'beehive'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
+                              style={{ accentColor: '#38bdf8', cursor: 'pointer', width: '18px', height: '18px' }}
+                            />
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Beehive</span>
+                          </div>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontWeight: 700 }}>
+                            SECUNDÁRIO / BACKUP
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                          Gateway alternativo configurado como redundância para garantir 100% de disponibilidade no checkout.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">CHAVE DE API / TOKEN BEEHIVE</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.beehive.apiKey}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                beehive: { ...prev.beehive, apiKey: e.target.value }
+                              }))}
+                              placeholder="Chave Beehive (opcional se já no .env)"
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          {/* Webhook Box */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK BEEHIVE:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/beehive');
+                                  setCopiedGatewayWebhook('beehive');
+                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: copiedGatewayWebhook === 'beehive' ? '#10b981' : '#38bdf8',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: 0
+                                }}
+                              >
+                                {copiedGatewayWebhook === 'beehive' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'beehive' ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                              https://miraclebrasil.com/api/webhooks/beehive
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Fallback Switch */}
+                    <div
+                      style={{
+                        padding: '16px 20px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '24px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <ShieldCheck size={22} style={{ color: '#10b981' }} />
+                        <div>
+                          <div style={{ color: '#fff', fontSize: '14px', fontWeight: 600 }}>
+                            Proteção Anti-Perda de Vendas (Fallback Automático)
+                          </div>
+                          <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '2px' }}>
+                            Se o gateway primário estiver fora do ar ou com lentidão momentânea, o checkout alterna instantaneamente para o gateway de contingência.
+                          </div>
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={gatewaySettings.fallbackToBeehive}
+                          onChange={(e) => setGatewaySettings(prev => ({ ...prev, fallbackToBeehive: e.target.checked }))}
+                          style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: gatewaySettings.fallbackToBeehive ? '#10b981' : '#64748b' }}>
+                          {gatewaySettings.fallbackToBeehive ? 'ATIVADO' : 'DESATIVADO'}
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Save & Test Buttons */}
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                      <button
+                        type="submit"
+                        className="cc-btn-primary"
+                        disabled={isSavingGateway}
+                        style={{ minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      >
+                        <CheckCircle size={16} />
+                        {isSavingGateway ? 'SALVANDO ALTERAÇÕES...' : 'SALVAR CONFIGURAÇÕES'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleTestPixGeneration}
+                        disabled={testPixLoading}
+                        style={{
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.4)',
+                          color: '#38bdf8',
+                          borderRadius: '6px',
+                          padding: '10px 20px',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          cursor: testPixLoading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <Zap size={16} />
+                        {testPixLoading ? 'GERANDO PIX TESTE...' : 'TESTAR GERAÇÃO DE PIX AGORA'}
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Test Pix Result Display */}
+                  {testPixResult && (
+                    <div
+                      style={{
+                        marginTop: '24px',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        background: testPixResult.success ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.06)',
+                        border: `1px solid ${testPixResult.success ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {testPixResult.success ? (
+                            <CheckCircle size={18} style={{ color: '#10b981' }} />
+                          ) : (
+                            <AlertCircle size={18} style={{ color: '#ef4444' }} />
+                          )}
+                          <span style={{ fontWeight: 700, fontSize: '14px', color: testPixResult.success ? '#10b981' : '#ef4444' }}>
+                            {testPixResult.success ? 'PIX DE TESTE GERADO COM SUCESSO!' : 'ERRO AO GERAR PIX DE TESTE'}
+                          </span>
+                        </div>
+                        {testPixResult.gateway && (
+                          <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono, monospace', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.08)', color: '#94a3b8' }}>
+                            GATEWAY: {testPixResult.gateway.toUpperCase()} {testPixResult.fallback ? '(FALLBACK ATIVADO)' : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      {testPixResult.success ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                          {testPixResult.qrCode && (
+                            <div style={{ textAlign: 'center', background: '#fff', padding: '12px', borderRadius: '8px', maxWidth: '180px' }}>
+                              <img
+                                src={testPixResult.qrCode.startsWith('data:image') ? testPixResult.qrCode : `data:image/png;base64,${testPixResult.qrCode}`}
+                                alt="QR Code Pix"
+                                style={{ width: '100%', height: 'auto', display: 'block' }}
+                              />
+                              <span style={{ fontSize: '10px', color: '#333', fontWeight: 600 }}>Escaneie para pagar</span>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#64748b' }}>TRANSACTION ID:</span>
+                              <div style={{ fontSize: '12px', fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>
+                                {testPixResult.transactionId || 'N/A'}
+                              </div>
+                            </div>
+
+                            {testPixResult.copyPaste && (
+                              <div>
+                                <span style={{ fontSize: '11px', color: '#64748b' }}>CÓDIGO PIX COPIA E COLA:</span>
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                  <input
+                                    readOnly
+                                    value={testPixResult.copyPaste}
+                                    style={{
+                                      flex: 1,
+                                      background: 'rgba(0,0,0,0.4)',
+                                      border: '1px solid rgba(255,255,255,0.1)',
+                                      borderRadius: '4px',
+                                      padding: '6px 10px',
+                                      fontSize: '11px',
+                                      color: '#cbd5e1',
+                                      fontFamily: 'JetBrains Mono, monospace'
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(testPixResult.copyPaste);
+                                      alert('Código Pix Copiado com sucesso!');
+                                    }}
+                                    style={{
+                                      background: 'rgba(16, 185, 129, 0.2)',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      color: '#10b981',
+                                      borderRadius: '4px',
+                                      padding: '6px 12px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Copiar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: '#fca5a5', fontFamily: 'JetBrains Mono, monospace' }}>
+                          {testPixResult.error || JSON.stringify(testPixResult)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>
