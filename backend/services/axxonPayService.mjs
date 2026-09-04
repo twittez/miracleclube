@@ -2,8 +2,9 @@ import crypto from 'crypto';
 
 /**
  * Service for AxxonPay Gateway Integration
- * Host: https://api.axxonpay.com.br
- * Primary endpoint: POST /api/v1/payments
+ * Documentation: https://axxonpay.readme.io/reference/createdirectpayment
+ * Primary endpoint: POST /api/v1/direct/payment
+ * Authentication: axxon-gateway-publickey & axxon-gateway-secretkey
  */
 
 const AXXONPAY_API_URL = process.env.AXXONPAY_API_URL || 'https://api.axxonpay.com.br';
@@ -11,7 +12,7 @@ const DEFAULT_SECRET_KEY = process.env.AXXONPAY_SECRET_KEY || 'sk_72642b2864b48e
 const DEFAULT_PUBLIC_KEY = process.env.AXXONPAY_PUBLIC_KEY || 'pk_8519c01597936f76f7d364735a5a36b0';
 
 /**
- * Generate a Pix charge with AxxonPay
+ * Generate a Pix charge with AxxonPay Direct Payment API
  * @param {Object} order - Order object containing amount, customer, items, etc.
  * @param {Object} credentials - Optional override for { secretKey, publicKey }
  * @returns {Promise<Object>} - Standardized pix payload
@@ -21,37 +22,35 @@ export async function createPixPayment(order, credentials = {}) {
   const publicKey = credentials.publicKey || DEFAULT_PUBLIC_KEY;
 
   const rawAmount = Number(order.amount || 103.32);
-  const amount = Number(rawAmount.toFixed(2));
+  const amountCentavos = Math.round(rawAmount * 100);
 
   const cleanPhone = String(order.customer?.phone || '').replace(/\D/g, '');
   const cleanCpf = String(order.customer?.cpf || '').replace(/\D/g, '');
   const customerName = String(order.customer?.name || 'Cliente Miracle').trim();
   const customerEmail = String(order.customer?.email || 'cliente@miraclebrasil.com').trim();
 
-  const orderUuid = crypto.randomUUID();
-
   const payload = {
+    amount: amountCentavos,
     paymentMethod: 'pix',
-    amount: amount,
-    quantity: 1,
-    currency: 'BRL',
-    country: 'BRA',
-    sellerId: publicKey,
-    orderId: orderUuid,
     description: order.items?.[0]?.title || `Pedido Miracle Belt #${order.id || order.trackingReference || 'MB'}`,
-    postBackUrl: 'https://miraclebrasil.com/api/webhooks/axxonpay',
-    metadata: JSON.stringify({
-      orderId: order.id,
-      trackingReference: order.trackingReference,
-      internalOrderId: orderUuid
-    }),
+    postbackUrl: 'https://miraclebrasil.com/api/webhooks/axxonpay',
     customer: {
       name: customerName,
       email: customerEmail,
-      phone: cleanPhone.length === 11 ? cleanPhone : `11${cleanPhone.slice(-9)}`,
+      phone: cleanPhone.length >= 10 ? cleanPhone : '11999999999',
       document: {
-        number: cleanCpf || '05284345105',
+        number: cleanCpf || '08852175350',
         type: cleanCpf.length > 11 ? 'cnpj' : 'cpf'
+      }
+    },
+    metadata: {
+      orderId: order.id,
+      trackingReference: order.trackingReference,
+      attribution: {
+        utm_source: order.utm?.utm_source || 'direct',
+        utm_medium: order.utm?.utm_medium || '',
+        utm_campaign: order.utm?.utm_campaign || '',
+        utm_content: order.utm?.utm_content || ''
       }
     }
   };
@@ -60,26 +59,23 @@ export async function createPixPayment(order, credentials = {}) {
   if (order.shipping?.street) {
     payload.customer.address = {
       street: order.shipping.street,
-      number: order.shipping.number || 'SN',
-      complement: order.shipping.complement || '',
+      number: String(order.shipping.number || 'SN'),
       neighborhood: order.shipping.neighborhood || 'Centro',
       city: order.shipping.city || 'São Paulo',
       state: (order.shipping.state || 'SP').toUpperCase().slice(0, 2),
-      postalCode: String(order.shipping.cep || '01310100').replace(/\D/g, '')
+      zipCode: String(order.shipping.cep || '01310100').replace(/\D/g, '')
     };
   }
 
-  console.log(`[AxxonPay] Initiating Pix payment for Order ${order.id} (R$ ${amount})...`);
+  console.log(`[AxxonPay Direct] Initiating Pix payment for Order ${order.id} (R$ ${rawAmount.toFixed(2)} / ${amountCentavos} centavos)...`);
 
   try {
-    const response = await fetch(`${AXXONPAY_API_URL}/api/v1/payments`, {
+    const response = await fetch(`${AXXONPAY_API_URL}/api/v1/direct/payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${secretKey}`,
-        'x-api-key': secretKey,
-        'x-secret-key': secretKey,
-        'x-public-key': publicKey
+        'axxon-gateway-publickey': publicKey,
+        'axxon-gateway-secretkey': secretKey
       },
       body: JSON.stringify(payload)
     });
@@ -104,34 +100,10 @@ export async function createPixPayment(order, credentials = {}) {
 
     console.log('[AxxonPay Success]:', data);
 
-    // Extract Pix QR Code and Copy/Paste code from various potential response schemas
-    const copyPaste = 
-      data.pix?.copyPaste || 
-      data.pix?.copy_paste || 
-      data.pix?.emv || 
-      data.pix?.payload ||
-      data.pix?.code ||
-      data.copyPaste || 
-      data.copy_paste || 
-      data.emv || 
-      data.qrcode || 
-      data.qrCode || 
-      data.pixCode || 
-      '';
-
-    const qrCode = 
-      data.pix?.qrCodeUrl || 
-      data.pix?.qrCode || 
-      data.qrCodeUrl || 
-      data.qrCode || 
-      copyPaste;
-
-    const transactionId = 
-      data.transactionId || 
-      data.id || 
-      data.paymentId || 
-      data.pix?.transactionId || 
-      orderUuid;
+    const paymentData = data.data || data;
+    const copyPaste = paymentData.qrCode || paymentData.pix?.copyPaste || paymentData.pix?.qrcode || '';
+    const qrCodeImage = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPaste)}`;
+    const transactionId = paymentData.id || paymentData.externalId || `AXXON-${Date.now()}`;
 
     return {
       success: true,
@@ -139,11 +111,10 @@ export async function createPixPayment(order, credentials = {}) {
       transactionId,
       copyPaste,
       copy_paste: copyPaste,
-      qrCode,
+      qrCode: qrCodeImage,
       qrcode: copyPaste,
-      status: data.status || 'pending',
-      amount: amount,
-      orderUuid,
+      status: (paymentData.status || 'PENDING').toLowerCase(),
+      amount: rawAmount,
       raw: data
     };
   } catch (err) {

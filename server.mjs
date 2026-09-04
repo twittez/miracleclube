@@ -940,8 +940,10 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
     const rawStatus = String(
       event?.status ||
       event?.data?.status ||
+      event?.transaction?.status ||
       event?.paymentStatus ||
       event?.event ||
+      event?.type ||
       ''
     ).toLowerCase().trim();
 
@@ -949,6 +951,7 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
       event?.id ||
       event?.transactionId ||
       event?.data?.id ||
+      event?.transaction?.id ||
       event?.paymentId ||
       ''
     ).trim();
@@ -957,10 +960,12 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
       event?.metadata?.orderId ||
       event?.orderId ||
       event?.data?.orderId ||
+      event?.data?.order_id ||
+      event?.transaction?.reference_id ||
       event?.metadata?.trackingReference;
 
-    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'success', 'pago'];
-    const isPaid = validPaidStatuses.includes(rawStatus);
+    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'success', 'pago', 'transaction.paid', 'payment.approved'];
+    const isPaid = validPaidStatuses.some(s => rawStatus.includes(s));
 
     if (isPaid) {
       let order = null;
