@@ -937,43 +937,77 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
     const event = req.body;
     console.log('[AxxonPay Webhook Received]:', JSON.stringify(event));
 
-    const rawStatus = String(
-      event?.status ||
+    // 1. Check all event names and status fields
+    const eventName = String(event?.event || event?.type || '').toLowerCase().trim();
+    const dataStatus = String(
       event?.data?.status ||
+      event?.status ||
       event?.transaction?.status ||
       event?.paymentStatus ||
-      event?.event ||
-      event?.type ||
       ''
     ).toLowerCase().trim();
 
+    const validPaidStatuses = [
+      'finished', 'paid', 'approved', 'settled', 'completed', 'success', 'pago',
+      'payment.approved', 'transaction.paid', 'payment.paid'
+    ];
+
+    const isPaid = validPaidStatuses.some(s => eventName.includes(s) || dataStatus.includes(s));
+
+    // 2. Parse metadata (which AxxonPay sends as a JSON string inside data.metadata)
+    let parsedMetadata = {};
+    const rawMeta = event?.data?.metadata || event?.metadata;
+    if (typeof rawMeta === 'string') {
+      try {
+        parsedMetadata = JSON.parse(rawMeta);
+      } catch (e) {
+        console.warn('[AxxonPay Webhook] Failed to parse metadata string:', e.message);
+      }
+    } else if (rawMeta && typeof rawMeta === 'object') {
+      parsedMetadata = rawMeta;
+    }
+
     const transactionId = String(
+      event?.data?.id ||
       event?.id ||
       event?.transactionId ||
-      event?.data?.id ||
+      event?.data?.externalId ||
+      event?.externalId ||
       event?.transaction?.id ||
       event?.paymentId ||
       ''
     ).trim();
 
     const metaOrderId =
-      event?.metadata?.orderId ||
-      event?.orderId ||
+      parsedMetadata?.orderId ||
+      parsedMetadata?.trackingReference ||
       event?.data?.orderId ||
       event?.data?.order_id ||
+      event?.orderId ||
+      event?.metadata?.orderId ||
       event?.transaction?.reference_id ||
       event?.metadata?.trackingReference;
 
-    const validPaidStatuses = ['paid', 'approved', 'settled', 'completed', 'success', 'pago', 'transaction.paid', 'payment.approved'];
-    const isPaid = validPaidStatuses.some(s => rawStatus.includes(s));
+    console.log(`[AxxonPay Webhook Parsed] isPaid: ${isPaid} | event: ${eventName} | status: ${dataStatus} | orderId: ${metaOrderId} | txId: ${transactionId}`);
 
     if (isPaid) {
       let order = null;
-      if (transactionId) {
+      if (metaOrderId) {
+        order = await db.getOrderAsync(metaOrderId);
+      }
+      if (!order && transactionId) {
         order = await db.getOrderByTransactionIdAsync(transactionId);
       }
-      if (!order && metaOrderId) {
-        order = await db.getOrderAsync(metaOrderId);
+
+      // If still not found, search in DB by customer email or transaction ID inside pixResult
+      if (!order) {
+        const allDb = readDB();
+        const ordersList = Object.values(allDb.orders || {});
+        order = ordersList.find(o => 
+          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
+          (metaOrderId && (o.id === metaOrderId || o.trackingReference === metaOrderId)) ||
+          (event?.data?.customerEmail && o.customer?.email?.toLowerCase() === event.data.customerEmail.toLowerCase())
+        );
       }
 
       if (order) {
@@ -981,15 +1015,24 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
         order.orderStatus = 'paid';
         order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
+        order.gateway = 'axxonpay';
         await db.saveOrderAsync(order);
 
-        console.log(`[AxxonPay Webhook] Order ${order.id} confirmed as PAID. Dispatching to UTMify, Meta CAPI & TikTok...`);
+        console.log(`[AxxonPay Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
 
         // Dispatch to UTMify
-        await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        try {
+          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        } catch (utmErr) {
+          console.error('[AxxonPay Webhook] UTMify dispatch error:', utmErr.message);
+        }
 
         // Trigger Meta CAPI & TikTok Events API
-        await triggerCapiPurchase(order, req);
+        try {
+          await triggerCapiPurchase(order, req);
+        } catch (capiErr) {
+          console.error('[AxxonPay Webhook] CAPI dispatch error:', capiErr.message);
+        }
 
         // Broadcast to Control Center
         broadcastRealtime('order_paid', {
@@ -1000,6 +1043,8 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
           gateway: 'axxonpay',
           timestamp: new Date().toISOString()
         });
+      } else {
+        console.warn(`[AxxonPay Webhook] Order NOT FOUND for txId: ${transactionId}, orderId: ${metaOrderId}`);
       }
     }
 
@@ -1007,6 +1052,46 @@ app.post('/api/webhooks/axxonpay', async (req, res) => {
   } catch (err) {
     console.error('[AxxonPay Webhook Error]:', err);
     return res.status(500).json({ error: 'Erro no processamento do webhook AxxonPay.' });
+  }
+});
+
+// Reconcile and manually approve an order
+app.post('/api/admin/orders/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let order = await db.getOrderAsync(id);
+    if (!order) {
+      const allDb = readDB();
+      order = allDb.orders?.[id] || Object.values(allDb.orders || {}).find(o => o.id === id || o.trackingReference === id);
+    }
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    order.status = 'paid';
+    order.orderStatus = 'paid';
+    order.approvedAt = new Date().toISOString();
+    order.updatedAt = new Date().toISOString();
+    await db.saveOrderAsync(order);
+
+    console.log(`[Manual Order Approval] Order ${order.id} approved. Dispatching to UTMify & TikTok...`);
+    await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+    await triggerCapiPurchase(order, req);
+
+    broadcastRealtime('order_paid', {
+      orderId: order.id,
+      trackingReference: order.trackingReference,
+      amount: order.amount,
+      customerName: order.customer?.name,
+      gateway: order.gateway || 'axxonpay',
+      timestamp: new Date().toISOString()
+    });
+
+    return res.json({ success: true, message: `Pedido ${order.id} aprovado com sucesso!`, order });
+  } catch (err) {
+    console.error('[Manual Approve Error]:', err);
+    return res.status(500).json({ error: 'Erro ao aprovar pedido.' });
   }
 });
 
@@ -1548,6 +1633,43 @@ if (fs.existsSync(DIST_PATH)) {
   });
 }
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Payment Backend Server running on http://localhost:${PORT}`);
+
+  // Auto-reconcile known paid orders from AxxonPay
+  try {
+    const knownPaidOrderIds = ['ORD-2026-76F2B916', 'ORD-2026-5C6A3EC7'];
+    for (const orderId of knownPaidOrderIds) {
+      let order = await db.getOrderAsync(orderId);
+      if (order && order.status !== 'paid') {
+        order.status = 'paid';
+        order.orderStatus = 'paid';
+        order.approvedAt = new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        order.gateway = 'axxonpay';
+        await db.saveOrderAsync(order);
+        console.log(`[Auto-Reconcile] Order ${orderId} confirmed as PAID. Dispatching to UTMify & TikTok...`);
+        try {
+          await sendUtmifyOrder(order, 'paid', { force: true });
+        } catch (e) {
+          console.error(`[Auto-Reconcile UTMify Error] ${orderId}:`, e.message);
+        }
+        try {
+          await triggerCapiPurchase(order);
+        } catch (e) {
+          console.error(`[Auto-Reconcile CAPI Error] ${orderId}:`, e.message);
+        }
+        broadcastRealtime('order_paid', {
+          orderId: order.id,
+          trackingReference: order.trackingReference,
+          amount: order.amount,
+          customerName: order.customer?.name,
+          gateway: 'axxonpay',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  } catch (recErr) {
+    console.warn('[Auto-Reconcile Warning]:', recErr.message);
+  }
 });
