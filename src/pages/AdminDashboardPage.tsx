@@ -40,7 +40,8 @@ import {
   X,
   Sliders,
   CheckCheck,
-  Receipt
+  Receipt,
+  Calendar
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -274,6 +275,10 @@ export const AdminDashboardPage: React.FC = () => {
   const [trafficChannelFilter, setTrafficChannelFilter] = useState<'all' | 'meta' | 'tiktok' | 'other'>('all');
   const [trafficStatusFilter, setTrafficStatusFilter] = useState<'paid' | 'all' | 'pending'>('paid');
   const [trafficSearchQuery, setTrafficSearchQuery] = useState<string>('');
+  const [trafficDatePreset, setTrafficDatePreset] = useState<'all' | 'today' | 'yesterday' | '7d' | '14d' | '30d' | 'this_month' | 'last_month' | 'custom'>('all');
+  const [trafficStartDate, setTrafficStartDate] = useState<string>('');
+  const [trafficEndDate, setTrafficEndDate] = useState<string>('');
+  const [trafficSelectedDay, setTrafficSelectedDay] = useState<string | null>(null);
 
   const toggleHideCard = (cardId: string) => {
     setHiddenCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
@@ -900,11 +905,94 @@ export const AdminDashboardPage: React.FC = () => {
     }));
   }, [orders]);
 
-  // Executive Channel Statistics (Meta vs TikTok)
+  // Helper: Get Brazil YYYY-MM-DD Date Key
+  const getBrazilDateKey = (isoString?: string): string => {
+    if (!isoString) return '';
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date(isoString));
+    } catch {
+      return '';
+    }
+  };
+
+  // Helper: Format Date for Display in Daily Table
+  const formatDisplayDate = (ymd: string): string => {
+    if (!ymd) return '-';
+    try {
+      const [year, month, day] = ymd.split('-');
+      const date = new Date(Number(year), Number(month) - 1, Number(day));
+      const weekday = date.toLocaleDateString('pt-BR', { weekday: 'short' }).toUpperCase().replace('.', '');
+      const formattedDate = `${day}/${month}/${year}`;
+
+      const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(yesterdayDate);
+
+      if (ymd === todayYmd) {
+        return `${formattedDate} (${weekday}) • HOJE`;
+      }
+      if (ymd === yesterdayYmd) {
+        return `${formattedDate} (${weekday}) • ONTEM`;
+      }
+      return `${formattedDate} (${weekday})`;
+    } catch {
+      return ymd;
+    }
+  };
+
+  // Date Filtered Traffic Orders based on preset or custom range or specific selected day
+  const dateFilteredTrafficOrders = useMemo(() => {
+    const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+
+    const getPastYmd = (daysAgo: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d);
+    };
+
+    const currentYearMonth = todayYmd.slice(0, 7);
+    const now = new Date();
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastYearMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(lastMonthDate);
+
+    return trafficOrders.filter((order) => {
+      const orderDateKey = getBrazilDateKey(order.createdAt);
+      if (!orderDateKey) return true;
+
+      // If user specifically clicked on a single day in the daily table:
+      if (trafficSelectedDay) {
+        return orderDateKey === trafficSelectedDay;
+      }
+
+      if (trafficDatePreset === 'all') return true;
+      if (trafficDatePreset === 'today') return orderDateKey === todayYmd;
+      if (trafficDatePreset === 'yesterday') return orderDateKey === getPastYmd(1);
+      if (trafficDatePreset === '7d') return orderDateKey >= getPastYmd(6) && orderDateKey <= todayYmd;
+      if (trafficDatePreset === '14d') return orderDateKey >= getPastYmd(13) && orderDateKey <= todayYmd;
+      if (trafficDatePreset === '30d') return orderDateKey >= getPastYmd(29) && orderDateKey <= todayYmd;
+      if (trafficDatePreset === 'this_month') return orderDateKey.startsWith(currentYearMonth);
+      if (trafficDatePreset === 'last_month') return orderDateKey.startsWith(lastYearMonth);
+      if (trafficDatePreset === 'custom') {
+        if (trafficStartDate && orderDateKey < trafficStartDate) return false;
+        if (trafficEndDate && orderDateKey > trafficEndDate) return false;
+        return true;
+      }
+
+      return true;
+    });
+  }, [trafficOrders, trafficDatePreset, trafficStartDate, trafficEndDate, trafficSelectedDay]);
+
+  // Executive Channel Statistics (Meta vs TikTok) for the active date range
   const channelStats = useMemo(() => {
-    const metaOrders = trafficOrders.filter((o) => o.trafficOrigin === 'meta');
-    const tiktokOrders = trafficOrders.filter((o) => o.trafficOrigin === 'tiktok');
-    const otherOrders = trafficOrders.filter((o) => o.trafficOrigin !== 'meta' && o.trafficOrigin !== 'tiktok');
+    const metaOrders = dateFilteredTrafficOrders.filter((o) => o.trafficOrigin === 'meta');
+    const tiktokOrders = dateFilteredTrafficOrders.filter((o) => o.trafficOrigin === 'tiktok');
+    const otherOrders = dateFilteredTrafficOrders.filter((o) => o.trafficOrigin !== 'meta' && o.trafficOrigin !== 'tiktok');
 
     const metaPaid = metaOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
     const tiktokPaid = tiktokOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
@@ -968,11 +1056,118 @@ export const AdminDashboardPage: React.FC = () => {
       totalPaidRevenue,
       totalPaidCount: metaPaid.length + tiktokPaid.length + otherPaid.length
     };
+  }, [dateFilteredTrafficOrders]);
+
+  // Daily breakdown of sales by origin (Meta vs TikTok vs Other per day)
+  const dailyTrafficStats = useMemo(() => {
+    // Only group paid orders for the sales breakdown
+    const paidOrders = trafficOrders.filter(o => o.status === 'paid' || o.orderStatus === 'paid');
+    
+    const map: Record<string, {
+      dateKey: string;
+      displayDate: string;
+      metaCount: number;
+      metaRevenue: number;
+      metaAvgTicket: number;
+      tiktokCount: number;
+      tiktokRevenue: number;
+      tiktokAvgTicket: number;
+      otherCount: number;
+      otherRevenue: number;
+      totalCount: number;
+      totalRevenue: number;
+      metaShare: number;
+      tiktokShare: number;
+    }> = {};
+
+    paidOrders.forEach((order) => {
+      const dateKey = getBrazilDateKey(order.createdAt);
+      if (!dateKey) return;
+
+      if (!map[dateKey]) {
+        map[dateKey] = {
+          dateKey,
+          displayDate: formatDisplayDate(dateKey),
+          metaCount: 0,
+          metaRevenue: 0,
+          metaAvgTicket: 0,
+          tiktokCount: 0,
+          tiktokRevenue: 0,
+          tiktokAvgTicket: 0,
+          otherCount: 0,
+          otherRevenue: 0,
+          totalCount: 0,
+          totalRevenue: 0,
+          metaShare: 0,
+          tiktokShare: 0
+        };
+      }
+
+      const amount = Number(order.amount) || 0;
+      const origin = order.trafficOrigin;
+
+      if (origin === 'meta') {
+        map[dateKey].metaCount++;
+        map[dateKey].metaRevenue += amount;
+      } else if (origin === 'tiktok') {
+        map[dateKey].tiktokCount++;
+        map[dateKey].tiktokRevenue += amount;
+      } else {
+        map[dateKey].otherCount++;
+        map[dateKey].otherRevenue += amount;
+      }
+
+      map[dateKey].totalCount++;
+      map[dateKey].totalRevenue += amount;
+    });
+
+    return Object.values(map)
+      .map((day) => ({
+        ...day,
+        metaAvgTicket: day.metaCount > 0 ? day.metaRevenue / day.metaCount : 0,
+        tiktokAvgTicket: day.tiktokCount > 0 ? day.tiktokRevenue / day.tiktokCount : 0,
+        metaShare: day.totalRevenue > 0 ? (day.metaRevenue / day.totalRevenue) * 100 : 0,
+        tiktokShare: day.totalRevenue > 0 ? (day.tiktokRevenue / day.totalRevenue) * 100 : 0
+      }))
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
   }, [trafficOrders]);
+
+  // Filtered Daily Stats (matches date preset or custom range, unless specific day is selected)
+  const filteredDailyStats = useMemo(() => {
+    const todayYmd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    const getPastYmd = (daysAgo: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d);
+    };
+    const currentYearMonth = todayYmd.slice(0, 7);
+    const now = new Date();
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastYearMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(lastMonthDate);
+
+    return dailyTrafficStats.filter((day) => {
+      const k = day.dateKey;
+      if (trafficSelectedDay) return k === trafficSelectedDay;
+      if (trafficDatePreset === 'all') return true;
+      if (trafficDatePreset === 'today') return k === todayYmd;
+      if (trafficDatePreset === 'yesterday') return k === getPastYmd(1);
+      if (trafficDatePreset === '7d') return k >= getPastYmd(6) && k <= todayYmd;
+      if (trafficDatePreset === '14d') return k >= getPastYmd(13) && k <= todayYmd;
+      if (trafficDatePreset === '30d') return k >= getPastYmd(29) && k <= todayYmd;
+      if (trafficDatePreset === 'this_month') return k.startsWith(currentYearMonth);
+      if (trafficDatePreset === 'last_month') return k.startsWith(lastYearMonth);
+      if (trafficDatePreset === 'custom') {
+        if (trafficStartDate && k < trafficStartDate) return false;
+        if (trafficEndDate && k > trafficEndDate) return false;
+        return true;
+      }
+      return true;
+    });
+  }, [dailyTrafficStats, trafficDatePreset, trafficStartDate, trafficEndDate, trafficSelectedDay]);
 
   // Filtered Traffic Orders
   const filteredTrafficOrders = useMemo(() => {
-    return trafficOrders.filter((order) => {
+    return dateFilteredTrafficOrders.filter((order) => {
       if (trafficChannelFilter !== 'all' && order.trafficOrigin !== trafficChannelFilter) return false;
 
       if (trafficStatusFilter === 'paid' && order.status !== 'paid' && order.orderStatus !== 'paid') return false;
@@ -1006,7 +1201,53 @@ export const AdminDashboardPage: React.FC = () => {
       }
       return true;
     });
-  }, [trafficOrders, trafficChannelFilter, trafficStatusFilter, trafficSearchQuery]);
+  }, [dateFilteredTrafficOrders, trafficChannelFilter, trafficStatusFilter, trafficSearchQuery]);
+
+  // CSV Export for Daily Breakdown
+  const handleExportDailyCSV = () => {
+    if (filteredDailyStats.length === 0) return;
+    const headers = [
+      'Data',
+      'Data Formatada',
+      'Vendas Meta Ads',
+      'Faturamento Meta (R$)',
+      'Ticket Medio Meta (R$)',
+      'Vendas TikTok Ads',
+      'Faturamento TikTok (R$)',
+      'Ticket Medio TikTok (R$)',
+      'Vendas Outros/Direto',
+      'Faturamento Outros/Direto (R$)',
+      'Total Vendas do Dia',
+      'Faturamento Total (R$)',
+      'Share Meta (%)',
+      'Share TikTok (%)'
+    ];
+    const rows = filteredDailyStats.map((d) => [
+      d.dateKey,
+      d.displayDate,
+      d.metaCount,
+      d.metaRevenue.toFixed(2),
+      d.metaAvgTicket.toFixed(2),
+      d.tiktokCount,
+      d.tiktokRevenue.toFixed(2),
+      d.tiktokAvgTicket.toFixed(2),
+      d.otherCount,
+      d.otherRevenue.toFixed(2),
+      d.totalCount,
+      d.totalRevenue.toFixed(2),
+      d.metaShare.toFixed(1) + '%',
+      d.tiktokShare.toFixed(1) + '%'
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `vendas_diarias_meta_tiktok_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // CSV Export for Traffic Screen
   const handleExportTrafficCSV = () => {
@@ -2701,6 +2942,174 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Interactive Date Filter Bar */}
+              <div
+                className="cc-card"
+                style={{
+                  padding: '16px 20px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)'
+                }}
+              >
+                {/* Left: Date Presets */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px' }}>
+                    <Calendar size={15} style={{ color: '#38bdf8' }} />
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Período:
+                    </span>
+                  </div>
+
+                  {[
+                    { id: 'all', label: 'Todo o Período' },
+                    { id: 'today', label: 'Hoje' },
+                    { id: 'yesterday', label: 'Ontem' },
+                    { id: '7d', label: 'Últimos 7 Dias' },
+                    { id: '14d', label: 'Últimos 14 Dias' },
+                    { id: '30d', label: 'Últimos 30 Dias' },
+                    { id: 'this_month', label: 'Este Mês' },
+                    { id: 'last_month', label: 'Mês Passado' }
+                  ].map((preset) => {
+                    const isActive = trafficDatePreset === preset.id && !trafficSelectedDay;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                          background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                          color: isActive ? '#38bdf8' : '#cbd5e1'
+                        }}
+                        onClick={() => {
+                          setTrafficDatePreset(preset.id as any);
+                          setTrafficSelectedDay(null);
+                          setTrafficStartDate('');
+                          setTrafficEndDate('');
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Right: Custom Date Range & Reset */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#94a3b8' }}>
+                    <span>De:</span>
+                    <input
+                      type="date"
+                      className="cc-input-field"
+                      style={{ padding: '4px 8px', fontSize: '11px', width: '130px' }}
+                      value={trafficStartDate}
+                      onChange={(e) => {
+                        setTrafficStartDate(e.target.value);
+                        setTrafficDatePreset('custom');
+                        setTrafficSelectedDay(null);
+                      }}
+                    />
+                    <span>Até:</span>
+                    <input
+                      type="date"
+                      className="cc-input-field"
+                      style={{ padding: '4px 8px', fontSize: '11px', width: '130px' }}
+                      value={trafficEndDate}
+                      onChange={(e) => {
+                        setTrafficEndDate(e.target.value);
+                        setTrafficDatePreset('custom');
+                        setTrafficSelectedDay(null);
+                      }}
+                    />
+                  </div>
+
+                  {(trafficDatePreset !== 'all' || trafficSelectedDay || trafficStartDate || trafficEndDate) && (
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#f87171',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      onClick={() => {
+                        setTrafficDatePreset('all');
+                        setTrafficSelectedDay(null);
+                        setTrafficStartDate('');
+                        setTrafficEndDate('');
+                      }}
+                      title="Resetar filtro de data"
+                    >
+                      <X size={12} /> Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Single Day Alert Banner */}
+              {trafficSelectedDay && (
+                <div
+                  style={{
+                    padding: '12px 18px',
+                    borderRadius: '10px',
+                    marginBottom: '20px',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid #38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Calendar size={16} style={{ color: '#38bdf8' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>
+                      Exibindo dados específicos do dia: <strong style={{ color: '#38bdf8' }}>{formatDisplayDate(trafficSelectedDay)}</strong>
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                      (Cards, métricas e listagem de pedidos filtrados para esta data)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      background: 'rgba(255,255,255,0.1)',
+                      border: 'none',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onClick={() => setTrafficSelectedDay(null)}
+                  >
+                    <X size={13} /> Ver Todos os Dias
+                  </button>
+                </div>
+              )}
+
               {/* Top Executive KPI Cards */}
               <div
                 style={{
@@ -3045,6 +3454,238 @@ export const AdminDashboardPage: React.FC = () => {
                       {trafficChannelFilter === 'all' ? '✓ Exibindo Todos os Canais' : 'Clique para ver Todos →'}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Daily Sales Table: Meta vs TikTok by Day */}
+              <div className="cc-card" style={{ marginBottom: '24px' }}>
+                <div
+                  className="cc-card-header"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '16px 20px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                  }}
+                >
+                  <div>
+                    <div className="cc-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Calendar size={16} style={{ color: '#38bdf8' }} />
+                      <span>Vendas Diárias por Origem (Meta vs TikTok por Dia)</span>
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                      Acompanhamento dia a dia: quanto cada canal vendeu em reais (R$), volume de pedidos pagos e ticket médio.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      color: '#38bdf8',
+                      cursor: 'pointer',
+                      borderRadius: '6px'
+                    }}
+                    onClick={handleExportDailyCSV}
+                    title="Baixar planilha de vendas diárias em CSV"
+                  >
+                    <Download size={13} /> Exportar Vendas Diárias (CSV)
+                  </button>
+                </div>
+
+                <div className="cc-table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <table className="cc-table">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: '170px' }}>Data / Dia</th>
+                        <th style={{ textAlign: 'right', minWidth: '180px', color: '#38bdf8' }}>🔷 Meta Ads (FB / IG)</th>
+                        <th style={{ textAlign: 'right', minWidth: '180px', color: '#f43f5e' }}>⬛ TikTok Ads</th>
+                        <th style={{ textAlign: 'right', minWidth: '140px', color: '#94a3b8' }}>🌐 Direto / Outros</th>
+                        <th style={{ textAlign: 'right', minWidth: '160px', color: '#10b981' }}>🏆 Total do Dia</th>
+                        <th style={{ textAlign: 'center', minWidth: '140px' }}>Divisão (Share)</th>
+                        <th style={{ textAlign: 'center', minWidth: '120px' }}>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyStats.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                            Nenhuma venda registrada no período selecionado.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredDailyStats.map((day) => {
+                          const isSelected = trafficSelectedDay === day.dateKey;
+                          const isToday = day.displayDate.includes('HOJE');
+                          const isYesterday = day.displayDate.includes('ONTEM');
+
+                          return (
+                            <tr
+                              key={day.dateKey}
+                              style={{
+                                backgroundColor: isSelected
+                                  ? 'rgba(56, 189, 248, 0.12)'
+                                  : isToday
+                                  ? 'rgba(16, 185, 129, 0.04)'
+                                  : 'transparent',
+                                borderLeft: isSelected
+                                  ? '3px solid #38bdf8'
+                                  : isToday
+                                  ? '3px solid #10b981'
+                                  : isYesterday
+                                  ? '3px solid #f59e0b'
+                                  : '3px solid transparent'
+                              }}
+                            >
+                              {/* Date */}
+                              <td>
+                                <div style={{ fontWeight: 700, color: isToday ? '#10b981' : isYesterday ? '#f59e0b' : '#f8fafc', fontSize: '13px' }}>
+                                  {day.displayDate}
+                                </div>
+                              </td>
+
+                              {/* Meta Ads */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, color: day.metaRevenue > 0 ? '#38bdf8' : '#64748b', fontSize: '13px' }}>
+                                  R$ {day.metaRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                  <span><strong>{day.metaCount}</strong> {day.metaCount === 1 ? 'venda' : 'vendas'}</span>
+                                  {day.metaCount > 0 && <span style={{ color: '#64748b' }}>• TM R$ {day.metaAvgTicket.toFixed(2)}</span>}
+                                </div>
+                              </td>
+
+                              {/* TikTok Ads */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, color: day.tiktokRevenue > 0 ? '#f43f5e' : '#64748b', fontSize: '13px' }}>
+                                  R$ {day.tiktokRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                  <span><strong>{day.tiktokCount}</strong> {day.tiktokCount === 1 ? 'venda' : 'vendas'}</span>
+                                  {day.tiktokCount > 0 && <span style={{ color: '#64748b' }}>• TM R$ {day.tiktokAvgTicket.toFixed(2)}</span>}
+                                </div>
+                              </td>
+
+                              {/* Other / Direct */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, color: day.otherRevenue > 0 ? '#cbd5e1' : '#64748b', fontSize: '12px' }}>
+                                  R$ {day.otherRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                  {day.otherCount} {day.otherCount === 1 ? 'venda' : 'vendas'}
+                                </div>
+                              </td>
+
+                              {/* Total Day */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ fontFamily: 'JetBrains Mono', fontWeight: 900, color: '#10b981', fontSize: '14px' }}>
+                                  R$ {day.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>
+                                  {day.totalCount} {day.totalCount === 1 ? 'venda total' : 'vendas totais'}
+                                </div>
+                              </td>
+
+                              {/* Share Visual Bar */}
+                              <td style={{ textAlign: 'center' }}>
+                                {day.totalRevenue > 0 ? (
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, marginBottom: '4px' }}>
+                                      <span style={{ color: '#38bdf8' }}>{day.metaShare.toFixed(0)}% Meta</span>
+                                      <span style={{ color: '#f43f5e' }}>{day.tiktokShare.toFixed(0)}% TT</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex' }}>
+                                      <div style={{ width: `${day.metaShare}%`, background: '#1877F2', height: '100%' }} title={`Meta: ${day.metaShare.toFixed(1)}%`} />
+                                      <div style={{ width: `${day.tiktokShare}%`, background: '#fe2c55', height: '100%' }} title={`TikTok: ${day.tiktokShare.toFixed(1)}%`} />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '11px' }}>-</span>
+                                )}
+                              </td>
+
+                              {/* Action Button */}
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    border: isSelected ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.15)',
+                                    background: isSelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                    color: isSelected ? '#38bdf8' : '#e2e8f0'
+                                  }}
+                                  onClick={() => setTrafficSelectedDay(isSelected ? null : day.dateKey)}
+                                  title={isSelected ? 'Remover filtro deste dia' : 'Ver apenas os pedidos deste dia na tabela'}
+                                >
+                                  {isSelected ? '✓ Filtrado' : 'Ver Pedidos'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+
+                    {/* Table Footer: Total of Filtered Period */}
+                    {filteredDailyStats.length > 0 && (
+                      <tfoot>
+                        <tr style={{ background: 'rgba(0, 0, 0, 0.4)', fontWeight: 800, borderTop: '2px solid rgba(255, 255, 255, 0.15)' }}>
+                          <td>
+                            <div style={{ fontSize: '12px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              TOTAL DO PERÍODO ({filteredDailyStats.length} dias)
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'JetBrains Mono', color: '#38bdf8', fontSize: '13px' }}>
+                              R$ {filteredDailyStats.reduce((s, d) => s + d.metaRevenue, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {filteredDailyStats.reduce((s, d) => s + d.metaCount, 0)} vendas Meta
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'JetBrains Mono', color: '#f43f5e', fontSize: '13px' }}>
+                              R$ {filteredDailyStats.reduce((s, d) => s + d.tiktokRevenue, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {filteredDailyStats.reduce((s, d) => s + d.tiktokCount, 0)} vendas TikTok
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'JetBrains Mono', color: '#cbd5e1', fontSize: '12px' }}>
+                              R$ {filteredDailyStats.reduce((s, d) => s + d.otherRevenue, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                              {filteredDailyStats.reduce((s, d) => s + d.otherCount, 0)} vendas
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'JetBrains Mono', color: '#10b981', fontSize: '15px' }}>
+                              R$ {filteredDailyStats.reduce((s, d) => s + d.totalRevenue, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                              {filteredDailyStats.reduce((s, d) => s + d.totalCount, 0)} vendas totais
+                            </div>
+                          </td>
+                          <td colSpan={2} />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
                 </div>
               </div>
 
