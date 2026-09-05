@@ -252,6 +252,7 @@ export const AdminDashboardPage: React.FC = () => {
   // Filter & Search States
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderOriginFilter, setOrderOriginFilter] = useState<string>('all');
   const [visitorSearchQuery, setVisitorSearchQuery] = useState<string>('');
   const [cardBrandFilter, setCardBrandFilter] = useState<string>('all');
   const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
@@ -268,6 +269,11 @@ export const AdminDashboardPage: React.FC = () => {
     customerName?: string;
     isPaid?: boolean;
   } | null>(null);
+
+  // Traffic / Channel Origin (Meta vs TikTok) States
+  const [trafficChannelFilter, setTrafficChannelFilter] = useState<'all' | 'meta' | 'tiktok' | 'other'>('all');
+  const [trafficStatusFilter, setTrafficStatusFilter] = useState<'paid' | 'all' | 'pending'>('paid');
+  const [trafficSearchQuery, setTrafficSearchQuery] = useState<string>('');
 
   const toggleHideCard = (cardId: string) => {
     setHiddenCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
@@ -802,6 +808,7 @@ export const AdminDashboardPage: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       if (orderStatusFilter !== 'all' && order.status !== orderStatusFilter) return false;
+      if (orderOriginFilter !== 'all' && getOrderOrigin(order) !== orderOriginFilter) return false;
       if (orderSearchQuery.trim()) {
         const q = orderSearchQuery.toLowerCase().trim();
         const name = (order.customer?.name || '').toLowerCase();
@@ -813,7 +820,7 @@ export const AdminDashboardPage: React.FC = () => {
       }
       return true;
     });
-  }, [orders, orderStatusFilter, orderSearchQuery]);
+  }, [orders, orderStatusFilter, orderOriginFilter, orderSearchQuery]);
 
   // Receipts calculations & filter
   const receiptsList = useMemo(() => orders.filter((o) => !!o.receipt), [orders]);
@@ -837,6 +844,215 @@ export const AdminDashboardPage: React.FC = () => {
       return true;
     });
   }, [receiptsList, receiptStatusFilter, receiptSearchQuery]);
+
+  // Helper: Detect Traffic Origin (Meta, TikTok, Google, Other)
+  const getOrderOrigin = (order: OrderRecord): 'meta' | 'tiktok' | 'google' | 'other' => {
+    const utm = order.utm || {};
+    const source = (utm.utm_source || '').toLowerCase().trim();
+    const medium = (utm.utm_medium || '').toLowerCase().trim();
+
+    // 1. TikTok Detection
+    if (
+      source.includes('tiktok') ||
+      source === 'tt' ||
+      medium.includes('tiktok') ||
+      !!utm.ttclid ||
+      (utm.user_agent && utm.user_agent.toLowerCase().includes('musical_ly'))
+    ) {
+      return 'tiktok';
+    }
+
+    // 2. Meta (Facebook & Instagram) Detection
+    if (
+      source === 'fb' ||
+      source === 'facebook' ||
+      source === 'ig' ||
+      source === 'instagram' ||
+      source.includes('meta') ||
+      source.includes('fb') ||
+      source.includes('instagram') ||
+      medium.includes('facebook') ||
+      medium.includes('instagram') ||
+      !!utm.fbclid ||
+      !!utm.fbc ||
+      (utm.user_agent && (
+        utm.user_agent.toLowerCase().includes('instagram') ||
+        utm.user_agent.toLowerCase().includes('fban') ||
+        utm.user_agent.toLowerCase().includes('fbav')
+      ))
+    ) {
+      return 'meta';
+    }
+
+    // 3. Google Detection
+    if (source.includes('google') || source.includes('gads') || !!utm.gclid) {
+      return 'google';
+    }
+
+    return 'other';
+  };
+
+  // Enriched orders with traffic origin
+  const trafficOrders = useMemo(() => {
+    return orders.map((order) => ({
+      ...order,
+      trafficOrigin: getOrderOrigin(order)
+    }));
+  }, [orders]);
+
+  // Executive Channel Statistics (Meta vs TikTok)
+  const channelStats = useMemo(() => {
+    const metaOrders = trafficOrders.filter((o) => o.trafficOrigin === 'meta');
+    const tiktokOrders = trafficOrders.filter((o) => o.trafficOrigin === 'tiktok');
+    const otherOrders = trafficOrders.filter((o) => o.trafficOrigin !== 'meta' && o.trafficOrigin !== 'tiktok');
+
+    const metaPaid = metaOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
+    const tiktokPaid = tiktokOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
+    const otherPaid = otherOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
+
+    const metaRevenue = metaPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+    const tiktokRevenue = tiktokPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+    const otherRevenue = otherPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+    const totalPaidRevenue = metaRevenue + tiktokRevenue + otherRevenue;
+
+    // Top campaigns Meta
+    const metaCampMap: Record<string, { count: number; revenue: number }> = {};
+    metaPaid.forEach((o) => {
+      const camp = o.utm?.utm_campaign || 'Direto / Sem Campanha';
+      if (!metaCampMap[camp]) metaCampMap[camp] = { count: 0, revenue: 0 };
+      metaCampMap[camp].count++;
+      metaCampMap[camp].revenue += Number(o.amount) || 0;
+    });
+    const metaCampaigns = Object.entries(metaCampMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    // Top campaigns TikTok
+    const tiktokCampMap: Record<string, { count: number; revenue: number }> = {};
+    tiktokPaid.forEach((o) => {
+      const camp = o.utm?.utm_campaign || 'Direto / Sem Campanha';
+      if (!tiktokCampMap[camp]) tiktokCampMap[camp] = { count: 0, revenue: 0 };
+      tiktokCampMap[camp].count++;
+      tiktokCampMap[camp].revenue += Number(o.amount) || 0;
+    });
+    const tiktokCampaigns = Object.entries(tiktokCampMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      meta: {
+        total: metaOrders.length,
+        paidCount: metaPaid.length,
+        pendingCount: metaOrders.length - metaPaid.length,
+        revenue: metaRevenue,
+        avgTicket: metaPaid.length > 0 ? metaRevenue / metaPaid.length : 0,
+        paidRate: metaOrders.length > 0 ? (metaPaid.length / metaOrders.length) * 100 : 0,
+        campaigns: metaCampaigns
+      },
+      tiktok: {
+        total: tiktokOrders.length,
+        paidCount: tiktokPaid.length,
+        pendingCount: tiktokOrders.length - tiktokPaid.length,
+        revenue: tiktokRevenue,
+        avgTicket: tiktokPaid.length > 0 ? tiktokRevenue / tiktokPaid.length : 0,
+        paidRate: tiktokOrders.length > 0 ? (tiktokPaid.length / tiktokOrders.length) * 100 : 0,
+        campaigns: tiktokCampaigns
+      },
+      other: {
+        total: otherOrders.length,
+        paidCount: otherPaid.length,
+        pendingCount: otherOrders.length - otherPaid.length,
+        revenue: otherRevenue,
+        avgTicket: otherPaid.length > 0 ? otherRevenue / otherPaid.length : 0
+      },
+      totalPaidRevenue,
+      totalPaidCount: metaPaid.length + tiktokPaid.length + otherPaid.length
+    };
+  }, [trafficOrders]);
+
+  // Filtered Traffic Orders
+  const filteredTrafficOrders = useMemo(() => {
+    return trafficOrders.filter((order) => {
+      if (trafficChannelFilter !== 'all' && order.trafficOrigin !== trafficChannelFilter) return false;
+
+      if (trafficStatusFilter === 'paid' && order.status !== 'paid' && order.orderStatus !== 'paid') return false;
+      if (trafficStatusFilter === 'pending' && (order.status === 'paid' || order.orderStatus === 'paid')) return false;
+
+      if (trafficSearchQuery.trim()) {
+        const q = trafficSearchQuery.toLowerCase().trim();
+        const name = (order.customer?.name || '').toLowerCase();
+        const phone = (order.customer?.phone || '').replace(/\D/g, '');
+        const email = (order.customer?.email || '').toLowerCase();
+        const cpf = (order.customer?.cpf || '').replace(/\D/g, '');
+        const id = (order.id || '').toLowerCase();
+        const ref = (order.trackingReference || '').toLowerCase();
+        const camp = (order.utm?.utm_campaign || '').toLowerCase();
+        const src = (order.utm?.utm_source || '').toLowerCase();
+        const content = (order.utm?.utm_content || '').toLowerCase();
+        const medium = (order.utm?.utm_medium || '').toLowerCase();
+
+        return (
+          name.includes(q) ||
+          phone.includes(q) ||
+          email.includes(q) ||
+          cpf.includes(q) ||
+          id.includes(q) ||
+          ref.includes(q) ||
+          camp.includes(q) ||
+          src.includes(q) ||
+          content.includes(q) ||
+          medium.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [trafficOrders, trafficChannelFilter, trafficStatusFilter, trafficSearchQuery]);
+
+  // CSV Export for Traffic Screen
+  const handleExportTrafficCSV = () => {
+    if (filteredTrafficOrders.length === 0) return;
+    const headers = [
+      'ID Pedido',
+      'Código Rastreio',
+      'Data Pagamento',
+      'Canal de Origem',
+      'Status',
+      'Valor (R$)',
+      'Cliente',
+      'CPF',
+      'WhatsApp',
+      'E-mail',
+      'Campanha (utm_campaign)',
+      'Conjunto (utm_medium)',
+      'Criativo (utm_content)',
+      'Click ID (fbclid/ttclid)'
+    ];
+    const rows = filteredTrafficOrders.map((o) => [
+      o.id,
+      o.trackingReference || o.id,
+      new Date(o.createdAt).toLocaleString('pt-BR'),
+      o.trafficOrigin.toUpperCase(),
+      o.status,
+      Number(o.amount).toFixed(2),
+      o.customer?.name || '',
+      o.customer?.cpf || '',
+      o.customer?.phone || '',
+      o.customer?.email || '',
+      o.utm?.utm_campaign || '',
+      o.utm?.utm_medium || '',
+      o.utm?.utm_content || '',
+      o.utm?.fbclid || o.utm?.ttclid || ''
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `vendas_canais_${trafficChannelFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Filtered Visitors
   const filteredVisitors = useMemo(() => {
@@ -1005,7 +1221,19 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button className={`cc-nav-item ${activeTab === 'traffic' ? 'active' : ''}`} onClick={() => setActiveTab('traffic')}>
             <Compass size={16} style={{ color: '#a855f7' }} />
-            Origem de Tráfego
+            Meta vs TikTok (Vendas)
+            <span
+              className="cc-nav-badge"
+              style={{
+                color: '#38bdf8',
+                borderColor: 'rgba(56, 189, 248, 0.4)',
+                background: 'rgba(56, 189, 248, 0.15)',
+                fontSize: '10px',
+                fontWeight: 700
+              }}
+            >
+              CANAIS
+            </span>
           </button>
 
           <button className={`cc-nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
@@ -1755,6 +1983,18 @@ export const AdminDashboardPage: React.FC = () => {
                     <option value="pending_payment">Apenas Aguardando Pix</option>
                   </select>
 
+                  <select
+                    className="cc-input-field"
+                    style={{ width: 'auto', padding: '8px 12px', fontSize: '12px', cursor: 'pointer' }}
+                    value={orderOriginFilter}
+                    onChange={(e) => setOrderOriginFilter(e.target.value)}
+                  >
+                    <option value="all">Todos os Canais</option>
+                    <option value="meta">🔷 Meta Ads (Facebook / IG)</option>
+                    <option value="tiktok">⬛ TikTok Ads</option>
+                    <option value="other">🌐 Outros / Direto</option>
+                  </select>
+
                   <button className="cc-btn-primary" style={{ width: 'auto', padding: '8px 14px', fontSize: '12px' }} onClick={handleExportCSV}>
                     <Download size={13} />
                     Exportar CSV
@@ -1898,8 +2138,99 @@ export const AdminDashboardPage: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <div>{order.utm?.utm_source || 'Direto'}</div>
-                          <div style={{ fontSize: '10px', color: '#64748b' }}>{order.utm?.utm_campaign || '-'}</div>
+                          {(() => {
+                            const origin = getOrderOrigin(order);
+                            if (origin === 'meta') {
+                              return (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    background: 'rgba(24, 119, 242, 0.15)',
+                                    color: '#38bdf8',
+                                    border: '1px solid rgba(56, 189, 248, 0.3)'
+                                  }}>
+                                    🔷 META ADS
+                                  </span>
+                                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.utm?.utm_campaign || 'Sem campanha'}>
+                                    {order.utm?.utm_campaign || 'Direto'}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            if (origin === 'tiktok') {
+                              return (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    background: 'rgba(254, 44, 85, 0.15)',
+                                    color: '#f43f5e',
+                                    border: '1px solid rgba(254, 44, 85, 0.3)'
+                                  }}>
+                                    ⬛ TIKTOK
+                                  </span>
+                                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.utm?.utm_campaign || 'Sem campanha'}>
+                                    {order.utm?.utm_campaign || 'Direto'}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            if (origin === 'google') {
+                              return (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    background: 'rgba(234, 67, 53, 0.15)',
+                                    color: '#f87171',
+                                    border: '1px solid rgba(234, 67, 53, 0.3)'
+                                  }}>
+                                    🔴 GOOGLE
+                                  </span>
+                                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.utm?.utm_campaign || 'Sem campanha'}>
+                                    {order.utm?.utm_campaign || 'Direto'}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  background: 'rgba(148, 163, 184, 0.1)',
+                                  color: '#94a3b8',
+                                  border: '1px solid rgba(148, 163, 184, 0.2)'
+                                }}>
+                                  🌐 DIRETO
+                                </span>
+                                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                                  {order.utm?.utm_campaign || '-'}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
@@ -2296,9 +2627,911 @@ export const AdminDashboardPage: React.FC = () => {
           )}
 
           {/* =========================================================
+              TAB: ORIGENS DE PAGAMENTO: META ADS VS TIKTOK ADS
+              ========================================================= */}
+          {activeTab === 'traffic' && (
+            <div>
+              {/* Header Banner */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  marginBottom: '24px',
+                  background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.08) 0%, rgba(254, 44, 85, 0.08) 100%)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        background: 'linear-gradient(90deg, #1877F2, #fe2c55)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '11px',
+                        fontWeight: 900,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      META VS TIKTOK
+                    </div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                      Separação de Pedidos por Canal de Tráfego
+                    </h2>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                    Acompanhe em tempo real as vendas pagas geradas pelo <strong>Meta Ads (Instagram / Facebook)</strong> e pelo <strong>TikTok Ads</strong>.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    className="cc-btn-primary"
+                    style={{
+                      padding: '10px 18px',
+                      fontSize: '12px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onClick={handleExportTrafficCSV}
+                    title="Exportar dados filtrados em planilha CSV"
+                  >
+                    <Download size={15} />
+                    Exportar Relatório CSV
+                  </button>
+
+                  <button
+                    className="cc-nav-item"
+                    style={{ width: 'auto', padding: '10px 14px', background: 'rgba(255, 255, 255, 0.05)', color: '#e2e8f0' }}
+                    onClick={fetchAllData}
+                    title="Atualizar lista de pedidos"
+                  >
+                    <RefreshCw size={14} />
+                    Atualizar
+                  </button>
+                </div>
+              </div>
+
+              {/* Top Executive KPI Cards */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '24px'
+                }}
+              >
+                {/* META ADS CARD */}
+                <div
+                  className="cc-card"
+                  style={{
+                    padding: '20px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    border: trafficChannelFilter === 'meta' ? '2px solid #1877F2' : '1px solid rgba(24, 119, 242, 0.3)',
+                    boxShadow: trafficChannelFilter === 'meta' ? '0 0 20px rgba(24, 119, 242, 0.3)' : 'none',
+                    background: 'linear-gradient(180deg, rgba(24, 119, 242, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)'
+                  }}
+                  onClick={() => setTrafficChannelFilter(prev => prev === 'meta' ? 'all' : 'meta')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: '#1877F2',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                          fontWeight: 900,
+                          fontSize: '14px'
+                        }}
+                      >
+                        f
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.5px' }}>
+                          META ADS
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          Instagram & Facebook
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        fontWeight: 700
+                      }}
+                    >
+                      {channelStats.totalPaidRevenue > 0
+                        ? `${((channelStats.meta.revenue / channelStats.totalPaidRevenue) * 100).toFixed(1)}% do total`
+                        : '0%'}
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Faturamento Pago
+                    </div>
+                    <div style={{ fontSize: '28px', fontWeight: 900, color: '#38bdf8', fontFamily: 'JetBrains Mono, monospace' }}>
+                      R$ {channelStats.meta.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>PEDIDOS PAGOS</div>
+                      <div style={{ fontWeight: 800, color: '#10b981', fontSize: '15px' }}>
+                        {channelStats.meta.paidCount}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>TICKET MÉDIO</div>
+                      <div style={{ fontWeight: 800, color: '#e2e8f0', fontSize: '14px' }}>
+                        R$ {channelStats.meta.avgTicket.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>AGUARDANDO PIX</div>
+                      <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '13px' }}>
+                        {channelStats.meta.pendingCount}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>CONVERSÃO PIX</div>
+                      <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '13px' }}>
+                        {channelStats.meta.paidRate.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px', textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: trafficChannelFilter === 'meta' ? '#38bdf8' : '#64748b' }}>
+                      {trafficChannelFilter === 'meta' ? '✓ Filtro Ativo' : 'Clique para filtrar pedidos Meta →'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* TIKTOK ADS CARD */}
+                <div
+                  className="cc-card"
+                  style={{
+                    padding: '20px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    border: trafficChannelFilter === 'tiktok' ? '2px solid #fe2c55' : '1px solid rgba(254, 44, 85, 0.3)',
+                    boxShadow: trafficChannelFilter === 'tiktok' ? '0 0 20px rgba(254, 44, 85, 0.3)' : 'none',
+                    background: 'linear-gradient(180deg, rgba(254, 44, 85, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)'
+                  }}
+                  onClick={() => setTrafficChannelFilter(prev => prev === 'tiktok' ? 'all' : 'tiktok')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: '#000',
+                          border: '1px solid rgba(254, 44, 85, 0.5)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fe2c55',
+                          fontWeight: 900,
+                          fontSize: '14px'
+                        }}
+                      >
+                        🎵
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#f43f5e', letterSpacing: '0.5px' }}>
+                          TIKTOK ADS
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          TikTok For Business
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        background: 'rgba(254, 44, 85, 0.15)',
+                        color: '#f43f5e',
+                        border: '1px solid rgba(254, 44, 85, 0.3)',
+                        fontWeight: 700
+                      }}
+                    >
+                      {channelStats.totalPaidRevenue > 0
+                        ? `${((channelStats.tiktok.revenue / channelStats.totalPaidRevenue) * 100).toFixed(1)}% do total`
+                        : '0%'}
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Faturamento Pago
+                    </div>
+                    <div style={{ fontSize: '28px', fontWeight: 900, color: '#f43f5e', fontFamily: 'JetBrains Mono, monospace' }}>
+                      R$ {channelStats.tiktok.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>PEDIDOS PAGOS</div>
+                      <div style={{ fontWeight: 800, color: '#10b981', fontSize: '15px' }}>
+                        {channelStats.tiktok.paidCount}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>TICKET MÉDIO</div>
+                      <div style={{ fontWeight: 800, color: '#e2e8f0', fontSize: '14px' }}>
+                        R$ {channelStats.tiktok.avgTicket.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>AGUARDANDO PIX</div>
+                      <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '13px' }}>
+                        {channelStats.tiktok.pendingCount}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>CONVERSÃO PIX</div>
+                      <div style={{ fontWeight: 700, color: '#f43f5e', fontSize: '13px' }}>
+                        {channelStats.tiktok.paidRate.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px', textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: trafficChannelFilter === 'tiktok' ? '#f43f5e' : '#64748b' }}>
+                      {trafficChannelFilter === 'tiktok' ? '✓ Filtro Ativo' : 'Clique para filtrar pedidos TikTok →'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* TOTAL GERAL CONSOLIDADO CARD */}
+                <div
+                  className="cc-card"
+                  style={{
+                    padding: '20px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    border: trafficChannelFilter === 'all' ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.3)',
+                    boxShadow: trafficChannelFilter === 'all' ? '0 0 20px rgba(16, 185, 129, 0.2)' : 'none',
+                    background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)'
+                  }}
+                  onClick={() => setTrafficChannelFilter('all')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: 'rgba(16, 185, 129, 0.2)',
+                          border: '1px solid #10b981',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#10b981',
+                          fontWeight: 900,
+                          fontSize: '14px'
+                        }}
+                      >
+                        ✓
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#10b981', letterSpacing: '0.5px' }}>
+                          TOTAL GERAL APROVADO
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          Todos os Canais Somados
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        fontWeight: 700
+                      }}
+                    >
+                      {channelStats.totalPaidCount} vendas
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Receita Total Aprovada
+                    </div>
+                    <div style={{ fontSize: '28px', fontWeight: 900, color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>
+                      R$ {channelStats.totalPaidRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '10px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>SHARE META</div>
+                      <div style={{ fontWeight: 800, color: '#38bdf8', fontSize: '14px' }}>
+                        {channelStats.totalPaidRevenue > 0
+                          ? `${((channelStats.meta.revenue / channelStats.totalPaidRevenue) * 100).toFixed(1)}%`
+                          : '0%'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>SHARE TIKTOK</div>
+                      <div style={{ fontWeight: 800, color: '#f43f5e', fontSize: '14px' }}>
+                        {channelStats.totalPaidRevenue > 0
+                          ? `${((channelStats.tiktok.revenue / channelStats.totalPaidRevenue) * 100).toFixed(1)}%`
+                          : '0%'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>OUTROS / DIRETO</div>
+                      <div style={{ fontWeight: 700, color: '#94a3b8', fontSize: '13px' }}>
+                        R$ {channelStats.other.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '10px' }}>PEDIDOS DIRETO</div>
+                      <div style={{ fontWeight: 700, color: '#94a3b8', fontSize: '13px' }}>
+                        {channelStats.other.paidCount} pagos
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '12px', textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: trafficChannelFilter === 'all' ? '#10b981' : '#64748b' }}>
+                      {trafficChannelFilter === 'all' ? '✓ Exibindo Todos os Canais' : 'Clique para ver Todos →'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campaign Performance Tables (Meta vs TikTok) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '24px'
+                }}
+              >
+                {/* Meta Top Campaigns */}
+                <div className="cc-card">
+                  <div className="cc-card-header" style={{ borderBottom: '1px solid rgba(24, 119, 242, 0.2)' }}>
+                    <div className="cc-card-title" style={{ color: '#38bdf8' }}>
+                      <TrendingUp size={16} />
+                      Top Campanhas Meta Ads (Instagram / Facebook)
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                      {channelStats.meta.campaigns.length} campanhas com vendas
+                    </span>
+                  </div>
+                  <div style={{ padding: '0', maxHeight: '280px', overflowY: 'auto' }}>
+                    {channelStats.meta.campaigns.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                        Nenhuma venda registrada com campanha Meta.
+                      </div>
+                    ) : (
+                      <table className="cc-table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th>Campanha (utm_campaign)</th>
+                            <th style={{ textAlign: 'center' }}>Vendas</th>
+                            <th style={{ textAlign: 'right' }}>Faturamento</th>
+                            <th style={{ textAlign: 'right' }}>Ticket Médio</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {channelStats.meta.campaigns.map((camp, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#e2e8f0', fontSize: '12px' }}>
+                                  {camp.name}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '11px', fontWeight: 700 }}>
+                                  {camp.count}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono', color: '#38bdf8', fontWeight: 700 }}>
+                                R$ {camp.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono', color: '#94a3b8', fontSize: '11px' }}>
+                                R$ {(camp.revenue / (camp.count || 1)).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
+                {/* TikTok Top Campaigns */}
+                <div className="cc-card">
+                  <div className="cc-card-header" style={{ borderBottom: '1px solid rgba(254, 44, 85, 0.2)' }}>
+                    <div className="cc-card-title" style={{ color: '#f43f5e' }}>
+                      <TrendingUp size={16} />
+                      Top Campanhas TikTok Ads
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                      {channelStats.tiktok.campaigns.length} campanhas com vendas
+                    </span>
+                  </div>
+                  <div style={{ padding: '0', maxHeight: '280px', overflowY: 'auto' }}>
+                    {channelStats.tiktok.campaigns.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                        Nenhuma venda registrada com campanha TikTok.
+                      </div>
+                    ) : (
+                      <table className="cc-table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th>Campanha (utm_campaign)</th>
+                            <th style={{ textAlign: 'center' }}>Vendas</th>
+                            <th style={{ textAlign: 'right' }}>Faturamento</th>
+                            <th style={{ textAlign: 'right' }}>Ticket Médio</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {channelStats.tiktok.campaigns.map((camp, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#e2e8f0', fontSize: '12px' }}>
+                                  {camp.name}
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '11px', fontWeight: 700 }}>
+                                  {camp.count}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono', color: '#f43f5e', fontWeight: 700 }}>
+                                R$ {camp.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono', color: '#94a3b8', fontSize: '11px' }}>
+                                R$ {(camp.revenue / (camp.count || 1)).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Orders Table Container */}
+              <div className="cc-card">
+                <div
+                  className="cc-card-header"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    padding: '16px 20px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="cc-card-title">
+                      <ShoppingCart size={16} style={{ color: '#38bdf8' }} />
+                      Pedidos Filtrados ({filteredTrafficOrders.length})
+                    </div>
+                  </div>
+
+                  {/* Channel Tabs */}
+                  <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '8px' }}>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        background: trafficChannelFilter === 'all' ? '#334155' : 'transparent',
+                        color: trafficChannelFilter === 'all' ? '#fff' : '#94a3b8'
+                      }}
+                      onClick={() => setTrafficChannelFilter('all')}
+                    >
+                      Todos ({channelStats.totalPaidCount})
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        background: trafficChannelFilter === 'meta' ? 'rgba(24, 119, 242, 0.25)' : 'transparent',
+                        color: trafficChannelFilter === 'meta' ? '#38bdf8' : '#94a3b8',
+                        borderBottom: trafficChannelFilter === 'meta' ? '2px solid #1877F2' : 'none'
+                      }}
+                      onClick={() => setTrafficChannelFilter('meta')}
+                    >
+                      🔷 Meta Ads ({channelStats.meta.paidCount})
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        background: trafficChannelFilter === 'tiktok' ? 'rgba(254, 44, 85, 0.25)' : 'transparent',
+                        color: trafficChannelFilter === 'tiktok' ? '#f43f5e' : '#94a3b8',
+                        borderBottom: trafficChannelFilter === 'tiktok' ? '2px solid #fe2c55' : 'none'
+                      }}
+                      onClick={() => setTrafficChannelFilter('tiktok')}
+                    >
+                      ⬛ TikTok Ads ({channelStats.tiktok.paidCount})
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        background: trafficChannelFilter === 'other' ? '#334155' : 'transparent',
+                        color: trafficChannelFilter === 'other' ? '#fff' : '#94a3b8'
+                      }}
+                      onClick={() => setTrafficChannelFilter('other')}
+                    >
+                      🌐 Direto ({channelStats.other.paidCount})
+                    </button>
+                  </div>
+
+                  {/* Status Pills */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: `1px solid ${trafficStatusFilter === 'paid' ? '#10b981' : 'rgba(255,255,255,0.1)'}`,
+                        background: trafficStatusFilter === 'paid' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                        color: trafficStatusFilter === 'paid' ? '#10b981' : '#94a3b8'
+                      }}
+                      onClick={() => setTrafficStatusFilter('paid')}
+                    >
+                      ✓ Apenas Pagos
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: `1px solid ${trafficStatusFilter === 'pending' ? '#f59e0b' : 'rgba(255,255,255,0.1)'}`,
+                        background: trafficStatusFilter === 'pending' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                        color: trafficStatusFilter === 'pending' ? '#f59e0b' : '#94a3b8'
+                      }}
+                      onClick={() => setTrafficStatusFilter('pending')}
+                    >
+                      ⏳ Pendentes
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: `1px solid ${trafficStatusFilter === 'all' ? '#94a3b8' : 'rgba(255,255,255,0.1)'}`,
+                        background: trafficStatusFilter === 'all' ? 'rgba(148, 163, 184, 0.15)' : 'transparent',
+                        color: trafficStatusFilter === 'all' ? '#fff' : '#94a3b8'
+                      }}
+                      onClick={() => setTrafficStatusFilter('all')}
+                    >
+                      Todos
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="cc-search-container" style={{ width: '100%', maxWidth: '100%' }}>
+                    <Search className="cc-search-icon" size={16} />
+                    <input
+                      type="text"
+                      className="cc-search-input"
+                      placeholder="Buscar por cliente, telefone, CPF, campanha, conjunto, criativo, click_id, ID do pedido..."
+                      value={trafficSearchQuery}
+                      onChange={(e) => setTrafficSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Orders List / Table */}
+                <div className="cc-table-container">
+                  <table className="cc-table">
+                    <thead>
+                      <tr>
+                        <th>Canal / Origem</th>
+                        <th>Data / Hora</th>
+                        <th>Cliente</th>
+                        <th>Rastreio UTM & Criativo</th>
+                        <th style={{ textAlign: 'right' }}>Valor</th>
+                        <th style={{ textAlign: 'center' }}>Status</th>
+                        <th style={{ textAlign: 'center' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTrafficOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                            Nenhum pedido encontrado com os filtros selecionados.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredTrafficOrders.map((order) => {
+                          const isPaid = order.status === 'paid' || order.orderStatus === 'paid';
+                          const origin = order.trafficOrigin;
+
+                          return (
+                            <tr key={order.id}>
+                              {/* Canal / Origem Badge */}
+                              <td>
+                                {origin === 'meta' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      background: 'rgba(24, 119, 242, 0.15)',
+                                      color: '#38bdf8',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)'
+                                    }}
+                                  >
+                                    🔷 META ADS
+                                  </span>
+                                )}
+                                {origin === 'tiktok' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      background: 'rgba(254, 44, 85, 0.15)',
+                                      color: '#f43f5e',
+                                      border: '1px solid rgba(254, 44, 85, 0.3)'
+                                    }}
+                                  >
+                                    ⬛ TIKTOK
+                                  </span>
+                                )}
+                                {origin === 'google' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      background: 'rgba(234, 67, 53, 0.15)',
+                                      color: '#f87171',
+                                      border: '1px solid rgba(234, 67, 53, 0.3)'
+                                    }}
+                                  >
+                                    🔴 GOOGLE
+                                  </span>
+                                )}
+                                {origin === 'other' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      background: 'rgba(148, 163, 184, 0.1)',
+                                      color: '#94a3b8',
+                                      border: '1px solid rgba(148, 163, 184, 0.2)'
+                                    }}
+                                  >
+                                    🌐 DIRETO
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Data / Hora */}
+                              <td>
+                                <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                                  {new Date(order.createdAt).toLocaleDateString('pt-BR')}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                  {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </td>
+
+                              {/* Cliente */}
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '13px' }}>
+                                  {order.customer?.name || 'Cliente'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{order.customer?.phone || '-'}</span>
+                                  {order.customer?.cpf && (
+                                    <span style={{ color: '#64748b' }}>• CPF: {order.customer.cpf.slice(0, 3)}...</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* UTM Details */}
+                              <td>
+                                <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '12px' }}>
+                                  {order.utm?.utm_campaign ? (
+                                    <span>🎯 {order.utm.utm_campaign}</span>
+                                  ) : (
+                                    <span style={{ color: '#64748b' }}>Sem campanha</span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                  {order.utm?.utm_medium && <span>Conjunto: <strong>{order.utm.utm_medium}</strong></span>}
+                                  {order.utm?.utm_content && <span>Criativo: <strong>{order.utm.utm_content}</strong></span>}
+                                  {(order.utm?.fbclid || order.utm?.ttclid) && (
+                                    <span style={{ color: '#38bdf8' }} title={order.utm?.fbclid || order.utm?.ttclid}>
+                                      • Click ID: {(order.utm?.fbclid || order.utm?.ttclid || '').substring(0, 10)}...
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Valor */}
+                              <td style={{ textAlign: 'right' }}>
+                                <span style={{ fontWeight: 800, color: isPaid ? '#10b981' : '#e2e8f0', fontSize: '13px', fontFamily: 'JetBrains Mono' }}>
+                                  R$ {Number(order.amount).toFixed(2)}
+                                </span>
+                              </td>
+
+                              {/* Status */}
+                              <td style={{ textAlign: 'center' }}>
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    background: isPaid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                    color: isPaid ? '#10b981' : '#f59e0b',
+                                    border: `1px solid ${isPaid ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                                  }}
+                                >
+                                  {isPaid ? <CheckCircle size={12} /> : <Clock size={12} />}
+                                  {isPaid ? 'PAGO' : 'AGUARDANDO PIX'}
+                                </span>
+                              </td>
+
+                              {/* Ações */}
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                                  <button
+                                    className="cc-nav-item"
+                                    style={{ width: 'auto', padding: '6px 8px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}
+                                    onClick={() => handleOpenOrderModal(order)}
+                                    title="Ver Detalhes do Pedido e Rastreio"
+                                  >
+                                    <Eye size={13} />
+                                  </button>
+                                  <button
+                                    className="cc-nav-item"
+                                    style={{ width: 'auto', padding: '6px 8px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                    onClick={() => handleOpenWhatsApp(order)}
+                                    title="Chamar no WhatsApp"
+                                  >
+                                    <MessageCircle size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================
               TAB: INTEGRAÇÕES & DISPARO MANUAL UTMIFY
               ========================================================= */}
-          {(activeTab === 'settings' || activeTab === 'traffic' || activeTab === 'analytics') && (
+          {(activeTab === 'settings' || activeTab === 'analytics') && (
             <div>
               {/* Manual UTMify Dispatch */}
               <div className="cc-card">
