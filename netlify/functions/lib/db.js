@@ -84,7 +84,8 @@ function toSupabaseOrderRow(order) {
     pix_result: {
       ...(order.pixResult || order.pix || {}),
       pixCopied: order.pixCopied || false,
-      pixCopiedAt: order.pixCopiedAt || null
+      pixCopiedAt: order.pixCopiedAt || null,
+      receipt: order.receipt || order.pixResult?.receipt || null
     },
     utm: order.utm || {},
     created_at: order.createdAt || new Date().toISOString(),
@@ -116,6 +117,7 @@ function fromSupabaseOrderRow(row) {
     pix: pixRes,
     pixCopied: row.pix_copied || pixRes.pixCopied || false,
     pixCopiedAt: row.pix_copied_at || pixRes.pixCopiedAt || null,
+    receipt: row.receipt || pixRes.receipt || null,
     utm: row.utm,
     createdAt: row.created_at,
     updatedAt: row.updated_at

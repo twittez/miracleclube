@@ -21,7 +21,15 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Ensure upload directory for payment receipts exists
+const UPLOADS_DIR = path.join(__dirname, 'uploads', 'receipts');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 const BEEHIVE_SECRET_KEY =
@@ -571,6 +579,97 @@ app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
   }
 });
 
+// API: Upload Payment Proof (Comprovante de Pagamento) for an Order
+app.post('/api/orders/:orderId/receipt', async (req, res) => {
+  try {
+    const rawOrderId = req.params.orderId || req.body?.orderId;
+    const { fileData, fileName, fileType, fileSize } = req.body || {};
+
+    if (!fileData) {
+      return res.status(400).json({ error: 'Arquivo do comprovante não fornecido.' });
+    }
+
+    let order = await db.getOrderAsync(rawOrderId);
+    if (!order && req.body?.orderId) {
+      order = await db.getOrderAsync(req.body.orderId);
+    }
+
+    if (!order) {
+      const all = db.readDB();
+      for (const ord of Object.values(all.orders || {})) {
+        if (ord.id === rawOrderId || ord.trackingReference === rawOrderId || ord.pixResult?.transactionId === rawOrderId) {
+          order = ord;
+          break;
+        }
+      }
+    }
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    // Process base64 file data (support "data:...;base64,..." or raw base64)
+    let buffer;
+    let extension = 'png';
+    if (fileData.includes(';base64,')) {
+      const parts = fileData.split(';base64,');
+      const mime = parts[0].replace('data:', '').toLowerCase();
+      if (mime.includes('pdf')) extension = 'pdf';
+      else if (mime.includes('jpeg') || mime.includes('jpg')) extension = 'jpg';
+      else if (mime.includes('webp')) extension = 'webp';
+      else if (mime.includes('png')) extension = 'png';
+      buffer = Buffer.from(parts[1], 'base64');
+    } else {
+      buffer = Buffer.from(fileData, 'base64');
+    }
+
+    const safeCleanName = (fileName || `comprovante_${order.id}.${extension}`)
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
+    const uniqueFileName = `receipt_${order.id}_${Date.now()}_${safeCleanName}`;
+    const filePath = path.join(UPLOADS_DIR, uniqueFileName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const receiptUrl = `/uploads/receipts/${uniqueFileName}`;
+    const nowIso = new Date().toISOString();
+
+    const receiptRecord = {
+      url: receiptUrl,
+      fileName: fileName || uniqueFileName,
+      fileType: fileType || (extension === 'pdf' ? 'application/pdf' : `image/${extension}`),
+      fileSize: fileSize || buffer.length,
+      uploadedAt: nowIso
+    };
+
+    order.receipt = receiptRecord;
+    if (!order.pixResult) order.pixResult = {};
+    order.pixResult.receipt = receiptRecord;
+    order.updatedAt = nowIso;
+
+    await db.saveOrderAsync(order);
+
+    console.log(`[Comprovante Upload] Order ${order.id} received receipt: ${receiptUrl}`);
+
+    // Broadcast SSE to Admin Dashboard
+    broadcastRealtime('order_receipt_uploaded', {
+      orderId: order.id,
+      trackingReference: order.trackingReference,
+      customerName: order.customer?.name,
+      amount: order.amount,
+      receipt: receiptRecord
+    });
+
+    return res.json({
+      success: true,
+      message: 'Comprovante enviado com sucesso!',
+      receipt: receiptRecord
+    });
+  } catch (err) {
+    console.error('[Receipt Upload Error]:', err);
+    return res.status(500).json({ error: 'Erro ao processar comprovante.' });
+  }
+});
+
 // API 1: Create Pix Payment
 app.post('/api/payments/pix', async (req, res) => {
   try {
@@ -849,6 +948,7 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
     pixResult: order.pixResult,
     pixCopied: !!(order.pixCopied || order.pixResult?.pixCopied),
     pixCopiedAt: order.pixCopiedAt || order.pixResult?.pixCopiedAt || null,
+    receipt: order.receipt || order.pixResult?.receipt || null,
     createdAt: order.createdAt,
     meta_purchase_sent: !!order.meta_purchase_sent
   });

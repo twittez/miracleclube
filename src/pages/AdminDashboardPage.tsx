@@ -39,7 +39,8 @@ import {
   ExternalLink,
   X,
   Sliders,
-  CheckCheck
+  CheckCheck,
+  Receipt
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -116,6 +117,13 @@ interface OrderRecord {
   };
   pixCopied?: boolean;
   pixCopiedAt?: string;
+  receipt?: {
+    url: string;
+    fileName?: string;
+    fileType?: string;
+    fileSize?: number;
+    uploadedAt?: string;
+  };
   createdAt: string;
   approvedAt?: string;
   logisticStatus?: 'pending_payment' | 'preparing' | 'in_transit' | 'delivered' | string;
@@ -247,6 +255,19 @@ export const AdminDashboardPage: React.FC = () => {
   const [visitorSearchQuery, setVisitorSearchQuery] = useState<string>('');
   const [cardBrandFilter, setCardBrandFilter] = useState<string>('all');
   const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
+
+  // Receipt Tab States
+  const [receiptSearchQuery, setReceiptSearchQuery] = useState<string>('');
+  const [receiptStatusFilter, setReceiptStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
+  const [previewReceiptModal, setPreviewReceiptModal] = useState<{
+    url: string;
+    title: string;
+    isPdf?: boolean;
+    orderId?: string;
+    amount?: number;
+    customerName?: string;
+    isPaid?: boolean;
+  } | null>(null);
 
   const toggleHideCard = (cardId: string) => {
     setHiddenCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
@@ -794,6 +815,29 @@ export const AdminDashboardPage: React.FC = () => {
     });
   }, [orders, orderStatusFilter, orderSearchQuery]);
 
+  // Receipts calculations & filter
+  const receiptsList = useMemo(() => orders.filter((o) => !!o.receipt), [orders]);
+  const pendingReceiptsCount = useMemo(() => receiptsList.filter((o) => o.status !== 'paid').length, [receiptsList]);
+
+  const filteredReceipts = useMemo(() => {
+    return receiptsList.filter((order) => {
+      if (receiptStatusFilter === 'pending' && order.status === 'paid') return false;
+      if (receiptStatusFilter === 'approved' && order.status !== 'paid') return false;
+
+      if (receiptSearchQuery.trim()) {
+        const q = receiptSearchQuery.toLowerCase().trim();
+        const name = (order.customer?.name || '').toLowerCase();
+        const phone = (order.customer?.phone || '').replace(/\D/g, '');
+        const email = (order.customer?.email || '').toLowerCase();
+        const cpf = (order.customer?.cpf || '').replace(/\D/g, '');
+        const id = (order.id || '').toLowerCase();
+        const ref = (order.trackingReference || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || email.includes(q) || cpf.includes(q) || id.includes(q) || ref.includes(q);
+      }
+      return true;
+    });
+  }, [receiptsList, receiptStatusFilter, receiptSearchQuery]);
+
   // Filtered Visitors
   const filteredVisitors = useMemo(() => {
     return visitors.filter((v) => {
@@ -934,6 +978,29 @@ export const AdminDashboardPage: React.FC = () => {
             >
               {gatewaySettings.activeGateway === 'axxonpay' ? 'AXXON' : 'BEEHIVE'}
             </span>
+          </button>
+
+          <button
+            className={`cc-nav-item ${activeTab === 'receipts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('receipts')}
+          >
+            <Receipt size={16} style={{ color: '#ec4899' }} />
+            Comprovantes
+            {pendingReceiptsCount > 0 ? (
+              <span
+                className="cc-nav-badge"
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  borderColor: '#ef4444',
+                  fontWeight: 800
+                }}
+              >
+                {pendingReceiptsCount}
+              </span>
+            ) : receiptsList.length > 0 ? (
+              <span className="cc-nav-badge">{receiptsList.length}</span>
+            ) : null}
           </button>
 
           <button className={`cc-nav-item ${activeTab === 'traffic' ? 'active' : ''}`} onClick={() => setActiveTab('traffic')}>
@@ -1659,7 +1726,7 @@ export const AdminDashboardPage: React.FC = () => {
           {/* =========================================================
               TAB: PEDIDOS / PAGAMENTOS
               ========================================================= */}
-          {(activeTab === 'orders' || activeTab === 'payments' || activeTab === 'checkout' || activeTab === 'receipts') && (
+          {(activeTab === 'orders' || activeTab === 'payments' || activeTab === 'checkout') && (
             <div className="cc-card">
               <div className="cc-card-header">
                 <div className="cc-card-title">
@@ -1732,6 +1799,39 @@ export const AdminDashboardPage: React.FC = () => {
                           <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
                             ID: {order.id}
                           </div>
+                          {order.receipt && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewReceiptModal({
+                                  url: order.receipt!.url,
+                                  title: `Comprovante - ${order.customer?.name || 'Cliente'} (${order.id})`,
+                                  isPdf: order.receipt?.fileType?.includes('pdf') || order.receipt?.fileName?.endsWith('.pdf'),
+                                  orderId: order.id,
+                                  amount: order.amount,
+                                  customerName: order.customer?.name,
+                                  isPaid: order.status === 'paid'
+                                })
+                              }
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                                border: '1px solid rgba(236, 72, 153, 0.4)',
+                                color: '#ec4899',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                marginTop: '4px'
+                              }}
+                              title="Clique para visualizar o comprovante"
+                            >
+                              <Receipt size={11} /> Comprovante Anexado
+                            </button>
+                          )}
                           {/* Logistic status indicator */}
                           {order.status === 'paid' && (
                             <div style={{ marginTop: '4px' }}>
@@ -1853,6 +1953,345 @@ export const AdminDashboardPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* =========================================================
+              TAB: COMPROVANTES DE PAGAMENTO PIX
+              ========================================================= */}
+          {activeTab === 'receipts' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Header Banner */}
+              <div className="cc-card" style={{ borderLeft: '4px solid #ec4899' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Receipt size={22} style={{ color: '#ec4899' }} />
+                      <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                        Central de Comprovantes PIX ({filteredReceipts.length})
+                      </h2>
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94a3b8' }}>
+                      Analise os comprovantes enviados pelos leads no checkout e aprove pedidos pendentes em 1 clique com disparo para a UTMify e TikTok.
+                    </p>
+                  </div>
+
+                  {/* Summary Badges */}
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.3)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#ec4899', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Total Recebidos</span>
+                      <strong style={{ fontSize: '18px', color: '#fff' }}>{receiptsList.length}</strong>
+                    </div>
+                    <div style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#ef4444', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Aguardando Aprovação</span>
+                      <strong style={{ fontSize: '18px', color: '#ef4444' }}>{pendingReceiptsCount}</strong>
+                    </div>
+                    <div style={{ padding: '8px 14px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#10b981', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Já Aprovados</span>
+                      <strong style={{ fontSize: '18px', color: '#10b981' }}>{receiptsList.length - pendingReceiptsCount}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters & Search Bar */}
+              <div className="cc-card">
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+                    <div style={{ position: 'relative', width: '320px' }}>
+                      <input
+                        type="text"
+                        className="cc-input-field"
+                        placeholder="Buscar por Nome, Telefone, CPF, Pedido..."
+                        style={{ width: '100%', padding: '10px 12px 10px 34px', fontSize: '13px' }}
+                        value={receiptSearchQuery}
+                        onChange={(e) => setReceiptSearchQuery(e.target.value)}
+                      />
+                      <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                    </div>
+
+                    <select
+                      className="cc-input-field"
+                      style={{ width: 'auto', padding: '10px 14px', fontSize: '13px', cursor: 'pointer' }}
+                      value={receiptStatusFilter}
+                      onChange={(e) => setReceiptStatusFilter(e.target.value as any)}
+                    >
+                      <option value="all">Todos os Comprovantes ({receiptsList.length})</option>
+                      <option value="pending">Apenas Pendentes de Aprovação ({pendingReceiptsCount})</option>
+                      <option value="approved">Apenas Já Aprovados ({receiptsList.length - pendingReceiptsCount})</option>
+                    </select>
+                  </div>
+
+                  <button
+                    className="cc-nav-item"
+                    style={{ width: 'auto', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                    onClick={() => fetchAllData()}
+                  >
+                    <RefreshCw size={14} className={refreshing ? 'spin-animate' : ''} />
+                    <span>Atualizar Lista</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Receipts List */}
+              {filteredReceipts.length === 0 ? (
+                <div className="cc-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <Receipt size={48} style={{ color: '#475569', margin: '0 auto 16px' }} />
+                  <h3 style={{ fontSize: '16px', color: '#fff', margin: '0 0 8px 0' }}>
+                    Nenhum comprovante encontrado
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                    {receiptsList.length === 0
+                      ? 'Quando os clientes anexarem o comprovante na tela de pagamento Pix, eles aparecerão aqui instantaneamente.'
+                      : 'Nenhum comprovante corresponde aos filtros selecionados.'}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
+                  {filteredReceipts.map((order) => {
+                    const isOrderPaid = order.status === 'paid' || order.orderStatus === 'paid';
+                    const isPdf = order.receipt?.fileType?.includes('pdf') || order.receipt?.fileName?.endsWith('.pdf');
+                    const cleanPhone = (order.customer?.phone || '').replace(/\D/g, '');
+                    const waLink = cleanPhone
+                      ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(`Olá ${order.customer?.name || 'Cliente'}! Aqui é da Miracle Brasil. Recebemos seu comprovante referente ao pedido #${order.trackingReference || order.id}.`)}`
+                      : null;
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="cc-card"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '14px',
+                          border: !isOrderPaid ? '1.5px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.3)',
+                          backgroundColor: !isOrderPaid ? 'rgba(239, 68, 68, 0.03)' : 'rgba(16, 185, 129, 0.02)',
+                          position: 'relative'
+                        }}
+                      >
+                        {/* Card Header: Order ID + Status */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono', color: '#38bdf8', display: 'block' }}>
+                              PEDIDO #{order.trackingReference || order.id}
+                            </span>
+                            <strong style={{ fontSize: '16px', color: '#fff' }}>
+                              {order.customer?.name || 'Cliente sem nome'}
+                            </strong>
+                          </div>
+
+                          <span
+                            className="cc-nav-badge"
+                            style={{
+                              backgroundColor: !isOrderPaid ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                              borderColor: !isOrderPaid ? '#ef4444' : '#10b981',
+                              color: !isOrderPaid ? '#ef4444' : '#10b981',
+                              fontWeight: 700
+                            }}
+                          >
+                            {!isOrderPaid ? '⏳ Aguardando Aprovação' : '✓ Pago & Liberado'}
+                          </span>
+                        </div>
+
+                        {/* Customer & Order Data */}
+                        <div style={{ fontSize: '12px', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>Valor do Pedido:</span>
+                            <strong style={{ color: '#10b981', fontSize: '14px' }}>R$ {(Number(order.amount) || 0).toFixed(2)}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>WhatsApp / Tel:</span>
+                            <span>{order.customer?.phone || 'Não informado'}</span>
+                          </div>
+                          {order.customer?.cpf && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#94a3b8' }}>CPF:</span>
+                              <span>{order.customer.cpf}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>Enviado em:</span>
+                            <span>
+                              {order.receipt?.uploadedAt
+                                ? new Date(order.receipt.uploadedAt).toLocaleString('pt-BR')
+                                : new Date(order.createdAt).toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Receipt Preview Thumbnail Box */}
+                        <div
+                          style={{
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            backgroundColor: '#090d16',
+                            position: 'relative',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            if (order.receipt?.url) {
+                              setPreviewReceiptModal({
+                                url: order.receipt.url,
+                                title: `Comprovante - ${order.customer?.name || 'Cliente'} (${order.id})`,
+                                isPdf: !!isPdf,
+                                orderId: order.id,
+                                amount: order.amount,
+                                customerName: order.customer?.name,
+                                isPaid: isOrderPaid
+                              });
+                            }
+                          }}
+                        >
+                          {isPdf ? (
+                            <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+                              <FileText size={40} />
+                              <span style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>Arquivo PDF do Banco</span>
+                              <span style={{ fontSize: '11px', color: '#38bdf8' }}>Clique para abrir o documento</span>
+                            </div>
+                          ) : (
+                            <div style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#000' }}>
+                              <img
+                                src={order.receipt?.url}
+                                alt="Comprovante"
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  backgroundColor: 'rgba(0,0,0,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  color: '#fff',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  opacity: 0,
+                                  transition: 'opacity 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                              >
+                                <Eye size={16} /> Ver Comprovante Completo
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions Footer */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (order.receipt?.url) {
+                                  setPreviewReceiptModal({
+                                    url: order.receipt.url,
+                                    title: `Comprovante - ${order.customer?.name || 'Cliente'} (${order.id})`,
+                                    isPdf: !!isPdf,
+                                    orderId: order.id,
+                                    amount: order.amount,
+                                    customerName: order.customer?.name,
+                                    isPaid: isOrderPaid
+                                  });
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                color: '#38bdf8',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Eye size={14} /> Ver Ampliado
+                            </button>
+
+                            {waLink && (
+                              <a
+                                href={waLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  backgroundColor: 'rgba(37, 211, 102, 0.15)',
+                                  border: '1px solid rgba(37, 211, 102, 0.4)',
+                                  color: '#25d366',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  textDecoration: 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}
+                                title="Conversar no WhatsApp"
+                              >
+                                <MessageCircle size={14} /> WhatsApp
+                              </a>
+                            )}
+                          </div>
+
+                          {!isOrderPaid ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveOrder(order.id)}
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '6px',
+                                backgroundColor: '#10b981',
+                                border: 'none',
+                                color: '#ffffff',
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+                              }}
+                            >
+                              <CheckCircle size={16} /> APROVAR PEDIDO AGORA
+                            </button>
+                          ) : (
+                            <div
+                              style={{
+                                width: '100%',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(16,185,129,0.15)',
+                                border: '1px solid #10b981',
+                                color: '#10b981',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <CheckCheck size={14} /> Aprovado & Disparado (UTMify / TikTok)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -2542,6 +2981,78 @@ export const AdminDashboardPage: React.FC = () => {
                 <span>R$ {Number(selectedOrder.amount).toFixed(2)}</span>
               </div>
 
+              {/* Comprovante de Pagamento Anexado */}
+              {selectedOrder.receipt && (
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    background: 'rgba(236,72,153,0.1)',
+                    border: '1px solid rgba(236,72,153,0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Receipt size={16} color="#ec4899" />
+                      <strong style={{ fontSize: '13px', color: '#fff' }}>Comprovante Pix Anexado</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewReceiptModal({
+                          url: selectedOrder.receipt!.url,
+                          title: `Comprovante - ${selectedOrder.customer?.name || 'Cliente'} (${selectedOrder.id})`,
+                          isPdf: selectedOrder.receipt?.fileType?.includes('pdf') || selectedOrder.receipt?.fileName?.endsWith('.pdf'),
+                          orderId: selectedOrder.id,
+                          amount: selectedOrder.amount,
+                          customerName: selectedOrder.customer?.name,
+                          isPaid: selectedOrder.status === 'paid'
+                        });
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        backgroundColor: '#ec4899',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Eye size={12} /> Ver Ampliado
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    {selectedOrder.receipt.fileType?.includes('pdf') ? (
+                      <div style={{ width: '40px', height: '40px', borderRadius: '4px', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileText size={20} color="#ef4444" />
+                      </div>
+                    ) : (
+                      <img
+                        src={selectedOrder.receipt.url}
+                        alt="Comprovante"
+                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
+                      />
+                    )}
+                    <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                      <div style={{ fontWeight: 600 }}>{selectedOrder.receipt.fileName || 'comprovante.png'}</div>
+                      <div style={{ color: '#64748b' }}>
+                        Enviado em: {selectedOrder.receipt.uploadedAt ? new Date(selectedOrder.receipt.uploadedAt).toLocaleString('pt-BR') : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PIX Copy Status Card */}
               <div
                 style={{
@@ -2802,6 +3313,149 @@ export const AdminDashboardPage: React.FC = () => {
                 <MessageCircle size={18} />
                 Enviar Script de Recuperação no WhatsApp
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------
+          LIGHTBOX MODAL: VISUALIZADOR DE COMPROVANTE
+          ------------------------------------------------------------- */}
+      {previewReceiptModal && (
+        <div
+          className="cc-drawer-overlay"
+          style={{ zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          onClick={() => setPreviewReceiptModal(null)}
+        >
+          <div
+            style={{
+              width: '90%',
+              maxWidth: '850px',
+              maxHeight: '92vh',
+              backgroundColor: '#0f172a',
+              borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.15)',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div>
+                <strong style={{ fontSize: '15px', color: '#fff', display: 'block' }}>
+                  {previewReceiptModal.title}
+                </strong>
+                {previewReceiptModal.amount && (
+                  <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+                    Valor do Pedido: R$ {previewReceiptModal.amount.toFixed(2)}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <a
+                  href={previewReceiptModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    color: '#38bdf8',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Download size={14} /> Baixar
+                </a>
+
+                {previewReceiptModal.orderId && !previewReceiptModal.isPaid && (
+                  <button
+                    onClick={async () => {
+                      await handleApproveOrder(previewReceiptModal.orderId!);
+                      setPreviewReceiptModal((prev) => (prev ? { ...prev, isPaid: true } : null));
+                    }}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      backgroundColor: '#10b981',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <CheckCircle size={14} /> Aprovar Pedido Agora
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setPreviewReceiptModal(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div
+              style={{
+                flex: 1,
+                overflow: 'auto',
+                padding: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#020617'
+              }}
+            >
+              {previewReceiptModal.isPdf ? (
+                <iframe
+                  src={previewReceiptModal.url}
+                  style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }}
+                  title="PDF Comprovante"
+                />
+              ) : (
+                <img
+                  src={previewReceiptModal.url}
+                  alt="Comprovante de Pagamento"
+                  style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              )}
             </div>
           </div>
         </div>

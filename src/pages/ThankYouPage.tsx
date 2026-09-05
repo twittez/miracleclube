@@ -1,5 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, Copy, Check, QrCode, Lock, MessageSquare, Truck, ExternalLink } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  CheckCircle2,
+  Copy,
+  Check,
+  QrCode,
+  Lock,
+  MessageSquare,
+  Truck,
+  ExternalLink,
+  UploadCloud,
+  FileText,
+  Camera,
+  Loader2,
+  Eye,
+  RefreshCw
+} from "lucide-react";
 import { trackLiveEvent } from "../services/liveTracker";
 import { trackPurchase } from "../services/metaPixel";
 import { trackTikTokCompletePayment } from "../services/tiktokPixel";
@@ -41,6 +56,89 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
   const [copiedPix, setCopiedPix] = useState(false);
   const [copiedTracking, setCopiedTracking] = useState(false);
 
+  // Receipt upload states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError("O arquivo é muito grande. O tamanho máximo permitido é 15MB.");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const handleSendReceipt = async () => {
+    if (!selectedFile) return;
+    const currentOrderId = order?.id || order?.orderId || orderId;
+    if (!currentOrderId) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedFile);
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const res = await fetch(`/api/orders/${currentOrderId}/receipt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: currentOrderId,
+              fileData: base64Data,
+              fileName: selectedFile.name,
+              fileType: selectedFile.type,
+              fileSize: selectedFile.size
+            })
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setUploadSuccess(true);
+            setOrder((prev: any) => ({
+              ...prev,
+              receipt: data.receipt
+            }));
+          } else {
+            setUploadError(data.error || "Não foi possível enviar o comprovante. Tente novamente.");
+          }
+        } catch (err) {
+          setUploadError("Erro de conexão ao enviar comprovante.");
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        setIsUploading(false);
+        setUploadError("Erro ao ler o arquivo selecionado.");
+      };
+    } catch (err) {
+      setIsUploading(false);
+      setUploadError("Erro ao processar envio do arquivo.");
+    }
+  };
+
   useEffect(() => {
     let intervalId: any = null;
 
@@ -53,7 +151,8 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
             ...prev,
             ...data,
             id: data.id || data.orderId || prev?.id || orderId,
-            pix: data.pix || data.pixResult || prev?.pix
+            pix: data.pix || data.pixResult || prev?.pix,
+            receipt: data.receipt || prev?.receipt
           }));
         }
       } catch (err) {
@@ -266,6 +365,326 @@ export const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderId, onNavigateT
             <span style={{ fontSize: "0.75rem", color: "#6B7280" }}>
               Após o pagamento, esta página atualiza automaticamente em poucos segundos.
             </span>
+          </div>
+        )}
+
+        {/* COMPROVANTE DE PAGAMENTO BLOCK */}
+        {!isPaid && (
+          <div
+            className="checkout-card"
+            style={{
+              border: (order?.receipt || uploadSuccess) ? "1.5px solid #10b981" : "1.5px dashed #d8158a",
+              backgroundColor: (order?.receipt || uploadSuccess) ? "#f0fdf4" : "#fdf2f8"
+            }}
+          >
+            <h2
+              className="checkout-card__title"
+              style={{
+                color: (order?.receipt || uploadSuccess) ? "#166534" : "#9d174d",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                margin: 0
+              }}
+            >
+              <UploadCloud size={20} color={(order?.receipt || uploadSuccess) ? "#10b981" : "#d8158a"} />
+              {(order?.receipt || uploadSuccess) ? "Comprovante Pix Anexado!" : "Já pagou? Anexe seu Comprovante"}
+            </h2>
+
+            <p style={{ fontSize: "0.82rem", color: "#4b5563", margin: "4px 0 12px" }}>
+              {(order?.receipt || uploadSuccess)
+                ? "Recebemos o comprovante do seu pagamento! Nossa equipe já está validando para liberar seu envio com prioridade máxima."
+                : "Envie a foto ou arquivo do comprovante do seu banco para acelerar a conferência e liberação imediata do seu envio."}
+            </p>
+
+            {(order?.receipt || uploadSuccess) ? (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px",
+                    backgroundColor: "#ffffff",
+                    borderRadius: "8px",
+                    border: "1px solid #d1fae5"
+                  }}
+                >
+                  {(order?.receipt?.fileType?.includes("pdf") || selectedFile?.type?.includes("pdf")) ? (
+                    <div
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "6px",
+                        backgroundColor: "#fee2e2",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}
+                    >
+                      <FileText size={24} color="#ef4444" />
+                    </div>
+                  ) : (
+                    <img
+                      src={filePreview || order?.receipt?.url || "/images/placeholder.png"}
+                      alt="Comprovante"
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        objectFit: "cover",
+                        borderRadius: "6px",
+                        border: "1px solid #e5e7eb",
+                        flexShrink: 0
+                      }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                    <strong
+                      style={{
+                        fontSize: "0.82rem",
+                        color: "#111827",
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {order?.receipt?.fileName || selectedFile?.name || "comprovante_pix.png"}
+                    </strong>
+                    <span
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "#059669",
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        marginTop: "2px"
+                      }}
+                    >
+                      <CheckCircle2 size={13} /> Aguardando liberação do envio
+                    </span>
+                  </div>
+                  {order?.receipt?.url && (
+                    <a
+                      href={order.receipt.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: "6px 12px",
+                        backgroundColor: "#10b981",
+                        color: "#fff",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                    >
+                      <Eye size={14} /> Ver
+                    </a>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadSuccess(false);
+                    setSelectedFile(null);
+                    setFilePreview(null);
+                    if (fileInputRef.current) fileInputRef.current.click();
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#6b7280",
+                    fontSize: "0.75rem",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                    marginTop: "4px"
+                  }}
+                >
+                  <RefreshCw size={12} /> Deseja trocar ou reenviar outro comprovante?
+                </button>
+              </div>
+            ) : (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg,application/pdf"
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
+
+                {!selectedFile ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: "20px 16px",
+                      borderRadius: "10px",
+                      border: "2px dashed #f472b6",
+                      backgroundColor: "#ffffff",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "8px",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "44px",
+                        height: "44px",
+                        borderRadius: "50%",
+                        backgroundColor: "#fdf2f8",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      <Camera size={22} color="#d8158a" />
+                    </div>
+                    <strong style={{ fontSize: "0.88rem", color: "#1f2937" }}>
+                      Tirar foto ou escolher comprovante
+                    </strong>
+                    <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                      Formatos aceitos: Foto (JPG, PNG, WEBP) ou PDF do banco (máx. 15MB)
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "10px",
+                        backgroundColor: "#ffffff",
+                        borderRadius: "8px",
+                        border: "1px solid #e5e7eb"
+                      }}
+                    >
+                      {filePreview ? (
+                        <img
+                          src={filePreview}
+                          alt="Preview do comprovante"
+                          style={{
+                            width: "52px",
+                            height: "52px",
+                            objectFit: "cover",
+                            borderRadius: "6px",
+                            border: "1px solid #e5e7eb"
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "52px",
+                            height: "52px",
+                            borderRadius: "6px",
+                            backgroundColor: "#fee2e2",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                        >
+                          <FileText size={26} color="#ef4444" />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                        <strong
+                          style={{
+                            fontSize: "0.82rem",
+                            color: "#111827",
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {selectedFile.name}
+                        </strong>
+                        <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setFilePreview(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        style={{
+                          padding: "4px 8px",
+                          background: "none",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "4px",
+                          fontSize: "0.72rem",
+                          color: "#6b7280",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Trocar
+                      </button>
+                    </div>
+
+                    {uploadError && (
+                      <div
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          backgroundColor: "#fef2f2",
+                          border: "1px solid #fecaca",
+                          color: "#b91c1c",
+                          fontSize: "0.78rem",
+                          textAlign: "left"
+                        }}
+                      >
+                        {uploadError}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="checkout-submit-btn"
+                      onClick={handleSendReceipt}
+                      disabled={isUploading}
+                      style={{
+                        backgroundColor: "#16a34a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        fontWeight: 700,
+                        fontSize: "0.95rem"
+                      }}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+                          <span>Enviando Comprovante...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={18} />
+                          <span>ENVIAR COMPROVANTE AGORA</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
