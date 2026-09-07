@@ -15,6 +15,9 @@ export type EventType =
   | 'payment_approved'
   | 'payment_failed'
   | 'card_declined'
+  | 'precheckout_offer_view'
+  | 'precheckout_offer_accepted'
+  | 'precheckout_offer_declined'
   | 'purchase';
 
 export interface ClientDeviceInfo {

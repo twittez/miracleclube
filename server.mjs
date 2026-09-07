@@ -682,24 +682,43 @@ app.post('/api/payments/pix', async (req, res) => {
     const orderId = `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const trackingRef = generateTrackingRef();
 
+    // Fixed server-side SKU catalog (prices in centavos). Never trust client-side prices.
+    const SERVER_SKU_PRICES = {
+      'SHORTS-MOD-4B': 6990, // R$ 69,90 - Shorts Modelador com 4 Barbatanas
+      'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
+    };
+
     let calculatedAmountCentavos = 7990;
     if (amount && typeof amount === 'number' && amount > 0) {
       calculatedAmountCentavos = Math.round(amount * 100);
     }
 
-    // Build Beehive items array from the real cart items sent by the frontend.
-    // Each item already carries unitPrice (in centavos) and quantity from the checkout.
+    // Build items array from the real cart items sent by the frontend with server validation
     const beehiveItems = Array.isArray(items) && items.length > 0
-      ? items.map(item => ({
-          title: item.title || 'Cinta Body Modelador - Miracle Belt',
-          unitPrice: typeof item.unitPrice === 'number' && item.unitPrice > 0
+      ? items.map(item => {
+          const sku = item.sku || item.productId;
+          let unitPrice = typeof item.unitPrice === 'number' && item.unitPrice > 0
             ? item.unitPrice
-            : calculatedAmountCentavos,
-          quantity: typeof item.quantity === 'number' && item.quantity > 0
-            ? item.quantity
-            : 1,
-          tangible: true
-        }))
+            : calculatedAmountCentavos;
+
+          // Server-side SKU price validation: enforce fixed price by SKU
+          if (sku && SERVER_SKU_PRICES[sku]) {
+            unitPrice = SERVER_SKU_PRICES[sku];
+          }
+
+          return {
+            title: item.title || 'Cinta Body Modelador - Miracle Belt',
+            unitPrice,
+            quantity: typeof item.quantity === 'number' && item.quantity > 0
+              ? item.quantity
+              : 1,
+            tangible: true,
+            sku: sku || undefined,
+            size: item.size || undefined,
+            color: item.color || undefined,
+            image: item.image || undefined,
+          };
+        })
       : [{
           title: 'Cinta Body Modelador - Miracle Belt',
           unitPrice: calculatedAmountCentavos,
@@ -836,7 +855,7 @@ app.post('/api/payments/pix', async (req, res) => {
       orderStatus: 'pending_payment',
       customer,
       shipping,
-      items: items || [],
+      items: beehiveItems || items || [],
       amount: calculatedAmountCentavos / 100,
       gateway: gatewayUsed,
       pixResult,

@@ -5,13 +5,14 @@ import { ThankYouPage } from "./pages/ThankYouPage";
 import { TrackingPage } from "./pages/TrackingPage";
 import { RefundPolicyPage } from "./pages/RefundPolicyPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
+import { PreCheckoutOfferPage } from "./pages/PreCheckoutOfferPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
 import { initTikTokPixel, trackTikTokPageView } from "./services/tiktokPixel";
 import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveTracker";
 import { captureUTMParams } from "./utils/utm";
 
 // Rotas que são exclusivas para mobile (bloqueadas no desktop)
-const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes"];
+const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial"];
 
 function isMobile(): boolean {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
@@ -138,6 +139,15 @@ export function App() {
     return <AdminDashboardPage />;
   }
 
+  if (currentPath === "/oferta-especial") {
+    return (
+      <PreCheckoutOfferPage
+        onAccept={() => navigateTo("/checkout")}
+        onDecline={() => navigateTo("/checkout")}
+      />
+    );
+  }
+
   if (
     currentPath === "/politica-de-reembolso" ||
     currentPath === "/politica-de-devolucao" ||
@@ -152,7 +162,7 @@ export function App() {
 
   return (
     <ProductLandingPage
-      onNavigateToCheckout={() => navigateTo("/checkout")}
+      onNavigateToCheckout={() => navigateTo("/oferta-especial")}
       onNavigateToTracking={() => navigateTo("/rastreio")}
     />
   );

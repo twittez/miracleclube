@@ -218,7 +218,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
             unitPrice: Math.round(item.price * 100),
             quantity: item.quantity,
             size: item.size,
-            color: item.color
+            color: item.color,
+            sku: item.productId,
+            productId: item.productId
           })),
           subtotal: Number(cartSubtotal.toFixed(2)),
           shippingCost: shippingCost,
@@ -274,6 +276,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           size: item.size,
           color: item.color,
           image: item.image,
+          sku: item.productId,
+          productId: item.productId,
         })),
         utm: captureUTMParams(),
       };
