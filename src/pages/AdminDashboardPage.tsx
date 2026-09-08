@@ -41,7 +41,10 @@ import {
   Sliders,
   CheckCheck,
   Receipt,
-  Calendar
+  Calendar,
+  Menu,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -349,6 +352,108 @@ export const AdminDashboardPage: React.FC = () => {
   // Terminal Auto-scroll ref
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Mobile Navigation Drawer State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // iOS Safari Install Modal State
+  const [showIosInstallModal, setShowIosInstallModal] = useState<boolean>(false);
+
+  // Sound Notification Toggle State (persisted in localStorage)
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('miracle_admin_sound') !== 'false';
+  });
+
+  // Tab Selection Helper (closes mobile drawer smoothly)
+  const handleTabClick = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Unlock AudioContext on first user interaction (critical for iOS Safari)
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const ctx = new AudioContextClass();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('touchstart', unlockAudio, { once: true });
+    window.addEventListener('click', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
+    };
+  }, []);
+
+  // Sale Toast Notification State
+  const [saleToast, setSaleToast] = useState<{ name: string; amount: string } | null>(null);
+
+  // Sale Sound — Realistic Cash Register "Cha-Ching!" with Bell & Falling Coins
+  const playSaleSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const now = ctx.currentTime;
+
+      const playTone = (freq: number, start: number, duration: number, gainVal: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.linearRampToValueAtTime(gainVal, start + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+
+      // 1. Mechanical "Ka-clink" register lever
+      playTone(600, now, 0.04, 0.25);
+      playTone(900, now + 0.02, 0.05, 0.3);
+
+      // 2. High metallic "Ching!" bell (Clear resonant chime at C7 and overtones)
+      playTone(2093.0, now + 0.06, 0.75, 0.45); // C7
+      playTone(2637.0, now + 0.06, 0.65, 0.35); // E7
+      playTone(3135.9, now + 0.06, 0.50, 0.25); // G7
+      playTone(4186.0, now + 0.06, 0.35, 0.20); // C8
+
+      // 3. Falling coins cascade into drawer (tinkling frequencies)
+      const coinDrops = [
+        { freq: 1760.0, delay: 0.18, dur: 0.20, vol: 0.35 },
+        { freq: 2349.3, delay: 0.25, dur: 0.22, vol: 0.40 },
+        { freq: 2793.8, delay: 0.32, dur: 0.25, vol: 0.45 },
+        { freq: 3520.0, delay: 0.40, dur: 0.30, vol: 0.38 },
+        { freq: 4186.0, delay: 0.48, dur: 0.35, vol: 0.30 },
+      ];
+      coinDrops.forEach(c => {
+        playTone(c.freq, now + c.delay, c.dur, c.vol);
+      });
+    } catch { /* ignore if audio ctx unavailable */ }
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem('miracle_admin_sound', next ? 'true' : 'false');
+    if (next) {
+      setTimeout(() => playSaleSound(), 50);
+    }
+  };
+
+
   // Clock Ticker
   useEffect(() => {
     const updateTime = () => {
@@ -515,7 +620,16 @@ export const AdminDashboardPage: React.FC = () => {
           } else if (parsed.type === 'declined_card_deleted') {
             const data = parsed.data;
             setDeclinedCards((prev) => prev.filter((c) => c.id !== data.id));
-          } else if (parsed.type === 'pix_generated' || parsed.type === 'order_paid') {
+          } else if (parsed.type === 'order_paid') {
+            fetchAllData();
+            // 💰 Notify: sound + toast
+            playSaleSound();
+            const saleData = parsed.data;
+            const customerName = saleData?.customer?.name || saleData?.customerName || 'Nova venda';
+            const amt = saleData?.amount ? `R$ ${Number(saleData.amount).toFixed(2).replace('.', ',')}` : '';
+            setSaleToast({ name: customerName.split(' ')[0], amount: amt });
+            setTimeout(() => setSaleToast(null), 5000);
+          } else if (parsed.type === 'pix_generated') {
             fetchAllData();
           } else if (parsed.type === 'gateway_updated') {
             if (parsed.data?.activeGateway) {
@@ -1363,45 +1477,115 @@ export const AdminDashboardPage: React.FC = () => {
     <div className="cc-app-wrapper">
       <NeuralCanvasBackground />
 
-      {/* Sidebar Navigation (11 Sections) */}
-      <aside className="cc-sidebar">
+      {/* ── Sale Notification Toast ───────────────────────────────── */}
+      {saleToast && (
+        <div className="cc-sale-toast">
+          <span className="cc-sale-toast-icon">💰</span>
+          <div className="cc-sale-toast-body">
+            <div className="cc-sale-toast-title">✅ VENDA CONFIRMADA!</div>
+            <div className="cc-sale-toast-amount">{saleToast.amount}</div>
+            <div className="cc-sale-toast-name">{saleToast.name}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile Sidebar Backdrop Overlay ───────────────────────── */}
+      {mobileMenuOpen && (
+        <div className="cc-sidebar-overlay" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* ── Mobile Bottom Navigation Bar (Fast 1-Tap Access) ──────── */}
+      <nav className="cc-mobile-bottomnav">
+        <button
+          className={`cc-mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => handleTabClick('dashboard')}
+        >
+          <Activity size={18} />
+          <span>Home</span>
+        </button>
+        <button
+          className={`cc-mobile-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => handleTabClick('orders')}
+        >
+          <FileText size={18} />
+          <span>Pedidos</span>
+          {orders.length > 0 && <span className="cc-mobile-nav-badge">{orders.length}</span>}
+        </button>
+        <button
+          className={`cc-mobile-nav-item ${activeTab === 'declined' ? 'active' : ''}`}
+          onClick={() => handleTabClick('declined')}
+        >
+          <CreditCard size={18} />
+          <span>Cartões</span>
+          {declinedCards.length > 0 && <span className="cc-mobile-nav-badge">{declinedCards.length}</span>}
+        </button>
+        <button
+          className={`cc-mobile-nav-item ${activeTab === 'traffic' ? 'active' : ''}`}
+          onClick={() => handleTabClick('traffic')}
+        >
+          <Compass size={18} />
+          <span>Canais</span>
+        </button>
+        <button
+          className={`cc-mobile-nav-item ${mobileMenuOpen ? 'active' : ''}`}
+          onClick={() => setMobileMenuOpen(prev => !prev)}
+        >
+          <Menu size={18} />
+          <span>Menu</span>
+          {pendingReceiptsCount > 0 && (
+            <span className="cc-mobile-nav-badge" style={{ backgroundColor: '#ec4899' }}>
+              {pendingReceiptsCount}
+            </span>
+          )}
+        </button>
+      </nav>
+
+      {/* Sidebar Navigation (Full 13 Sections with Drawer Slide-in on Mobile) */}
+      <aside className={`cc-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="cc-sidebar-header">
           <div className="cc-brand-symbol">M</div>
           <div className="cc-brand-text">
             <span className="cc-brand-title">MIRACLE</span>
             <span className="cc-brand-sub">CONTROL CENTER</span>
           </div>
+          <button
+            className="cc-sidebar-mobile-close"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Fechar menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="cc-sidebar-nav">
-          <button className={`cc-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <button className={`cc-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleTabClick('dashboard')}>
             <Activity size={16} style={{ color: '#ec4899' }} />
             Dashboard
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'live' ? 'active' : ''}`} onClick={() => setActiveTab('live')}>
+          <button className={`cc-nav-item ${activeTab === 'live' ? 'active' : ''}`} onClick={() => handleTabClick('live')}>
             <Radio size={16} style={{ color: '#10b981' }} />
             Ao Vivo
             {activeVisitorsCount > 0 && <span className="cc-nav-badge">{activeVisitorsCount}</span>}
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'visitors' ? 'active' : ''}`} onClick={() => setActiveTab('visitors')}>
+          <button className={`cc-nav-item ${activeTab === 'visitors' ? 'active' : ''}`} onClick={() => handleTabClick('visitors')}>
             <Users size={16} style={{ color: '#38bdf8' }} />
             Visitantes
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'funnel' ? 'active' : ''}`} onClick={() => setActiveTab('funnel')}>
+          <button className={`cc-nav-item ${activeTab === 'funnel' ? 'active' : ''}`} onClick={() => handleTabClick('funnel')}>
             <Layers size={16} style={{ color: '#8b5cf6' }} />
             Funil
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'checkout' ? 'active' : ''}`} onClick={() => setActiveTab('checkout')}>
+          <button className={`cc-nav-item ${activeTab === 'checkout' ? 'active' : ''}`} onClick={() => handleTabClick('checkout')}>
             <ShoppingCart size={16} style={{ color: '#f59e0b' }} />
             Checkout
             {activeCheckoutCount > 0 && <span className="cc-nav-badge" style={{ color: '#f59e0b', borderColor: '#f59e0b' }}>{activeCheckoutCount}</span>}
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'declined' ? 'active' : ''}`} onClick={() => setActiveTab('declined')}>
+          <button className={`cc-nav-item ${activeTab === 'declined' ? 'active' : ''}`} onClick={() => handleTabClick('declined')}>
             <AlertTriangle size={16} style={{ color: '#ef4444' }} />
             Cartões Negados
             {declinedCards.length > 0 && (
@@ -1411,18 +1595,18 @@ export const AdminDashboardPage: React.FC = () => {
             )}
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+          <button className={`cc-nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => handleTabClick('orders')}>
             <FileText size={16} style={{ color: '#10b981' }} />
             Pedidos
             <span className="cc-nav-badge">{orders.length}</span>
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => setActiveTab('payments')}>
+          <button className={`cc-nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => handleTabClick('payments')}>
             <CreditCard size={16} style={{ color: '#06b6d4' }} />
             Pagamentos PIX
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'gateways' ? 'active' : ''}`} onClick={() => setActiveTab('gateways')}>
+          <button className={`cc-nav-item ${activeTab === 'gateways' ? 'active' : ''}`} onClick={() => handleTabClick('gateways')}>
             <Sliders size={16} style={{ color: '#10b981' }} />
             Gateways PIX
             <span
@@ -1439,7 +1623,7 @@ export const AdminDashboardPage: React.FC = () => {
 
           <button
             className={`cc-nav-item ${activeTab === 'receipts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('receipts')}
+            onClick={() => handleTabClick('receipts')}
           >
             <Receipt size={16} style={{ color: '#ec4899' }} />
             Comprovantes
@@ -1460,7 +1644,7 @@ export const AdminDashboardPage: React.FC = () => {
             ) : null}
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'traffic' ? 'active' : ''}`} onClick={() => setActiveTab('traffic')}>
+          <button className={`cc-nav-item ${activeTab === 'traffic' ? 'active' : ''}`} onClick={() => handleTabClick('traffic')}>
             <Compass size={16} style={{ color: '#a855f7' }} />
             Meta vs TikTok (Vendas)
             <span
@@ -1477,12 +1661,12 @@ export const AdminDashboardPage: React.FC = () => {
             </span>
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+          <button className={`cc-nav-item ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => handleTabClick('analytics')}>
             <BarChart3 size={16} style={{ color: '#ec4899' }} />
             Analytics
           </button>
 
-          <button className={`cc-nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+          <button className={`cc-nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => handleTabClick('settings')}>
             <Settings size={16} style={{ color: '#94a3b8' }} />
             Integrações & API
           </button>
@@ -1509,24 +1693,54 @@ export const AdminDashboardPage: React.FC = () => {
         {/* Topbar Header */}
         <header className="cc-topbar">
           <div className="cc-topbar-left">
+            <button
+              className="cc-mobile-hamburger"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Menu"
+              title="Abrir Menu de Abas"
+            >
+              <Menu size={18} />
+            </button>
+
             <span className="cc-status-pill">
               <span className="cc-pulse-dot" />
-              SYSTEM ONLINE
+              ONLINE
             </span>
 
-            <span className="cc-status-pill" style={{ color: isSseConnected ? '#38bdf8' : '#f59e0b', borderColor: isSseConnected ? 'rgba(56,189,248,0.3)' : 'rgba(245,158,11,0.3)', background: isSseConnected ? 'rgba(56,189,248,0.1)' : 'rgba(245,158,11,0.1)' }}>
+            <span className="cc-status-pill desktop-only" style={{ color: isSseConnected ? '#38bdf8' : '#f59e0b', borderColor: isSseConnected ? 'rgba(56,189,248,0.3)' : 'rgba(245,158,11,0.3)', background: isSseConnected ? 'rgba(56,189,248,0.1)' : 'rgba(245,158,11,0.1)' }}>
               <Zap size={12} />
               {isSseConnected ? 'REALTIME STREAM' : 'POLLING SYNC'}
             </span>
 
             <span className="cc-status-pill" style={{ color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)', background: 'rgba(236,72,153,0.1)' }}>
               <Users size={12} />
-              {activeVisitorsCount} SESSÕES ATIVAS
+              {activeVisitorsCount} <span className="desktop-only-inline">SESSÕES</span>
             </span>
           </div>
 
           <div className="cc-topbar-right">
-            <div className="cc-clock-display">{currentTime}</div>
+            {/* Sound Toggle Button */}
+            <button
+              onClick={toggleSound}
+              className={`cc-sound-toggle-btn ${soundEnabled ? 'active' : 'muted'}`}
+              title={soundEnabled ? 'Som de venda ATIVADO (clique para testar ou mutar)' : 'Som de venda MUTADO (clique para ativar)'}
+            >
+              {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              <span className="cc-topbar-btn-text">{soundEnabled ? 'SOM' : 'MUDO'}</span>
+            </button>
+
+            {/* Install on iPhone / PWA Button */}
+            <button
+              onClick={() => setShowIosInstallModal(true)}
+              className="cc-install-pwa-btn"
+              title="Como instalar no iPhone (iOS) pelo Safari"
+            >
+              <Smartphone size={14} />
+              <span className="cc-topbar-btn-text">APP</span>
+            </button>
+
+            <div className="cc-clock-display desktop-only">{currentTime}</div>
+
             <button
               onClick={fetchAllData}
               className="cc-nav-item"
@@ -5330,6 +5544,59 @@ export const AdminDashboardPage: React.FC = () => {
                   style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '8px' }}
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── iOS Safari Add to Home Screen Instructions Modal ──────────── */}
+      {showIosInstallModal && (
+        <div className="cc-modal-overlay" onClick={() => setShowIosInstallModal(false)}>
+          <div className="cc-install-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cc-install-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="cc-brand-symbol" style={{ width: 34, height: 34, fontSize: 16 }}>M</div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#fff', margin: 0 }}>Instalar no iPhone (iOS)</h3>
+                  <p style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'JetBrains Mono', margin: 0 }}>NAVEGADOR SAFARI</p>
+                </div>
+              </div>
+              <button className="cc-modal-close-btn" onClick={() => setShowIosInstallModal(false)} aria-label="Fechar">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="cc-install-modal-body">
+              <div className="cc-install-step">
+                <span className="cc-step-num">1</span>
+                <div>
+                  <strong>Abra no Safari</strong>
+                  <p>Acesse <code>miraclebrasil.com/admin</code> pelo Safari no seu iPhone.</p>
+                </div>
+              </div>
+              <div className="cc-install-step">
+                <span className="cc-step-num">2</span>
+                <div>
+                  <strong>Toque em Compartilhar</strong>
+                  <p>Toque no ícone central inferior do Safari (o quadrado com uma seta apontando para cima <ExternalLink size={13} style={{ display: 'inline' }} />).</p>
+                </div>
+              </div>
+              <div className="cc-install-step">
+                <span className="cc-step-num">3</span>
+                <div>
+                  <strong>Adicionar à Tela de Início</strong>
+                  <p>Role as opções para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</p>
+                </div>
+              </div>
+              <div className="cc-install-step">
+                <span className="cc-step-num">4</span>
+                <div>
+                  <strong>Toque em Adicionar</strong>
+                  <p>No canto superior direito, toque em <strong>"Adicionar"</strong>. O ícone do Miracle Admin aparecerá na tela inicial como um app nativo!</p>
+                </div>
+              </div>
+              <div className="cc-install-tip">
+                💰 <strong>Dica:</strong> Em tela cheia no iPhone, o app funciona com som de venda em tempo real e sem as barras do navegador!
+              </div>
             </div>
           </div>
         </div>

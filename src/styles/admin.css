@@ -813,17 +813,429 @@
   }
 }
 
-@media (max-width: 768px) {
-  .cc-sidebar {
-    display: none !important;
-  }
-  .cc-content-body {
-    padding: 16px !important;
-  }
-  .cc-topbar {
-    padding: 0 16px !important;
+/* Desktop default: hide mobile-only elements */
+.cc-mobile-bottomnav,
+.cc-mobile-hamburger,
+.cc-sidebar-mobile-close {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .cc-dashboard-split {
+    grid-template-columns: 1fr !important;
   }
 }
+
+/* ── Mobile Sidebar Drawer & Responsive UI (<= 768px) ─────────────────────── */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .desktop-only-inline {
+    display: none !important;
+  }
+
+  /* Hamburger Toggle in Topbar */
+  .cc-mobile-hamburger {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 34px !important;
+    height: 34px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Sidebar transforms into a smooth slide-in Drawer on mobile */
+  .cc-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 290px !important;
+    max-width: 85vw !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transform: translateX(-105%) !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 15px 0 50px rgba(0, 0, 0, 0.85) !important;
+    background: #070b1a !important;
+  }
+
+  .cc-sidebar.mobile-open {
+    transform: translateX(0) !important;
+  }
+
+  .cc-sidebar-mobile-close {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    width: 32px !important;
+    height: 32px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+  }
+
+  /* Show bottom nav */
+  .cc-mobile-bottomnav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 200 !important;
+    background: rgba(5, 8, 20, 0.97) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(139, 92, 246, 0.25) !important;
+    padding: 6px 0 !important;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom)) !important;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .cc-mobile-nav-item {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    padding: 6px 2px !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    color: rgba(148, 163, 184, 0.6) !important;
+    font-size: 9px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+    text-transform: uppercase !important;
+    position: relative !important;
+    transition: color 0.2s ease !important;
+    -webkit-tap-highlight-color: transparent !important;
+    min-width: 0 !important;
+  }
+
+  .cc-mobile-nav-item.active {
+    color: #ec4899 !important;
+  }
+
+  .cc-mobile-nav-item.active svg {
+    filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.8)) !important;
+  }
+
+  .cc-mobile-nav-badge {
+    position: absolute !important;
+    top: 2px !important;
+    right: 50% !important;
+    transform: translateX(10px) !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    border-radius: 8px !important;
+    background: #ef4444 !important;
+    color: #fff !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 4px !important;
+    pointer-events: none !important;
+  }
+
+  /* Topbar compact */
+  .cc-topbar {
+    padding: 0 10px !important;
+    height: 52px !important;
+    gap: 6px !important;
+  }
+  .cc-topbar-left {
+    gap: 6px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  .cc-topbar-right {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  .cc-status-pill {
+    font-size: 9px !important;
+    padding: 3px 6px !important;
+    gap: 4px !important;
+  }
+  .cc-topbar-btn-text {
+    display: none !important;
+  }
+  .cc-sound-toggle-btn,
+  .cc-install-pwa-btn {
+    padding: 6px 8px !important;
+  }
+
+  /* Content: smaller padding + room for bottom nav */
+  .cc-content-body {
+    padding: 10px !important;
+    padding-bottom: 86px !important;
+  }
+
+  /* KPI: 2 columns on mobile */
+  .cc-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .cc-kpi-value {
+    font-size: 18px !important;
+  }
+  .cc-kpi-card {
+    padding: 12px !important;
+  }
+
+  /* Dashboard split: full width */
+  .cc-dashboard-split {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Terminal shorter on mobile */
+  .cc-terminal-feed {
+    height: 320px !important;
+  }
+
+  /* Declined cards: single column */
+  .declined-item-body {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .declined-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Credit card number smaller on mobile */
+  .credit-card-number {
+    font-size: 13px !important;
+    letter-spacing: 1.5px !important;
+  }
+
+  /* Tables: horizontal scroll + compact */
+  .cc-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .cc-table {
+    font-size: 11px !important;
+    min-width: 580px !important;
+  }
+  .cc-table th,
+  .cc-table td {
+    padding: 8px 10px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Drawers: full width on mobile */
+  .cc-drawer {
+    width: 100vw !important;
+  }
+
+  /* Card headers compact */
+  .cc-card-header {
+    padding: 12px 14px !important;
+  }
+  .cc-card-title {
+    font-size: 13px !important;
+  }
+  .cc-card-title svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+/* ── Mobile Sidebar Overlay Backdrop ──────────────────────────────────────── */
+.cc-sidebar-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 999 !important;
+  animation: ccOverlayFadeIn 0.2s ease-out !important;
+}
+
+@keyframes ccOverlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Sound & Install Buttons in Topbar ────────────────────────────────────── */
+.cc-sound-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.cc-sound-toggle-btn.active {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  color: var(--neon-green) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2) !important;
+}
+
+.cc-sound-toggle-btn.muted {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-dim) !important;
+}
+
+.cc-install-pwa-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: var(--neon-cyan) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.cc-install-pwa-btn:hover {
+  background: rgba(56, 189, 248, 0.2) !important;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
+}
+
+/* ── iOS Install Modal ────────────────────────────────────────────────────── */
+.cc-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  z-index: 2000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  animation: ccOverlayFadeIn 0.2s ease-out !important;
+}
+
+.cc-install-modal {
+  background: #0a0f26 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  border-radius: 20px !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.15) !important;
+  overflow: hidden !important;
+}
+
+.cc-install-modal-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(13, 19, 39, 0.7) !important;
+}
+
+.cc-modal-close-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #94a3b8 !important;
+  border-radius: 8px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+
+.cc-install-modal-body {
+  padding: 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+.cc-install-step {
+  display: flex !important;
+  gap: 14px !important;
+  align-items: flex-start !important;
+}
+
+.cc-step-num {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple)) !important;
+  color: #fff !important;
+  font-family: var(--font-orbitron) !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.4) !important;
+}
+
+.cc-install-step strong {
+  font-size: 13px !important;
+  color: #ffffff !important;
+  display: block !important;
+  margin-bottom: 3px !important;
+}
+
+.cc-install-step p {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+
+.cc-install-step code {
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: var(--neon-cyan) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+}
+
+.cc-install-tip {
+  margin-top: 8px !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  border-radius: 10px !important;
+  padding: 12px !important;
+  font-size: 11px !important;
+  color: #10b981 !important;
+  line-height: 1.4 !important;
+}
+
 
 /* ==============================================================================
    DECLINED CARDS UI (SCREENSHOT EXACT REPLICA)
@@ -1075,4 +1487,87 @@
   background: rgba(239, 68, 68, 0.1) !important;
   color: #ef4444 !important;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+
+/* ==============================================================================
+   SALE TOAST NOTIFICATION
+   ============================================================================== */
+.cc-sale-toast {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 9999 !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.98), rgba(5, 150, 105, 0.98)) !important;
+  border: 1px solid rgba(16, 185, 129, 0.6) !important;
+  border-radius: 16px !important;
+  padding: 16px 20px !important;
+  min-width: 260px !important;
+  max-width: 340px !important;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  animation: ccToastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.cc-sale-toast-icon {
+  font-size: 30px !important;
+  line-height: 1 !important;
+  animation: ccCoinBounce 0.6s ease-out !important;
+  flex-shrink: 0 !important;
+}
+
+.cc-sale-toast-body {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.cc-sale-toast-title {
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 800 !important;
+  letter-spacing: 1px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-transform: uppercase !important;
+  margin-bottom: 2px !important;
+}
+
+.cc-sale-toast-amount {
+  font-size: 22px !important;
+  font-family: var(--font-orbitron) !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.5) !important;
+  line-height: 1.1 !important;
+}
+
+.cc-sale-toast-name {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  margin-top: 3px !important;
+}
+
+@keyframes ccToastIn {
+  from { opacity: 0; transform: translateX(60px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes ccCoinBounce {
+  0%   { transform: scale(1) rotate(0deg); }
+  30%  { transform: scale(1.4) rotate(-15deg); }
+  60%  { transform: scale(0.9) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@media (max-width: 768px) {
+  .cc-sale-toast {
+    top: auto !important;
+    bottom: 86px !important;
+    left: 12px !important;
+    right: 12px !important;
+    min-width: unset !important;
+    max-width: unset !important;
+  }
 }
