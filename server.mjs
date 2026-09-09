@@ -1214,6 +1214,77 @@ app.post('/api/admin/orders/:id/approve', async (req, res) => {
   }
 });
 
+// API 3.1.2: Dispatch Paid Sale (Manual Trigger / Realtime Sound & Toast Simulation)
+app.post('/api/admin/dispatch-test-sale', async (req, res) => {
+  try {
+    const { amount = 71.91, customerName = 'Cliente VIP Miracle', dispatchCapi = false } = req.body || {};
+    const testOrderId = `ORD-2026-${Date.now().toString(36).toUpperCase()}`;
+    const trackingReference = `MB-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const numAmount = Number(amount) || 71.91;
+
+    const orderRecord = {
+      id: testOrderId,
+      trackingReference,
+      status: 'paid',
+      orderStatus: 'paid',
+      amount: numAmount,
+      customer: {
+        name: customerName,
+        email: `${customerName.toLowerCase().replace(/[^a-z0-9]/g, '')}@cliente.com`,
+        phone: '11988776655',
+        cpf: '05367570038'
+      },
+      items: [
+        {
+          id: 'MIRACLE-BODY-01',
+          title: 'Body Modelador Miracle VIP (Edição Especial)',
+          unitPrice: Math.round(numAmount * 100),
+          quantity: 1,
+          tangible: true
+        }
+      ],
+      paymentMethod: 'pix',
+      gateway: 'axxonpay',
+      logisticStatus: 'separacao',
+      pixCopied: true,
+      utm: {
+        utm_source: 'painel_admin',
+        utm_campaign: 'disparo_manual',
+        utm_medium: 'realtime'
+      },
+      createdAt: new Date().toISOString(),
+      paidAt: new Date().toISOString()
+    };
+
+    // Persist order in database
+    await db.saveOrderAsync(orderRecord);
+
+    const paidEventData = {
+      orderId: testOrderId,
+      trackingReference,
+      amount: numAmount,
+      customerName,
+      gateway: 'axxonpay',
+      timestamp: new Date().toISOString()
+    };
+
+    console.log(`[Manual Sale Trigger] Dispatched paid sale for ${customerName} (R$ ${numAmount.toFixed(2)})`);
+
+    // Broadcast SSE to all connected admin clients (including mobile devices)
+    broadcastRealtime('order_paid', paidEventData);
+
+    return res.json({
+      success: true,
+      message: `Venda paga de R$ ${numAmount.toFixed(2).replace('.', ',')} disparada com sucesso!`,
+      data: paidEventData,
+      order: orderRecord
+    });
+  } catch (err) {
+    console.error('[Dispatch Sale Error]:', err);
+    return res.status(500).json({ error: 'Erro ao disparar venda paga.' });
+  }
+});
+
 // API 3.2: Get Gateway Settings
 app.get('/api/admin/gateway-settings', (req, res) => {
   return res.json({

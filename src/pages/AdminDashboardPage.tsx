@@ -392,11 +392,15 @@ export const AdminDashboardPage: React.FC = () => {
   }, []);
 
   // Sale Toast Notification State
+  // Sale Toast Notification State
   const [saleToast, setSaleToast] = useState<{ name: string; amount: string } | null>(null);
 
+  // Manual Sale Dispatch State
+  const [isTriggeringSale, setIsTriggeringSale] = useState<boolean>(false);
+
   // Sale Sound — Realistic Cash Register "Cha-Ching!" with Bell & Falling Coins
-  const playSaleSound = () => {
-    if (!soundEnabled) return;
+  const playSaleSound = (force = false) => {
+    if (!soundEnabled && !force) return;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
@@ -444,12 +448,47 @@ export const AdminDashboardPage: React.FC = () => {
     } catch { /* ignore if audio ctx unavailable */ }
   };
 
+  // Manual Sale Dispatch Trigger (Immediate cash register sound + toast + backend SSE)
+  const handleTriggerSale = async (amount: number = 71.91, customerName: string = 'Priscila Ramos') => {
+    if (isTriggeringSale) return;
+    setIsTriggeringSale(true);
+
+    // Auto-enable sound so the user definitely hears it
+    if (!soundEnabled) {
+      setSoundEnabled(true);
+      localStorage.setItem('miracle_admin_sound', 'true');
+    }
+
+    // Play cash register sound immediately in response to user click
+    playSaleSound(true);
+
+    // Trigger local toast immediately
+    const formattedAmount = `R$ ${amount.toFixed(2).replace('.', ',')}`;
+    setSaleToast({ name: customerName.split(' ')[0], amount: formattedAmount });
+    setTimeout(() => setSaleToast(null), 5000);
+
+    try {
+      const res = await fetch('/api/admin/dispatch-test-sale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, customerName })
+      });
+      if (res.ok) {
+        fetchAllData();
+      }
+    } catch (err) {
+      console.warn('[Dispatch Sale Error]:', err);
+    } finally {
+      setTimeout(() => setIsTriggeringSale(false), 800);
+    }
+  };
+
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
     localStorage.setItem('miracle_admin_sound', next ? 'true' : 'false');
     if (next) {
-      setTimeout(() => playSaleSound(), 50);
+      setTimeout(() => playSaleSound(true), 50);
     }
   };
 
@@ -1719,6 +1758,17 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           <div className="cc-topbar-right">
+            {/* Quick Trigger Paid Sale Button */}
+            <button
+              onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
+              className="cc-trigger-sale-btn"
+              disabled={isTriggeringSale}
+              title="Disparar venda paga com som de caixa registradora e aviso em tempo real"
+            >
+              <DollarSign size={14} style={{ color: '#10b981' }} />
+              <span className="cc-topbar-btn-text">{isTriggeringSale ? 'DISPARANDO...' : 'DISPARAR VENDA'}</span>
+            </button>
+
             {/* Sound Toggle Button */}
             <button
               onClick={toggleSound}
@@ -1756,6 +1806,38 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* Content Body */}
         <main className="cc-content-body">
+          {/* Quick Realtime Paid Sale Dispatcher Bar */}
+          <div className="cc-sale-quick-bar">
+            <div className="cc-sale-quick-left">
+              <span className="cc-pulse-dot" style={{ backgroundColor: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+              <div className="cc-sale-quick-labels">
+                <span className="cc-sale-quick-title">
+                  <DollarSign size={14} style={{ color: '#10b981', display: 'inline', verticalAlign: 'middle' }} />
+                  DISPARAR VENDA PAGA
+                </span>
+                <span className="cc-sale-quick-subtitle">Dispara alerta em tempo real + som de dinheiro para celular e PC</span>
+              </div>
+            </div>
+            <div className="cc-sale-quick-actions">
+              <button
+                onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
+                className="cc-btn-quick-sale"
+                disabled={isTriggeringSale}
+                title="Disparar venda paga de R$ 71,91 (Kit Básico) com som e notificação"
+              >
+                💰 Disparar R$ 71,91
+              </button>
+              <button
+                onClick={() => handleTriggerSale(159.90, 'Fernanda Costa')}
+                className="cc-btn-quick-sale secondary"
+                disabled={isTriggeringSale}
+                title="Disparar venda paga de R$ 159,90 (Kit Completo) com som e notificação"
+              >
+                🔥 Disparar R$ 159,90
+              </button>
+            </div>
+          </div>
+
           {/* Top KPI Cards (Realtime 7 Metric Command Bar) */}
           <div className="cc-kpi-grid">
             {/* Card 1: Visitantes Agora */}
