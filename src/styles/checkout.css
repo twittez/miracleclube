@@ -522,3 +522,150 @@
   color: #111827;
   font-weight: 700;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   ORDER BUMPS (Miracle2 Visual Integration)
+   ───────────────────────────────────────────────────────────── */
+.order-bumps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.order-bumps-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-bump-card {
+  border: 1.5px dashed #d8158a;
+  border-radius: 8px;
+  background-color: #FFFFFF;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.order-bump-card.active {
+  background-color: #FFF5F9;
+  border-color: #d8158a;
+  box-shadow: 0 2px 8px rgba(216, 21, 138, 0.08);
+}
+
+.order-bump-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.order-bump-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #d8158a;
+  cursor: pointer;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.order-bump-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
+  flex-shrink: 0;
+  background-color: #F9FAFB;
+}
+
+.order-bump-shield-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: #FDF2F6;
+  border-radius: 6px;
+}
+
+.order-bump-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-bump-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.25;
+}
+
+.order-bump-desc {
+  font-size: 0.74rem;
+  color: #6B7280;
+  line-height: 1.2;
+}
+
+.order-bump-price {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #d8158a;
+  margin-top: 2px;
+}
+
+.order-bump-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #F3B3D2;
+}
+
+.order-bump-variant-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-bump-variant-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4B5563;
+}
+
+.order-bump-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.order-bump-pill {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #D1D5DB;
+  background-color: #FFFFFF;
+  color: #374151;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.order-bump-pill.selected {
+  background-color: #d8158a;
+  border-color: #d8158a;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+

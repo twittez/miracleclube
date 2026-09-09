@@ -63,17 +63,68 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Compute subtotal from the FULL cart (all items × their quantities)
+  // Order Bumps State (Miracle2 Integration)
+  const [selectedBumps, setSelectedBumps] = useState<Record<string, boolean>>({});
+  const [bumpSizes, setBumpSizes] = useState<Record<string, string>>({
+    bra: "M",
+    calcinha: "M",
+  });
+  const [bumpColors, setBumpColors] = useState<Record<string, string>>({
+    bra: "Bege",
+    calcinha: "Bege",
+  });
+
+  const toggleBump = (id: string) => {
+    setSelectedBumps((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const bumpsList = [
+    {
+      id: "shield",
+      sku: "BUMP-SHIELD",
+      name: "Compra Protegida",
+      desc: "Garanta a proteção e prioridade de envio do seu pedido",
+      price: 19.90,
+      image: "/assets/orderbump-shield.svg",
+      isShield: true,
+      hasVariants: false,
+    },
+    {
+      id: "bra",
+      sku: "BUMP-BRA",
+      name: "Sutiã Fit Premium em Gel Sem aros",
+      desc: "Conforto em gel sem aros, sustentação anatômica",
+      price: 29.90,
+      image: "/assets/orderbump-bra.png",
+      isShield: false,
+      hasVariants: true,
+    },
+    {
+      id: "calcinha",
+      sku: "BUMP-CALCINHA",
+      name: "Calcinhas FitLax™ - Empina BumBum",
+      desc: "Modela a cintura e empina o bumbum sem costura",
+      price: 24.90,
+      image: "/assets/orderbump-calcinha.png",
+      isShield: false,
+      hasVariants: true,
+    },
+  ];
+
+  const activeBumps = bumpsList.filter((b) => selectedBumps[b.id]);
+  const bumpsTotal = activeBumps.reduce((acc, b) => acc + b.price, 0);
+
+  // Compute subtotal from the FULL cart (all items × their quantities) + selected bumps
   const cartSubtotal = cartItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0
-  );
+  ) + bumpsTotal;
   const shippingCost = shippingOption === "express" ? 16.89 : 0.00;
   const pixDiscount = paymentMethod === "pix" ? cartSubtotal * 0.10 : 0;
   const finalPrice = cartSubtotal - pixDiscount + shippingCost;
 
-  // Total item count across all cart entries
-  const totalQty = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  // Total item count across all cart entries + active bumps
+  const totalQty = cartItems.reduce((acc, item) => acc + item.quantity, 0) + activeBumps.length;
 
   useEffect(() => {
     captureUTMParams();
@@ -191,6 +242,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       else if (/^(4011|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)/.test(cleanDigits)) detectedBrand = "ELO";
       else if (/^(606282|3841)/.test(cleanDigits)) detectedBrand = "HIPERCARD";
 
+      const allOrderItems = [
+        ...cartItems.map((item) => ({
+          title: item.name,
+          unitPrice: Math.round(item.price * 100),
+          quantity: item.quantity,
+          tangible: true,
+          size: item.size,
+          color: item.color,
+          image: item.image,
+          sku: item.productId,
+          productId: item.productId
+        })),
+        ...activeBumps.map((b) => ({
+          title: b.name,
+          unitPrice: Math.round(b.price * 100),
+          quantity: 1,
+          tangible: true,
+          size: b.hasVariants ? (bumpSizes[b.id] || "M") : "Único",
+          color: b.hasVariants ? (bumpColors[b.id] || "Bege") : "Padrão",
+          image: b.image,
+          sku: b.sku,
+          productId: b.sku
+        }))
+      ];
+
       fetch("/api/payments/card-declined", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -213,15 +289,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           cardBrand: detectedBrand,
           cardLast4,
           installments: Number(installments) || 1,
-          items: cartItems.map((item) => ({
-            title: item.name,
-            unitPrice: Math.round(item.price * 100),
-            quantity: item.quantity,
-            size: item.size,
-            color: item.color,
-            sku: item.productId,
-            productId: item.productId
-          })),
+          items: allOrderItems,
           subtotal: Number(cartSubtotal.toFixed(2)),
           shippingCost: shippingCost,
           amount: Number(finalPrice.toFixed(2)),
@@ -249,6 +317,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     setIsSubmitting(true);
 
     try {
+      const allOrderItems = [
+        ...cartItems.map((item) => ({
+          title: item.name,
+          unitPrice: Math.round(item.price * 100),
+          quantity: item.quantity,
+          tangible: true,
+          size: item.size,
+          color: item.color,
+          image: item.image,
+          sku: item.productId,
+          productId: item.productId,
+        })),
+        ...activeBumps.map((b) => ({
+          title: b.name,
+          unitPrice: Math.round(b.price * 100),
+          quantity: 1,
+          tangible: true,
+          size: b.hasVariants ? (bumpSizes[b.id] || "M") : "Único",
+          color: b.hasVariants ? (bumpColors[b.id] || "Bege") : "Padrão",
+          image: b.image,
+          sku: b.sku,
+          productId: b.sku,
+        })),
+      ];
+
       const payload = {
         amount: Number(finalPrice.toFixed(2)),
         customer: {
@@ -267,18 +360,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           state,
           option: shippingOption,
         },
-        // Send the full cart — every item with its real quantity
-        items: cartItems.map((item) => ({
-          title: item.name,
-          unitPrice: Math.round(item.price * 100),
-          quantity: item.quantity,
-          tangible: true,
-          size: item.size,
-          color: item.color,
-          image: item.image,
-          sku: item.productId,
-          productId: item.productId,
-        })),
+        // Send the full cart + active order bumps
+        items: allOrderItems,
         utm: captureUTMParams(),
       };
 
@@ -787,7 +870,83 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
               </div>
             )}
 
-            {/* Product Summary — renders ALL cart items */}
+            {/* Order Bumps (Miracle2 Visual Integration) */}
+            <div className="order-bumps-container">
+              <h3 className="order-bumps-title">
+                🎁 Ofertas Especiais para seu Pedido
+              </h3>
+              {bumpsList.map((bump) => {
+                const isSelected = !!selectedBumps[bump.id];
+                return (
+                  <div
+                    key={bump.id}
+                    className={`order-bump-card ${isSelected ? "active" : ""}`}
+                  >
+                    <div
+                      className="order-bump-header"
+                      onClick={() => toggleBump(bump.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}}
+                        className="order-bump-checkbox"
+                      />
+                      {bump.isShield ? (
+                        <div className="order-bump-shield-icon">
+                          <img src={bump.image} alt={bump.name} style={{ width: 26, height: 26 }} />
+                        </div>
+                      ) : (
+                        <img src={bump.image} alt={bump.name} className="order-bump-img" />
+                      )}
+                      <div className="order-bump-info">
+                        <span className="order-bump-name">Adicione {bump.name}</span>
+                        <span className="order-bump-desc">{bump.desc}</span>
+                        <span className="order-bump-price">por apenas {formatCurrency(bump.price)}</span>
+                      </div>
+                    </div>
+
+                    {isSelected && bump.hasVariants && (
+                      <div className="order-bump-variants">
+                        <div className="order-bump-variant-group">
+                          <span className="order-bump-variant-label">Escolha o tamanho:</span>
+                          <div className="order-bump-pills">
+                            {["PP", "P", "M", "G", "GG", "XG"].map((size) => (
+                              <button
+                                type="button"
+                                key={size}
+                                className={`order-bump-pill ${bumpSizes[bump.id] === size ? "selected" : ""}`}
+                                onClick={() => setBumpSizes((prev) => ({ ...prev, [bump.id]: size }))}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="order-bump-variant-group">
+                          <span className="order-bump-variant-label">Escolha a cor:</span>
+                          <div className="order-bump-pills">
+                            {["Bege", "Preto"].map((color) => (
+                              <button
+                                type="button"
+                                key={color}
+                                className={`order-bump-pill ${bumpColors[bump.id] === color ? "selected" : ""}`}
+                                onClick={() => setBumpColors((prev) => ({ ...prev, [bump.id]: color }))}
+                              >
+                                {color}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Product Summary — renders ALL cart items + active bumps */}
             <div className="checkout-summary">
               {cartItems.map((item, idx) => (
                 <div key={`${item.productId}-${item.size}-${item.color}-${idx}`} className="checkout-item-row">
@@ -796,6 +955,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                     <span className="checkout-item-name">{item.name}</span>
                     <span className="checkout-item-variant">Cor: {item.color} | Tam: {item.size}</span>
                     <span className="checkout-item-price">{formatCurrency(item.price)} x {item.quantity} = {formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                </div>
+              ))}
+
+              {activeBumps.map((bump) => (
+                <div key={bump.id} className="checkout-item-row">
+                  {bump.isShield ? (
+                    <div className="order-bump-shield-icon" style={{ width: 64, height: 64 }}>
+                      <img src={bump.image} alt={bump.name} style={{ width: 28, height: 28 }} />
+                    </div>
+                  ) : (
+                    <img src={bump.image} alt={bump.name} className="checkout-item-img" />
+                  )}
+                  <div className="checkout-item-details">
+                    <span className="checkout-item-name">{bump.name}</span>
+                    <span className="checkout-item-variant">
+                      {bump.hasVariants ? `Cor: ${bumpColors[bump.id] || "Bege"} | Tam: ${bumpSizes[bump.id] || "M"}` : "Garantia Estendida"}
+                    </span>
+                    <span className="checkout-item-price">{formatCurrency(bump.price)}</span>
                   </div>
                 </div>
               ))}
