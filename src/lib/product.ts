@@ -13,7 +13,7 @@ export const PRODUCT = {
   name: "Body Modelador Feminino Pré-Moldado",
   subtitle:
     "Alta compressão com toque macio, modelagem anatômica e sustentação total",
-  price: 87.9,
+  price: 89.9,
   compareAt: 199.9,
   installments: 5,
   rating: 4.9,
