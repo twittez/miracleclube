@@ -16,11 +16,11 @@ export const AnnouncementBar: React.FC = () => {
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <CreditCard size={14} /> 5X DE R$ 19,58 SEM JUROS
+            <CreditCard size={14} /> 5X DE R$ 17,58 SEM JUROS
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <Sparkles size={14} /> OFERTA POR R$ 97,90
+            <Sparkles size={14} /> OFERTA POR R$ 87,90
           </span>
           <span className="announcement-bar__divider">•</span>
         </div>
@@ -36,11 +36,11 @@ export const AnnouncementBar: React.FC = () => {
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <CreditCard size={14} /> 5X DE R$ 19,58 SEM JUROS
+            <CreditCard size={14} /> 5X DE R$ 17,58 SEM JUROS
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <Sparkles size={14} /> OFERTA POR R$ 97,90
+            <Sparkles size={14} /> OFERTA POR R$ 87,90
           </span>
           <span className="announcement-bar__divider">•</span>
         </div>
