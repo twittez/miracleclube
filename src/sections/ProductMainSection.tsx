@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { product, type ProductVariation, type ProductSize } from "../data/product";
+import { product as defaultProduct, type ProductVariation, type ProductSize, type ProductData } from "../data/product";
 import { ProductGallery } from "../components/ProductGallery";
 import { ProductInformation } from "../components/ProductInformation";
 import "./ProductMainSection.css";
 
 interface ProductMainSectionProps {
+  product?: ProductData;
   onAddToCart?: (qty: number, variation: ProductVariation, size: ProductSize) => void;
   selectedVariant?: ProductVariation;
   selectedSize?: ProductSize | null;
@@ -16,6 +17,7 @@ interface ProductMainSectionProps {
 }
 
 export const ProductMainSection: React.FC<ProductMainSectionProps> = ({ 
+  product: propProduct,
   onAddToCart,
   selectedVariant,
   selectedSize,
@@ -25,6 +27,7 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({
   onSizeChange,
   onQuantityChange,
 }) => {
+  const product = propProduct || defaultProduct;
   const [selectedGalleryIdx, setSelectedGalleryIdx] = useState(0);
 
   const handleVariantChange = (variant: ProductVariation) => {
@@ -48,6 +51,7 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({
         {/* Right Column: Product Information */}
         <div className="product-main-section__info-col">
           <ProductInformation
+            product={product}
             selectedVariant={selectedVariant}
             selectedSize={selectedSize}
             quantity={quantity}

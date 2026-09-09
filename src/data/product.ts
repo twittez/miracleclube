@@ -308,3 +308,17 @@ export const product: ProductData = {
     }
   ]
 };
+
+// Versão Clone para Tráfego do TikTok (Ticket R$ 97,90 sem desconto de Pix)
+export const productTikTok: ProductData = {
+  ...product,
+  id: "CMFBPM001-TIKTOK",
+  sku: "CMFBPM001-TIKTOK",
+  originalPrice: 199.90,
+  price: 97.90,
+  pixPrice: 97.90,
+  pixDiscountPercent: 0,
+  installmentsMax: 5,
+  installmentValue: 19.58,
+};
+

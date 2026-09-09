@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { ShoppingBag } from "lucide-react";
 import { formatCurrency } from "../utils/formatters";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import "./MobileStickyCTA.css";
 
 interface MobileStickyCTAProps {
   onBuyClick: () => void;
+  product?: ProductData;
 }
 
-export const MobileStickyCTA: React.FC<MobileStickyCTAProps> = ({ onBuyClick }) => {
+export const MobileStickyCTA: React.FC<MobileStickyCTAProps> = ({ onBuyClick, product: propProduct }) => {
+  const product = propProduct || defaultProduct;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

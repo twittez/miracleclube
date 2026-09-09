@@ -2,7 +2,15 @@ import React from "react";
 import { Gift, Truck, CreditCard, Sparkles } from "lucide-react";
 import "./AnnouncementBar.css";
 
-export const AnnouncementBar: React.FC = () => {
+interface AnnouncementBarProps {
+  installmentText?: string;
+  offerText?: string;
+}
+
+export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({
+  installmentText = "5X DE R$ 17,98 SEM JUROS",
+  offerText = "OFERTA POR R$ 89,90",
+}) => {
   return (
     <div className="announcement-bar">
       <div className="announcement-bar__ticker-track">
@@ -16,11 +24,11 @@ export const AnnouncementBar: React.FC = () => {
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <CreditCard size={14} /> 5X DE R$ 17,98 SEM JUROS
+            <CreditCard size={14} /> {installmentText}
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <Sparkles size={14} /> OFERTA POR R$ 89,90
+            <Sparkles size={14} /> {offerText}
           </span>
           <span className="announcement-bar__divider">•</span>
         </div>
@@ -36,11 +44,11 @@ export const AnnouncementBar: React.FC = () => {
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <CreditCard size={14} /> 5X DE R$ 17,98 SEM JUROS
+            <CreditCard size={14} /> {installmentText}
           </span>
           <span className="announcement-bar__divider">•</span>
           <span className="announcement-bar__item">
-            <Sparkles size={14} /> OFERTA POR R$ 89,90
+            <Sparkles size={14} /> {offerText}
           </span>
           <span className="announcement-bar__divider">•</span>
         </div>

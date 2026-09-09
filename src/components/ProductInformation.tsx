@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { product, type ProductVariation, type ProductSize } from "../data/product";
+import { product as defaultProduct, type ProductVariation, type ProductSize, type ProductData } from "../data/product";
 import { brand } from "../config/brand";
 import { RatingHeader } from "./RatingHeader";
 import { PriceBlock } from "./PriceBlock";
@@ -12,6 +12,7 @@ import { TrustBenefits } from "./TrustBenefits";
 import "./ProductInformation.css";
 
 interface ProductInformationProps {
+  product?: ProductData;
   onBuySuccess?: (qty: number, variation: ProductVariation, size: ProductSize) => void;
   onVariantChange?: (variation: ProductVariation) => void;
   onSizeChange?: (size: ProductSize | null) => void;
@@ -23,6 +24,7 @@ interface ProductInformationProps {
 }
 
 export const ProductInformation: React.FC<ProductInformationProps> = ({
+  product: propProduct,
   onBuySuccess,
   onVariantChange,
   onSizeChange,
@@ -32,6 +34,7 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
   quantity: propQuantity,
   showSizeError: propShowSizeError,
 }) => {
+  const product = propProduct || defaultProduct;
   const [internalVariant, setInternalVariant] = useState<ProductVariation>(product.variations[0]);
   const [internalSize, setInternalSize] = useState<ProductSize | null>(null);
   const [internalQuantity, setInternalQuantity] = useState<number>(1);

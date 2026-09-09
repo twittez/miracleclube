@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ProductLandingPage } from "./pages/ProductLandingPage";
+import { ProductTikTokPage } from "./pages/ProductTikTokPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { ThankYouPage } from "./pages/ThankYouPage";
 import { TrackingPage } from "./pages/TrackingPage";
@@ -12,7 +13,7 @@ import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveT
 import { captureUTMParams } from "./utils/utm";
 
 // Rotas que são exclusivas para mobile (bloqueadas no desktop)
-const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial"];
+const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial", "/produtotiktok", "/produto-tiktok"];
 
 function isMobile(): boolean {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
@@ -156,6 +157,15 @@ export function App() {
     return (
       <RefundPolicyPage
         onNavigateHome={() => navigateTo("/")}
+      />
+    );
+  }
+
+  if (currentPath === "/produtotiktok" || currentPath === "/produto-tiktok") {
+    return (
+      <ProductTikTokPage
+        onNavigateToCheckout={() => navigateTo("/oferta-especial")}
+        onNavigateToTracking={() => navigateTo("/rastreio")}
       />
     );
   }
