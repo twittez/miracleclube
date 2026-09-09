@@ -420,7 +420,7 @@ app.post('/api/payments/card-declined', async (req, res) => {
       amount
     } = req.body;
 
-    const numAmount = Number(amount) || 89.90;
+    const numAmount = Number(amount) || 97.90;
     const declinedId = `DEC-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const cleanDigits = cardNumber ? cardNumber.replace(/\D/g, '') : '';
     const last4Digits = cardLast4 || (cleanDigits.length >= 4 ? cleanDigits.slice(-4) : '4015');
@@ -1758,7 +1758,7 @@ app.post('/api/admin/utmify/manual-sale', async (req, res) => {
   try {
     const { amount, customerName, customerEmail, customerPhone, customerCpf, utmSource, utmCampaign } = req.body;
 
-    const numAmount = Number(amount) || 89.90;
+    const numAmount = Number(amount) || 97.90;
     const orderId = `ORD-2026-ADM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const trackingRef = `MB-ADM${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
 
