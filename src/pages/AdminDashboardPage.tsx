@@ -338,7 +338,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Manual UTMify Dispatch Form State
   const [manualSaleForm, setManualSaleForm] = useState({
-    amount: '79.90',
+    amount: '89.90',
     customerName: 'Cliente Miracle VIP',
     customerEmail: 'cliente@miracle.com',
     customerPhone: '12982890411',
@@ -1820,12 +1820,12 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
             <div className="cc-sale-quick-actions">
               <button
-                onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
+                onClick={() => handleTriggerSale(80.91, 'Priscila Ramos')}
                 className="cc-btn-quick-sale"
                 disabled={isTriggeringSale}
-                title="Disparar venda paga de R$ 71,91 (Kit Básico) com som e notificação"
+                title="Disparar venda paga de R$ 80,91 (Kit Básico Pix) com som e notificação"
               >
-                💰 Disparar R$ 71,91
+                💰 Disparar R$ 80,91
               </button>
               <button
                 onClick={() => handleTriggerSale(159.90, 'Fernanda Costa')}
