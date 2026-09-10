@@ -16,10 +16,12 @@ export const PriceBlock: React.FC<PriceBlockProps> = ({
   originalPrice = 299.90,
   price = 159.90,
   pixPrice = 143.91,
+  pixDiscountPercent = 10,
+  installmentsMax = 5,
+  installmentValue,
 }) => {
-  // 5x installment calculation matching reference image style
-  const instCount = 5;
-  const instVal = price / instCount; // 159.90 / 5 = 31.98
+  const instCount = installmentsMax || 5;
+  const instVal = installmentValue || (price / instCount);
 
   return (
     <div className="price-block">
@@ -40,7 +42,8 @@ export const PriceBlock: React.FC<PriceBlockProps> = ({
       <div className="price-block__pix-pill">
         <span className="pix-diamond">❖</span>
         <span className="pix-text">
-          <strong>{formatCurrency(pixPrice)} no pix</strong> com 10% de desconto
+          <strong>{formatCurrency(pixPrice)} no pix</strong>
+          {pixDiscountPercent > 0 ? ` com ${pixDiscountPercent}% de desconto` : ''}
         </span>
       </div>
 

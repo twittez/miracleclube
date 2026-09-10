@@ -1,0 +1,643 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   TAX & FEES DASHBOARD (MIRACLE CONTROL CENTER)
+   Matches the sleek dark UI from the user reference with high polish
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tax-dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header & Actions */
+.tax-dashboard-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tax-dashboard-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tax-dashboard-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.5px;
+}
+
+.tax-dashboard-subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* KPI Performance Overview */
+.tax-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.tax-kpi-card {
+  background: rgba(19, 26, 44, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.tax-kpi-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.tax-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.tax-kpi-card.gross::before { background: #38bdf8; }
+.tax-kpi-card.fees::before { background: #ef4444; }
+.tax-kpi-card.net::before { background: #10b981; }
+.tax-kpi-card.cogs::before { background: #f59e0b; }
+
+.tax-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tax-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  font-family: 'Orbitron', 'JetBrains Mono', monospace;
+  color: #ffffff;
+}
+
+.tax-kpi-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Two Column Layout Matching Screenshot */
+.tax-two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .tax-two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tax-left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Standard Panel Card */
+.tax-panel-card {
+  background: #141c2e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 22px 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tax-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tax-panel-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.tax-btn-action {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #f1f5f9;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tax-btn-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.tax-panel-subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 18px;
+}
+
+/* Imposto Rows */
+.tax-imposto-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tax-imposto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tax-imposto-row:last-child {
+  border-bottom: none;
+}
+
+.tax-imposto-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tax-imposto-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.tax-btn-small-add {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #e2e8f0;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tax-btn-small-add:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+/* Taxas Items List (Matches Screenshot Nested Cards) */
+.tax-fees-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tax-fee-item-card {
+  background: #192237;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 14px 18px;
+  position: relative;
+  transition: border-color 0.2s ease;
+}
+
+.tax-fee-item-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tax-fee-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tax-fee-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tax-fee-dots-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tax-fee-dots-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tax-fee-dropdown-menu {
+  position: absolute;
+  top: 40px;
+  right: 14px;
+  background: #0f1524;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.tax-fee-menu-item {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tax-fee-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.tax-fee-menu-item.danger {
+  color: #f87171;
+}
+
+.tax-fee-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.tax-fee-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tax-fee-line {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.tax-fee-line strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* Right Column: Custo de Produtos */
+.tax-cogs-card {
+  min-height: 380px;
+}
+
+.tax-sync-notice {
+  background: rgba(180, 83, 9, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.tax-sync-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tax-sync-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.tax-sync-close {
+  background: transparent;
+  border: none;
+  color: #f59e0b;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.tax-sync-close:hover {
+  opacity: 1;
+}
+
+.tax-sync-text {
+  font-size: 12.5px;
+  color: #fbbf24;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.tax-sync-dismiss-link {
+  font-size: 12px;
+  color: #f59e0b;
+  text-decoration: underline;
+  cursor: pointer;
+  font-style: italic;
+  display: inline-block;
+  transition: color 0.15s;
+}
+
+.tax-sync-dismiss-link:hover {
+  color: #fcd34d;
+}
+
+.tax-empty-cogs {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 48px 16px;
+  line-height: 1.6;
+}
+
+.tax-cogs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tax-cog-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #192237;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.tax-cog-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.tax-cog-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* Simulator / Order Breakdown Table */
+.tax-breakdown-card {
+  background: #141c2e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tax-sim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  background: #192237;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.tax-sim-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tax-sim-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.tax-sim-input {
+  background: #0f1524;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  outline: none;
+}
+
+.tax-sim-input:focus {
+  border-color: #38bdf8;
+}
+
+.tax-sim-result-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding-left: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tax-sim-result-amount {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'Orbitron', monospace;
+  color: #10b981;
+}
+
+/* Modals */
+.tax-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.tax-modal-card {
+  background: #141c2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tax-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tax-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tax-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tax-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tax-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.tax-form-input,
+.tax-form-select {
+  background: #0f1524;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tax-form-input:focus,
+.tax-form-select:focus {
+  border-color: #38bdf8;
+}
+
+.tax-form-select option {
+  background: #0f1524;
+  color: #ffffff;
+}
+
+.tax-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.tax-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tax-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.tax-btn-submit {
+  background: #2563eb;
+  border: 1px solid #3b82f6;
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tax-btn-submit:hover {
+  background: #1d4ed8;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

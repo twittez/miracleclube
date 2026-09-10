@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import '../styles/admin.css';
 import { NeuralCanvasBackground } from '../components/admin/NeuralCanvasBackground';
+import { TaxDashboardView } from '../components/admin/TaxDashboardView';
 import {
   Activity,
   DollarSign,
@@ -44,7 +45,8 @@ import {
   Calendar,
   Menu,
   Volume2,
-  VolumeX
+  VolumeX,
+  Calculator
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -174,6 +176,53 @@ interface FunnelStep {
   count: number;
 }
 
+// Helper: Detect Traffic Origin (Meta, TikTok, Google, Other) - Placed at module level to prevent TDZ ReferenceError
+function getOrderOrigin(order: OrderRecord): 'meta' | 'tiktok' | 'google' | 'other' {
+  const utm = order.utm || {};
+  const source = (utm.utm_source || '').toLowerCase().trim();
+  const medium = (utm.utm_medium || '').toLowerCase().trim();
+
+  // 1. TikTok Detection
+  if (
+    source.includes('tiktok') ||
+    source === 'tt' ||
+    medium.includes('tiktok') ||
+    !!utm.ttclid ||
+    (utm.user_agent && utm.user_agent.toLowerCase().includes('musical_ly'))
+  ) {
+    return 'tiktok';
+  }
+
+  // 2. Meta (Facebook & Instagram) Detection
+  if (
+    source === 'fb' ||
+    source === 'facebook' ||
+    source === 'ig' ||
+    source === 'instagram' ||
+    source.includes('meta') ||
+    source.includes('fb') ||
+    source.includes('instagram') ||
+    medium.includes('facebook') ||
+    medium.includes('instagram') ||
+    !!utm.fbclid ||
+    !!utm.fbc ||
+    (utm.user_agent && (
+      utm.user_agent.toLowerCase().includes('instagram') ||
+      utm.user_agent.toLowerCase().includes('fban') ||
+      utm.user_agent.toLowerCase().includes('fbav')
+    ))
+  ) {
+    return 'meta';
+  }
+
+  // 3. Google Detection
+  if (source.includes('google') || source.includes('gads') || !!utm.gclid) {
+    return 'google';
+  }
+
+  return 'other';
+}
+
 export const AdminDashboardPage: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -197,6 +246,7 @@ export const AdminDashboardPage: React.FC = () => {
     | 'traffic'
     | 'analytics'
     | 'settings'
+    | 'taxes'
   >('dashboard');
 
   // Gateway Settings State
@@ -338,7 +388,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Manual UTMify Dispatch Form State
   const [manualSaleForm, setManualSaleForm] = useState({
-    amount: '89.90',
+    amount: '79.90',
     customerName: 'Cliente Miracle VIP',
     customerEmail: 'cliente@miracle.com',
     customerPhone: '12982890411',
@@ -1003,53 +1053,6 @@ export const AdminDashboardPage: React.FC = () => {
     });
   }, [receiptsList, receiptStatusFilter, receiptSearchQuery]);
 
-  // Helper: Detect Traffic Origin (Meta, TikTok, Google, Other)
-  const getOrderOrigin = (order: OrderRecord): 'meta' | 'tiktok' | 'google' | 'other' => {
-    const utm = order.utm || {};
-    const source = (utm.utm_source || '').toLowerCase().trim();
-    const medium = (utm.utm_medium || '').toLowerCase().trim();
-
-    // 1. TikTok Detection
-    if (
-      source.includes('tiktok') ||
-      source === 'tt' ||
-      medium.includes('tiktok') ||
-      !!utm.ttclid ||
-      (utm.user_agent && utm.user_agent.toLowerCase().includes('musical_ly'))
-    ) {
-      return 'tiktok';
-    }
-
-    // 2. Meta (Facebook & Instagram) Detection
-    if (
-      source === 'fb' ||
-      source === 'facebook' ||
-      source === 'ig' ||
-      source === 'instagram' ||
-      source.includes('meta') ||
-      source.includes('fb') ||
-      source.includes('instagram') ||
-      medium.includes('facebook') ||
-      medium.includes('instagram') ||
-      !!utm.fbclid ||
-      !!utm.fbc ||
-      (utm.user_agent && (
-        utm.user_agent.toLowerCase().includes('instagram') ||
-        utm.user_agent.toLowerCase().includes('fban') ||
-        utm.user_agent.toLowerCase().includes('fbav')
-      ))
-    ) {
-      return 'meta';
-    }
-
-    // 3. Google Detection
-    if (source.includes('google') || source.includes('gads') || !!utm.gclid) {
-      return 'google';
-    }
-
-    return 'other';
-  };
-
   // Enriched orders with traffic origin
   const trafficOrders = useMemo(() => {
     return orders.map((order) => ({
@@ -1705,6 +1708,23 @@ export const AdminDashboardPage: React.FC = () => {
             Analytics
           </button>
 
+          <button className={`cc-nav-item ${activeTab === 'taxes' ? 'active' : ''}`} onClick={() => handleTabClick('taxes')}>
+            <Calculator size={16} style={{ color: '#f59e0b' }} />
+            Taxas & Custos
+            <span
+              className="cc-nav-badge"
+              style={{
+                color: '#f59e0b',
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+                background: 'rgba(245, 158, 11, 0.15)',
+                fontSize: '10px',
+                fontWeight: 700
+              }}
+            >
+              LUCRO
+            </span>
+          </button>
+
           <button className={`cc-nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => handleTabClick('settings')}>
             <Settings size={16} style={{ color: '#94a3b8' }} />
             Integrações & API
@@ -1820,12 +1840,12 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
             <div className="cc-sale-quick-actions">
               <button
-                onClick={() => handleTriggerSale(80.91, 'Priscila Ramos')}
+                onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
                 className="cc-btn-quick-sale"
                 disabled={isTriggeringSale}
-                title="Disparar venda paga de R$ 80,91 (Kit Básico Pix) com som e notificação"
+                title="Disparar venda paga de R$ 71,91 (Kit Básico Pix) com som e notificação"
               >
-                💰 Disparar R$ 80,91
+                💰 Disparar R$ 71,91
               </button>
               <button
                 onClick={() => handleTriggerSale(159.90, 'Fernanda Costa')}
@@ -5029,6 +5049,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* =========================================================
+              TAB: DASHBOARD DE TAXAS, IMPOSTOS E CUSTOS DE PRODUTO
+              ========================================================= */}
+          {activeTab === 'taxes' && (
+            <TaxDashboardView orders={orders} />
           )}
         </main>
       </div>

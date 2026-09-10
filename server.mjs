@@ -80,6 +80,60 @@ try {
   console.warn('[Gateway Init Warning]:', err.message);
 }
 
+// Global Taxes & Fees Settings (persisted and configurable via Admin Panel)
+let taxesSettings = {
+  impostos: [
+    {
+      id: 'tax_meta',
+      name: 'Imposto sobre gastos em anúncios (Meta)',
+      type: 'percent',
+      value: 0,
+      applyOn: 'ads',
+      configured: false
+    },
+    {
+      id: 'tax_nf',
+      name: 'Imposto adicional',
+      type: 'percent',
+      value: 0,
+      applyOn: 'faturamento',
+      configured: false
+    }
+  ],
+  taxas: [
+    {
+      id: 'fee_fixo_1',
+      name: 'fixo',
+      rateType: 'percent',
+      rateValue: 8.0,
+      paymentMethod: 'Todas',
+      rule: 'Valor de Faturamento'
+    },
+    {
+      id: 'fee_moeda_2',
+      name: '$',
+      rateType: 'fixed',
+      rateValue: 2.99,
+      paymentMethod: 'Todas',
+      rule: 'Por Pedido'
+    }
+  ],
+  productCosts: [],
+  syncNoticeDismissed: false
+};
+
+try {
+  const initialDb = readDB();
+  if (initialDb && initialDb.taxesSettings) {
+    taxesSettings = {
+      ...taxesSettings,
+      ...initialDb.taxesSettings
+    };
+  }
+} catch (err) {
+  console.warn('[Taxes Init Warning]:', err.message);
+}
+
 function writeDB(data) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
@@ -1340,6 +1394,44 @@ app.post('/api/admin/gateway-settings', (req, res) => {
   } catch (err) {
     console.error('[Gateway Settings Error]:', err);
     return res.status(500).json({ error: 'Erro ao salvar configurações de gateway.' });
+  }
+});
+
+// API: Get Taxes Settings
+app.get('/api/admin/taxes-settings', (req, res) => {
+  try {
+    const currentDb = readDB();
+    const currentTaxes = currentDb.taxesSettings || taxesSettings;
+    return res.json({ success: true, taxesSettings: currentTaxes });
+  } catch (e) {
+    return res.json({ success: true, taxesSettings });
+  }
+});
+
+// API: Update Taxes Settings
+app.post('/api/admin/taxes-settings', (req, res) => {
+  try {
+    const { taxesSettings: newSettings } = req.body;
+    if (newSettings) {
+      taxesSettings = { ...taxesSettings, ...newSettings };
+      const currentDb = readDB();
+      currentDb.taxesSettings = taxesSettings;
+      writeDB(currentDb);
+
+      broadcastRealtime('taxes_updated', {
+        taxesSettings,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Configurações de taxas salvas com sucesso!',
+      taxesSettings
+    });
+  } catch (err) {
+    console.error('[Taxes Settings Error]:', err);
+    return res.status(500).json({ error: 'Erro ao salvar configurações de taxas.' });
   }
 });
 

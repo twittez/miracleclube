@@ -118,8 +118,8 @@ export const ProductTikTokPage: React.FC<ProductTikTokPageProps> = ({
 
       {/* Top Bar & Header */}
       <AnnouncementBar 
-        installmentText="5X DE R$ 19,58 SEM JUROS"
-        offerText="OFERTA POR R$ 97,90"
+        installmentText="5X DE R$ 17,98 SEM JUROS"
+        offerText="OFERTA POR R$ 89,90"
       />
       <Header 
         onCartClick={() => setCartDrawerOpen(true)} 

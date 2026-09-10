@@ -98,11 +98,11 @@ export const product: ProductData = {
   category: "Modeladores",
   breadcrumb: ["Início", "Modeladores", "Body Modelador"],
   originalPrice: 199.90,
-  price: 89.90,
-  pixPrice: 80.91,
+  price: 79.90,
+  pixPrice: 71.91,
   pixDiscountPercent: 10,
   installmentsMax: 5,
-  installmentValue: 17.98,
+  installmentValue: 15.98,
   rating: 4.9,
   reviewCount: 384,
   images: [
@@ -309,16 +309,16 @@ export const product: ProductData = {
   ]
 };
 
-// Versão Clone para Tráfego do TikTok (Ticket R$ 97,90 sem desconto de Pix)
+// Versão Clone para Tráfego do TikTok (Ticket R$ 89,90 com 5% de desconto no Pix)
 export const productTikTok: ProductData = {
   ...product,
   id: "CMFBPM001-TIKTOK",
   sku: "CMFBPM001-TIKTOK",
   originalPrice: 199.90,
-  price: 97.90,
-  pixPrice: 97.90,
-  pixDiscountPercent: 0,
+  price: 89.90,
+  pixPrice: 85.41,
+  pixDiscountPercent: 5,
   installmentsMax: 5,
-  installmentValue: 19.58,
+  installmentValue: 17.98,
 };
 
