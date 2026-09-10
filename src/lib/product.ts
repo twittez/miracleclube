@@ -13,7 +13,7 @@ export const PRODUCT = {
   name: "Cinta Modeladora",
   subtitle:
     "Alta compressão com toque macio, modelagem anatômica e sustentação total",
-  price: 89.9,
+  price: 87.9,
   compareAt: 199.9,
   installments: 5,
   rating: 4.9,

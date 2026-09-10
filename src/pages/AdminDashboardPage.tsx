@@ -262,9 +262,11 @@ export function getOrderProductInfo(order: OrderRecord): {
     isTikTok = true;
   } else if (
     order.amount === 97.90 ||
+    order.amount === 93.01 ||
     order.amount === 89.90 ||
     order.amount === 85.41 ||
     Math.abs(order.amount - 97.90) < 0.01 ||
+    Math.abs(order.amount - 93.01) < 0.01 ||
     Math.abs(order.amount - 89.90) < 0.01 ||
     Math.abs(order.amount - 85.41) < 0.01
   ) {
@@ -1863,7 +1865,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="cc-topbar-right">
             {/* Quick Trigger Paid Sale Button */}
             <button
-              onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
+              onClick={() => handleTriggerSale(83.51, 'Priscila Ramos')}
               className="cc-trigger-sale-btn"
               disabled={isTriggeringSale}
               title="Disparar venda paga com som de caixa registradora e aviso em tempo real"
@@ -1923,12 +1925,12 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
             <div className="cc-sale-quick-actions">
               <button
-                onClick={() => handleTriggerSale(71.91, 'Priscila Ramos')}
+                onClick={() => handleTriggerSale(83.51, 'Priscila Ramos')}
                 className="cc-btn-quick-sale"
                 disabled={isTriggeringSale}
-                title="Disparar venda paga de R$ 71,91 (Kit Básico Pix) com som e notificação"
+                title="Disparar venda paga de R$ 83,51 (Cinta Modeladora Pix) com som e notificação"
               >
-                💰 Disparar R$ 71,91
+                💰 Disparar R$ 83,51
               </button>
               <button
                 onClick={() => handleTriggerSale(159.90, 'Fernanda Costa')}
