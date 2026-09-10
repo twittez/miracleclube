@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Lock, QrCode, CreditCard, ArrowRight, ArrowLeft, Loader2, Truck, AlertTriangle } from "lucide-react";
+import { Lock, QrCode, CreditCard, ArrowRight, ArrowLeft, Loader2, Truck, AlertTriangle, Sparkles } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { fetchAddressByCep } from "../utils/viacep";
 import { formatCurrency, formatCPF, formatPhone, formatCEP, isValidCPF } from "../utils/formatters";
@@ -66,10 +66,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   // Order Bumps State (Miracle2 Integration)
   const [selectedBumps, setSelectedBumps] = useState<Record<string, boolean>>({});
   const [bumpSizes, setBumpSizes] = useState<Record<string, string>>({
+    "sutia-renda": "M",
     bra: "M",
     calcinha: "M",
   });
   const [bumpColors, setBumpColors] = useState<Record<string, string>>({
+    "sutia-renda": "Preto",
     bra: "Bege",
     calcinha: "Bege",
   });
@@ -88,6 +90,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       image: "/assets/orderbump-shield.svg",
       isShield: true,
       hasVariants: false,
+    },
+    {
+      id: "sutia-renda",
+      sku: "BUMP-SUTIA-RENDA",
+      name: "Sutiã com Renda Pós Preto",
+      desc: "Cor: Preto | Compressão & Conforto",
+      originalPrice: 89.90,
+      price: 34.90,
+      image: "/images/product/sutia-renda-preto.png",
+      isShield: false,
+      hasVariants: true,
+      onlySize: true,
+      badge: "OFERTA EXCLUSIVA",
+      discountBadge: "61% OFF",
     },
     {
       id: "bra",
@@ -341,7 +357,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
           quantity: 1,
           tangible: true,
           size: b.hasVariants ? (bumpSizes[b.id] || "M") : "Único",
-          color: b.hasVariants ? (bumpColors[b.id] || "Bege") : "Padrão",
+          color: b.hasVariants ? (bumpColors[b.id] || (b.id === "sutia-renda" ? "Preto" : "Bege")) : "Padrão",
           image: b.image,
           sku: b.sku,
           productId: b.sku,
@@ -912,9 +928,48 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                           <img src={bump.image} alt={bump.name} className="order-bump-img" />
                         )}
                         <div className="order-bump-info">
+                          {(bump.badge || bump.discountBadge) && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                              {bump.badge && (
+                                <span style={{
+                                  background: "#E54E88",
+                                  color: "#FFFFFF",
+                                  fontSize: "0.62rem",
+                                  fontWeight: 800,
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  letterSpacing: "0.3px",
+                                }}>
+                                  <Sparkles size={10} /> {bump.badge}
+                                </span>
+                              )}
+                              {bump.discountBadge && (
+                                <span style={{
+                                  background: "#DCFCE7",
+                                  color: "#15803D",
+                                  fontSize: "0.62rem",
+                                  fontWeight: 800,
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                }}>
+                                  {bump.discountBadge}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <span className="order-bump-name">Adicione {bump.name}</span>
                           <span className="order-bump-desc">{bump.desc}</span>
-                          <span className="order-bump-price">por apenas {formatCurrency(bump.price)}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                            {bump.originalPrice && (
+                              <span style={{ fontSize: "0.78rem", color: "#9CA3AF", textDecoration: "line-through" }}>
+                                {formatCurrency(bump.originalPrice)}
+                              </span>
+                            )}
+                            <span className="order-bump-price">por apenas {formatCurrency(bump.price)}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -936,21 +991,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                             </div>
                           </div>
 
-                          <div className="order-bump-variant-group">
-                            <span className="order-bump-variant-label">Escolha a cor:</span>
-                            <div className="order-bump-pills">
-                              {["Bege", "Preto"].map((color) => (
-                                <button
-                                  type="button"
-                                  key={color}
-                                  className={`order-bump-pill ${bumpColors[bump.id] === color ? "selected" : ""}`}
-                                  onClick={() => setBumpColors((prev) => ({ ...prev, [bump.id]: color }))}
-                                >
-                                  {color}
-                                </button>
-                              ))}
+                          {!bump.onlySize && (
+                            <div className="order-bump-variant-group">
+                              <span className="order-bump-variant-label">Escolha a cor:</span>
+                              <div className="order-bump-pills">
+                                {["Bege", "Preto"].map((color) => (
+                                  <button
+                                    type="button"
+                                    key={color}
+                                    className={`order-bump-pill ${bumpColors[bump.id] === color ? "selected" : ""}`}
+                                    onClick={() => setBumpColors((prev) => ({ ...prev, [bump.id]: color }))}
+                                  >
+                                    {color}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -984,7 +1041,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                   <div className="checkout-item-details">
                     <span className="checkout-item-name">{bump.name}</span>
                     <span className="checkout-item-variant">
-                      {bump.hasVariants ? `Cor: ${bumpColors[bump.id] || "Bege"} | Tam: ${bumpSizes[bump.id] || "M"}` : "Garantia Estendida"}
+                      {bump.hasVariants ? `Cor: ${bumpColors[bump.id] || (bump.id === "sutia-renda" ? "Preto" : "Bege")} | Tam: ${bumpSizes[bump.id] || "M"}` : "Garantia Estendida"}
                     </span>
                     <span className="checkout-item-price">{formatCurrency(bump.price)}</span>
                   </div>
