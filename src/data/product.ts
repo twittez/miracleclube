@@ -309,7 +309,7 @@ export const product: ProductData = {
   ]
 };
 
-// Versão Clone para Tráfego do TikTok (Ticket R$ 89,90 com 5% de desconto no Pix)
+// Versão Clone para Tráfego do TikTok (Ticket R$ 97,90 sem desconto de Pix)
 export const productTikTok: ProductData = {
   ...product,
   id: "CMFBPM001-TIKTOK",
@@ -318,8 +318,8 @@ export const productTikTok: ProductData = {
   breadcrumb: ["Início", "Modeladores", "Body Modelador"],
   originalPrice: 199.90,
   price: 97.90,
-  pixPrice: 93.01,
-  pixDiscountPercent: 5,
+  pixPrice: 97.90,
+  pixDiscountPercent: 0,
   installmentsMax: 5,
   installmentValue: 19.58,
 };

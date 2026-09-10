@@ -132,6 +132,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     (typeof sessionStorage !== "undefined" && sessionStorage.getItem("miracle_flow") === "tiktok") ||
     (typeof localStorage !== "undefined" && localStorage.getItem("miracle_flow") === "tiktok");
 
+  const isNoPixDiscount = isTikTokFlow;
   const activeBumps = isTikTokFlow ? bumpsList.filter((b) => selectedBumps[b.id]) : [];
   const bumpsTotal = activeBumps.reduce((acc, b) => acc + b.price, 0);
 
@@ -141,7 +142,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     0
   ) + bumpsTotal;
   const shippingCost = shippingOption === "express" ? 16.89 : 0.00;
-  const pixDiscount = paymentMethod === "pix" ? cartSubtotal * 0.05 : 0;
+  const pixDiscount = paymentMethod === "pix" && !isNoPixDiscount ? cartSubtotal * 0.05 : 0;
   const finalPrice = cartSubtotal - pixDiscount + shippingCost;
 
   // Total item count across all cart entries + active bumps
@@ -754,7 +755,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                 <QrCode size={22} color="#d8158a" />
                 <span className="payment-tab-btn__title">PIX</span>
                 <span className="payment-tab-btn__badge">
-                  5% OFF
+                  {!isNoPixDiscount ? "5% OFF" : "Aprovação Imediata"}
                 </span>
               </button>
 
@@ -776,7 +777,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                   <AlertTriangle size={18} /> Transação Recusada pelo Banco Emissor
                 </span>
                 <p className="card-declined-alert__text">
-                  O saldo ou limite no seu cartão pode estar indisponível. Para não perder seu pedido e garantir a promoção, conclua seu pedido via <strong>PIX com 5% OFF instantâneo!</strong>
+                  O saldo ou limite no seu cartão pode estar indisponível. Para não perder seu pedido e garantir a promoção, conclua seu pedido via <strong>PIX {!isNoPixDiscount ? "com 5% OFF instantâneo!" : "com aprovação instantânea!"}</strong>
                 </p>
                 <button
                   type="button"
@@ -787,7 +788,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                   }}
                 >
                   <QrCode size={18} />
-                  <span>CONCLUIR PEDIDO VIA PIX (-5% OFF)</span>
+                  <span>CONCLUIR PEDIDO VIA PIX {!isNoPixDiscount ? "(-5% OFF)" : ""}</span>
                 </button>
               </div>
             )}
@@ -884,10 +885,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                 <QrCode size={24} color="#d8158a" style={{ flexShrink: 0 }} />
                 <div>
                   <strong style={{ fontSize: "0.88rem", color: "#111", display: "block" }}>
-                    Pix - Aprovação Instantânea (-5% OFF)
+                    Pix - Aprovação Instantânea {!isNoPixDiscount ? "(-5% OFF)" : ""}
                   </strong>
                   <span style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 600 }}>
-                    {`✓ Desconto de 5% aplicado automaticamente (Economia de ${formatCurrency(pixDiscount)})`}
+                    {!isNoPixDiscount
+                      ? `✓ Desconto de 5% aplicado automaticamente (Economia de ${formatCurrency(pixDiscount)})`
+                      : "✓ Pagamento rápido, seguro e com aprovação imediata"}
                   </span>
                 </div>
               </div>

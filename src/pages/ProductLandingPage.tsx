@@ -39,6 +39,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const { addItem } = useCart();
 
   useEffect(() => {
+    try {
+      sessionStorage.removeItem("miracle_flow");
+      localStorage.removeItem("miracle_flow");
+    } catch {}
+
     // Track ViewContent on landing page load (Guarded so it fires ONCE per session)
     trackViewContent({
       id: "CMFBPM001-BFPP",

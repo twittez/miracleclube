@@ -71,6 +71,7 @@ export const ProductTikTokPage: React.FC<ProductTikTokPageProps> = ({
       quantity: qty,
       price: productTikTok.price,
       image: productTikTok.images[variation.imageIndex],
+      noPixDiscount: true,
     });
 
     // Track AddToCart ONLY when product is actually added
