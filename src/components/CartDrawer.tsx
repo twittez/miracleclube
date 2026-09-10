@@ -110,12 +110,20 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onCheckout?: () => void;
+  hideOrderBump?: boolean;
 }
 
-export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheckout }) => {
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheckout, hideOrderBump }) => {
   const { cartItems, removeItem, updateQuantity, getTotal } = useCart();
 
   if (!isOpen) return null;
+
+  const isTikTokFlow =
+    hideOrderBump ||
+    cartItems.some(item => item.productId === "CMFBPM001-TIKTOK" || item.noPixDiscount) ||
+    (typeof sessionStorage !== "undefined" && sessionStorage.getItem("miracle_flow") === "tiktok") ||
+    (typeof localStorage !== "undefined" && localStorage.getItem("miracle_flow") === "tiktok") ||
+    (typeof window !== "undefined" && (window.location.pathname === "/produtotiktok" || window.location.pathname === "/produto-tiktok"));
 
   const handleFinalizeCheckout = () => {
     // Single Point of Dispatch for InitiateCheckout
@@ -195,8 +203,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onCheck
                 ))}
               </ul>
 
-              {/* ORDER BUMP SECTION */}
-              <CartOrderBump />
+              {/* ORDER BUMP SECTION (Oculto no fluxo do TikTok, visível no fluxo normal) */}
+              {!isTikTokFlow && <CartOrderBump />}
             </>
           )}
         </div>

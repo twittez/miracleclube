@@ -41,6 +41,7 @@ export const ProductTikTokPage: React.FC<ProductTikTokPageProps> = ({
   useEffect(() => {
     try {
       sessionStorage.setItem("miracle_flow", "tiktok");
+      localStorage.setItem("miracle_flow", "tiktok");
     } catch {}
 
     // Track ViewContent on landing page load (Guarded so it fires ONCE per session)
@@ -59,6 +60,7 @@ export const ProductTikTokPage: React.FC<ProductTikTokPageProps> = ({
   const handleAddToCart = (qty: number, variation: ProductVariation, size: ProductSize) => {
     try {
       sessionStorage.setItem("miracle_flow", "tiktok");
+      localStorage.setItem("miracle_flow", "tiktok");
     } catch {}
 
     addItem({
@@ -186,6 +188,7 @@ export const ProductTikTokPage: React.FC<ProductTikTokPageProps> = ({
         isOpen={cartDrawerOpen} 
         onClose={() => setCartDrawerOpen(false)} 
         onCheckout={onNavigateToCheckout}
+        hideOrderBump={true}
       />
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       <InstitutionalModal activeTab={instModalTab} onClose={() => setInstModalTab(null)} />

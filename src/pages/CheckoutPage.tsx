@@ -111,7 +111,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     },
   ];
 
-  const activeBumps = bumpsList.filter((b) => selectedBumps[b.id]);
+  const isTikTokFlow =
+    cartItems.some((item) => item.noPixDiscount || item.productId === "CMFBPM001-TIKTOK") ||
+    (typeof sessionStorage !== "undefined" && sessionStorage.getItem("miracle_flow") === "tiktok") ||
+    (typeof localStorage !== "undefined" && localStorage.getItem("miracle_flow") === "tiktok");
+  const isNoPixDiscount = isTikTokFlow;
+
+  const activeBumps = isTikTokFlow ? bumpsList.filter((b) => selectedBumps[b.id]) : [];
   const bumpsTotal = activeBumps.reduce((acc, b) => acc + b.price, 0);
 
   // Compute subtotal from the FULL cart (all items × their quantities) + selected bumps
@@ -120,9 +126,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     0
   ) + bumpsTotal;
   const shippingCost = shippingOption === "express" ? 16.89 : 0.00;
-  const isNoPixDiscount =
-    cartItems.some((item) => item.noPixDiscount || item.productId === "CMFBPM001-TIKTOK") ||
-    (typeof sessionStorage !== "undefined" && sessionStorage.getItem("miracle_flow") === "tiktok");
   const pixDiscount = (paymentMethod === "pix" && !isNoPixDiscount) ? cartSubtotal * 0.10 : 0;
   const finalPrice = cartSubtotal - pixDiscount + shippingCost;
 
@@ -877,82 +880,84 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
               </div>
             )}
 
-            {/* Order Bumps (Miracle2 Visual Integration) */}
-            <div className="order-bumps-container">
-              {bumpsList.map((bump) => {
-                const isSelected = !!selectedBumps[bump.id];
-                return (
-                  <div
-                    key={bump.id}
-                    className={`order-bump-card ${isSelected ? "active" : ""}`}
-                  >
+            {/* Order Bumps (Exibidos apenas para visitantes do fluxo TikTok) */}
+            {isTikTokFlow && (
+              <div className="order-bumps-container">
+                {bumpsList.map((bump) => {
+                  const isSelected = !!selectedBumps[bump.id];
+                  return (
                     <div
-                      className="order-bump-header"
-                      onClick={() => toggleBump(bump.id)}
+                      key={bump.id}
+                      className={`order-bump-card ${isSelected ? "active" : ""}`}
                     >
-                      <div className={`order-bump-custom-checkbox ${isSelected ? "checked" : ""}`}>
-                        {isSelected && (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M2.5 6L5 8.5L9.5 3.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                      <div
+                        className="order-bump-header"
+                        onClick={() => toggleBump(bump.id)}
+                      >
+                        <div className={`order-bump-custom-checkbox ${isSelected ? "checked" : ""}`}>
+                          {isSelected && (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                        {bump.isShield ? (
+                          <div className="order-bump-shield-icon">
+                            <svg width="36" height="36" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}>
+                              <path d="M20 5L8 10V18C8 26.2 13.1 33.8 20 36C26.9 33.8 32 26.2 32 18V10L20 5Z" stroke="#E54E88" strokeWidth="2.2" strokeLinejoin="round" fill="none" />
+                              <path d="M15 19.5L18.5 23L25.5 16" stroke="#E54E88" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <img src={bump.image} alt={bump.name} className="order-bump-img" />
                         )}
-                      </div>
-                      {bump.isShield ? (
-                        <div className="order-bump-shield-icon">
-                          <svg width="36" height="36" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}>
-                            <path d="M20 5L8 10V18C8 26.2 13.1 33.8 20 36C26.9 33.8 32 26.2 32 18V10L20 5Z" stroke="#E54E88" strokeWidth="2.2" strokeLinejoin="round" fill="none" />
-                            <path d="M15 19.5L18.5 23L25.5 16" stroke="#E54E88" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                        <div className="order-bump-info">
+                          <span className="order-bump-name">Adicione {bump.name}</span>
+                          <span className="order-bump-desc">{bump.desc}</span>
+                          <span className="order-bump-price">por apenas {formatCurrency(bump.price)}</span>
                         </div>
-                      ) : (
-                        <img src={bump.image} alt={bump.name} className="order-bump-img" />
+                      </div>
+
+                      {isSelected && bump.hasVariants && (
+                        <div className="order-bump-variants">
+                          <div className="order-bump-variant-group">
+                            <span className="order-bump-variant-label">Escolha o tamanho:</span>
+                            <div className="order-bump-pills">
+                              {["PP", "P", "M", "G", "GG", "XG"].map((size) => (
+                                <button
+                                  type="button"
+                                  key={size}
+                                  className={`order-bump-pill ${bumpSizes[bump.id] === size ? "selected" : ""}`}
+                                  onClick={() => setBumpSizes((prev) => ({ ...prev, [bump.id]: size }))}
+                                >
+                                  {size}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="order-bump-variant-group">
+                            <span className="order-bump-variant-label">Escolha a cor:</span>
+                            <div className="order-bump-pills">
+                              {["Bege", "Preto"].map((color) => (
+                                <button
+                                  type="button"
+                                  key={color}
+                                  className={`order-bump-pill ${bumpColors[bump.id] === color ? "selected" : ""}`}
+                                  onClick={() => setBumpColors((prev) => ({ ...prev, [bump.id]: color }))}
+                                >
+                                  {color}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       )}
-                      <div className="order-bump-info">
-                        <span className="order-bump-name">Adicione {bump.name}</span>
-                        <span className="order-bump-desc">{bump.desc}</span>
-                        <span className="order-bump-price">por apenas {formatCurrency(bump.price)}</span>
-                      </div>
                     </div>
-
-                    {isSelected && bump.hasVariants && (
-                      <div className="order-bump-variants">
-                        <div className="order-bump-variant-group">
-                          <span className="order-bump-variant-label">Escolha o tamanho:</span>
-                          <div className="order-bump-pills">
-                            {["PP", "P", "M", "G", "GG", "XG"].map((size) => (
-                              <button
-                                type="button"
-                                key={size}
-                                className={`order-bump-pill ${bumpSizes[bump.id] === size ? "selected" : ""}`}
-                                onClick={() => setBumpSizes((prev) => ({ ...prev, [bump.id]: size }))}
-                              >
-                                {size}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="order-bump-variant-group">
-                          <span className="order-bump-variant-label">Escolha a cor:</span>
-                          <div className="order-bump-pills">
-                            {["Bege", "Preto"].map((color) => (
-                              <button
-                                type="button"
-                                key={color}
-                                className={`order-bump-pill ${bumpColors[bump.id] === color ? "selected" : ""}`}
-                                onClick={() => setBumpColors((prev) => ({ ...prev, [bump.id]: color }))}
-                              >
-                                {color}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Product Summary — renders ALL cart items + active bumps */}
             <div className="checkout-summary">

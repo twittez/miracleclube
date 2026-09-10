@@ -53,6 +53,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   }, []);
 
   const handleAddToCart = (qty: number, variation: ProductVariation, size: ProductSize) => {
+    try {
+      sessionStorage.removeItem("miracle_flow");
+      localStorage.removeItem("miracle_flow");
+    } catch {}
+
     addItem({
       productId: product.id,
       name: product.name,
