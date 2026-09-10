@@ -92,11 +92,11 @@ export interface ProductData {
 
 export const product: ProductData = {
   id: "CMFBPM001-bfpp2",
-  name: "Body Modelador Feminino Pré-Moldado",
+  name: "Cinta Modeladora",
   subtitle: "Alta compressão com toque macio, modelagem anatômica e sustentação total",
   sku: "CMFBPM001-BFPP",
   category: "Modeladores",
-  breadcrumb: ["Início", "Modeladores", "Body Modelador"],
+  breadcrumb: ["Início", "Modeladores", "Cinta Modeladora"],
   originalPrice: 199.90,
   price: 79.90,
   pixPrice: 71.91,
@@ -313,7 +313,9 @@ export const product: ProductData = {
 export const productTikTok: ProductData = {
   ...product,
   id: "CMFBPM001-TIKTOK",
+  name: "Body Modelador",
   sku: "CMFBPM001-TIKTOK",
+  breadcrumb: ["Início", "Modeladores", "Body Modelador"],
   originalPrice: 199.90,
   price: 89.90,
   pixPrice: 85.41,

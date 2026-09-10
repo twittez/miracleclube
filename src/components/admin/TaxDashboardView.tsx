@@ -91,11 +91,16 @@ const DEFAULT_TAXES_SETTINGS: TaxesSettings = {
   productCosts: [
     {
       id: 'cogs_1',
-      productName: 'Body Modelador Feminino Pré-Moldado',
+      productName: 'Cinta Modeladora',
       cost: 21.90
     },
     {
       id: 'cogs_2',
+      productName: 'Body Modelador',
+      cost: 21.90
+    },
+    {
+      id: 'cogs_3',
       productName: 'Sutiã com Renda Pós Preto',
       cost: 9.50
     }

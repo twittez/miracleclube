@@ -10,7 +10,7 @@ export const BRAND = {
 
 export const PRODUCT = {
   sku: "CMFBPM001-BFPP",
-  name: "Body Modelador Feminino Pré-Moldado",
+  name: "Cinta Modeladora",
   subtitle:
     "Alta compressão com toque macio, modelagem anatômica e sustentação total",
   price: 89.9,

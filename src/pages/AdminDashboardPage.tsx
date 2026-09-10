@@ -88,8 +88,13 @@ interface OrderItem {
   title: string;
   unitPrice: number;
   quantity: number;
+  size?: string;
+  color?: string;
   selectedColor?: string;
   selectedSize?: string;
+  sku?: string;
+  productId?: string;
+  image?: string;
 }
 
 interface OrderRecord {
@@ -97,6 +102,7 @@ interface OrderRecord {
   trackingReference?: string;
   status: 'paid' | 'pending_payment' | 'cancelled';
   orderStatus?: string;
+  trafficOrigin?: string;
   amount: number;
   customer: {
     name: string;
@@ -221,6 +227,77 @@ function getOrderOrigin(order: OrderRecord): 'meta' | 'tiktok' | 'google' | 'oth
   }
 
   return 'other';
+}
+
+// Helper: Resolve Order Product Display Name & Variant Info
+export function getOrderProductInfo(order: OrderRecord): {
+  name: 'Cinta Modeladora' | 'Body Modelador';
+  isTikTok: boolean;
+  variantText: string;
+  hasBump: boolean;
+  bumpCount: number;
+} {
+  const origin = getOrderOrigin(order);
+  const items = order.items || [];
+  const mainItem = items[0];
+
+  // Check if items explicitly identify TikTok vs Main
+  const isTikTokSku = items.some(i => (i.sku || '').toUpperCase().includes('TIKTOK') || (i.productId || '').toUpperCase().includes('TIKTOK'));
+  const isCintaSku = items.some(i => (i.sku || '').toUpperCase().includes('BFPP') || (i.productId || '').toUpperCase().includes('BFPP'));
+
+  const hasExplicitTikTokTitle = items.some(i => {
+    const t = (i.title || '').toLowerCase().trim();
+    return t === 'body modelador' || t.includes('body modelador tiktok') || t.includes('produtotiktok');
+  });
+
+  const hasExplicitCintaTitle = items.some(i => {
+    const t = (i.title || '').toLowerCase().trim();
+    return t.includes('cinta');
+  });
+
+  let isTikTok = false;
+  if (isTikTokSku || hasExplicitTikTokTitle) {
+    isTikTok = true;
+  } else if (order.trafficOrigin === 'tiktok' || origin === 'tiktok') {
+    isTikTok = true;
+  } else if (
+    order.amount === 97.90 ||
+    order.amount === 89.90 ||
+    order.amount === 85.41 ||
+    Math.abs(order.amount - 97.90) < 0.01 ||
+    Math.abs(order.amount - 89.90) < 0.01 ||
+    Math.abs(order.amount - 85.41) < 0.01
+  ) {
+    // Exact TikTok checkout ticket amounts
+    isTikTok = true;
+  } else if (isCintaSku || hasExplicitCintaTitle) {
+    isTikTok = false;
+  } else {
+    isTikTok = false;
+  }
+
+  const name = isTikTok ? 'Body Modelador' : 'Cinta Modeladora';
+
+  // Variant details (size, color)
+  let variantText = '';
+  if (mainItem) {
+    const size = mainItem.size || (mainItem as any).selectedSize;
+    const color = mainItem.color || (mainItem as any).selectedColor;
+    const parts: string[] = [];
+    if (size) parts.push(`Tam: ${size}`);
+    if (color) parts.push(color);
+    variantText = parts.join(' • ');
+  }
+
+  const bumpCount = Math.max(0, items.length - 1);
+
+  return {
+    name,
+    isTikTok,
+    variantText,
+    hasBump: bumpCount > 0,
+    bumpCount
+  };
 }
 
 export const AdminDashboardPage: React.FC = () => {
@@ -882,10 +959,11 @@ export const AdminDashboardPage: React.FC = () => {
     const isPaid = order.status === 'paid';
 
     let text = '';
+    const prodName = getOrderProductInfo(order).name;
     if (isPaid) {
-      text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. Confirmamos o pagamento do seu pedido (${order.trackingReference || order.id}) no valor de R$ ${order.amount.toFixed(2)}. Seu produto já está sendo preparado com muito carinho! ❤️`;
+      text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. Confirmamos o pagamento do seu pedido (${order.trackingReference || order.id}) da ${prodName} no valor de R$ ${order.amount.toFixed(2)}. Seu produto já está sendo preparado com muito carinho! ❤️`;
     } else {
-      text = `Olá ${firstName}! Tudo bem? Vimos que você gerou um Pix para o seu Body Modelador Miracle (${order.trackingReference || order.id}) no valor de R$ ${order.amount.toFixed(2)}. Ficou com alguma dúvida ou precisa de ajuda para concluir seu pedido?`;
+      text = `Olá ${firstName}! Tudo bem? Vimos que você gerou um Pix para a sua ${prodName} Miracle (${order.trackingReference || order.id}) no valor de R$ ${order.amount.toFixed(2)}. Ficou com alguma dúvida ou precisa de ajuda para concluir seu pedido?`;
     }
 
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
@@ -896,7 +974,7 @@ export const AdminDashboardPage: React.FC = () => {
     const phone = (card.customer?.phone || '').replace(/\D/g, '');
     const cleanPhone = phone.startsWith('55') ? phone : `55${phone}`;
     const firstName = card.customer?.name?.split(' ')[0] || 'Cliente';
-    const text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. ❤️\n\nVimos que sua tentativa de compra da Cinta Body Modelador (R$ ${card.amount.toFixed(2)}) no cartão de crédito não foi aprovada pelo banco emissor.\n\nPara você não perder a promoção, conseguimos segurar seu pedido no estoque com FRETE GRÁTIS via PIX com aprovação imediata!\n\nPosso gerar sua chave Pix com desconto para você finalizar agora?`;
+    const text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. ❤️\n\nVimos que sua tentativa de compra da Cinta Modeladora (R$ ${card.amount.toFixed(2)}) no cartão de crédito não foi aprovada pelo banco emissor.\n\nPara você não perder a promoção, conseguimos segurar seu pedido no estoque com FRETE GRÁTIS via PIX com aprovação imediata!\n\nPosso gerar sua chave Pix com desconto para você finalizar agora?`;
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -912,8 +990,9 @@ export const AdminDashboardPage: React.FC = () => {
     const trackingCode = order.trackingReference || order.id;
     const statusText = order.logisticStatus === 'in_transit' ? 'EM TRANSPORTE 🚚' : 'EM SEPARAÇÃO & EMBALAGEM 📦';
     const trackUrl = `https://miraclebrasil.com/rastreio?codigo=${encodeURIComponent(trackingCode)}`;
+    const prodName = getOrderProductInfo(order).name;
 
-    const text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. ❤️\n\nSeu pedido da Cinta Body Modelador (${trackingCode}) já está com status: *${statusText}*!\n\nVocê pode acompanhar todo o trajeto da entrega em tempo real através do link oficial:\n👉 ${trackUrl}\n\nQualquer dúvida estamos à disposição!`;
+    const text = `Olá ${firstName}! Tudo bem? Aqui é da Miracle Brasil. ❤️\n\nSeu pedido da ${prodName} (${trackingCode}) já está com status: *${statusText}*!\n\nVocê pode acompanhar todo o trajeto da entrega em tempo real através do link oficial:\n👉 ${trackUrl}\n\nQualquer dúvida estamos à disposição!`;
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -954,20 +1033,24 @@ export const AdminDashboardPage: React.FC = () => {
   // Export CSV
   const handleExportCSV = () => {
     if (orders.length === 0) return;
-    const headers = ['ID', 'Rastreio', 'Data', 'Status', 'Valor (R$)', 'Cliente', 'CPF', 'Email', 'Telefone', 'UTM Source', 'UTM Campaign'];
-    const rows = orders.map((o) => [
-      o.id,
-      o.trackingReference || '',
-      new Date(o.createdAt).toLocaleString('pt-BR'),
-      o.status === 'paid' ? 'Pago' : 'Pendente',
-      o.amount.toFixed(2),
-      `"${o.customer?.name || ''}"`,
-      `"${o.customer?.cpf || ''}"`,
-      o.customer?.email || '',
-      o.customer?.phone || '',
-      o.utm?.utm_source || '',
-      o.utm?.utm_campaign || ''
-    ]);
+    const headers = ['ID', 'Rastreio', 'Data', 'Produto', 'Status', 'Valor (R$)', 'Cliente', 'CPF', 'Email', 'Telefone', 'UTM Source', 'UTM Campaign'];
+    const rows = orders.map((o) => {
+      const prod = getOrderProductInfo(o);
+      return [
+        o.id,
+        o.trackingReference || '',
+        new Date(o.createdAt).toLocaleString('pt-BR'),
+        prod.name + (prod.variantText ? ` (${prod.variantText})` : ''),
+        o.status === 'paid' ? 'Pago' : 'Pendente',
+        o.amount.toFixed(2),
+        `"${o.customer?.name || ''}"`,
+        `"${o.customer?.cpf || ''}"`,
+        o.customer?.email || '',
+        o.customer?.phone || '',
+        o.utm?.utm_source || '',
+        o.utm?.utm_campaign || ''
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -2570,7 +2653,7 @@ export const AdminDashboardPage: React.FC = () => {
                       <th>VALOR</th>
                       <th>STATUS</th>
                       <th>ORIGEM</th>
-                      <th>AÇÕES</th>
+                      <th>PRODUTO</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2790,44 +2873,91 @@ export const AdminDashboardPage: React.FC = () => {
                           })()}
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button
-                              className="cc-nav-item"
-                              style={{ width: 'auto', padding: '6px 8px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}
-                              onClick={() => handleOpenOrderModal(order)}
-                              title="Ver Detalhes & Rastreio"
-                            >
-                              <Eye size={13} />
-                            </button>
-                            <button
-                              className="cc-nav-item"
-                              style={{ width: 'auto', padding: '6px 8px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
-                              onClick={() => handleOpenWhatsApp(order)}
-                              title="WhatsApp Cobrança/Aprovação"
-                            >
-                              <MessageCircle size={13} />
-                            </button>
-                            {order.status === 'paid' && (
-                              <button
-                                className="cc-nav-item"
-                                style={{ width: 'auto', padding: '6px 8px', background: 'rgba(6,182,212,0.15)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)' }}
-                                onClick={() => handleSendTrackingWhatsApp(order)}
-                                title="Enviar Link de Rastreio no WhatsApp"
-                              >
-                                <Truck size={13} />
-                              </button>
-                            )}
-                            {order.status !== 'paid' && (
-                              <button
-                                className="cc-nav-item"
-                                style={{ width: 'auto', padding: '6px 8px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}
-                                onClick={() => handleApproveOrder(order.id)}
-                                title="Aprovar Manualmente"
-                              >
-                                <CheckCircle size={13} />
-                              </button>
-                            )}
-                          </div>
+                          {(() => {
+                            const prodInfo = getOrderProductInfo(order);
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: '160px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 9px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      fontFamily: 'JetBrains Mono, monospace',
+                                      background: prodInfo.isTikTok ? 'rgba(236, 72, 153, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                                      color: prodInfo.isTikTok ? '#f472b6' : '#38bdf8',
+                                      border: prodInfo.isTikTok ? '1px solid rgba(236, 72, 153, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {prodInfo.isTikTok ? '🌸' : '✨'} {prodInfo.name}
+                                    </span>
+                                    {prodInfo.hasBump && (
+                                      <span style={{
+                                        fontSize: '10px',
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        background: 'rgba(168, 85, 247, 0.2)',
+                                        color: '#c084fc',
+                                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap'
+                                      }}>
+                                        +{prodInfo.bumpCount} bump
+                                      </span>
+                                    )}
+                                  </div>
+                                  {prodInfo.variantText && (
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', paddingLeft: '2px' }}>
+                                      {prodInfo.variantText}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                                  <button
+                                    className="cc-nav-item"
+                                    style={{ width: 'auto', padding: '6px 8px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}
+                                    onClick={() => handleOpenOrderModal(order)}
+                                    title="Ver Detalhes & Rastreio"
+                                  >
+                                    <Eye size={13} />
+                                  </button>
+                                  <button
+                                    className="cc-nav-item"
+                                    style={{ width: 'auto', padding: '6px 8px', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                    onClick={() => handleOpenWhatsApp(order)}
+                                    title="WhatsApp Cobrança/Aprovação"
+                                  >
+                                    <MessageCircle size={13} />
+                                  </button>
+                                  {order.status === 'paid' && (
+                                    <button
+                                      className="cc-nav-item"
+                                      style={{ width: 'auto', padding: '6px 8px', background: 'rgba(6,182,212,0.15)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)' }}
+                                      onClick={() => handleSendTrackingWhatsApp(order)}
+                                      title="Enviar Link de Rastreio no WhatsApp"
+                                    >
+                                      <Truck size={13} />
+                                    </button>
+                                  )}
+                                  {order.status !== 'paid' && (
+                                    <button
+                                      className="cc-nav-item"
+                                      style={{ width: 'auto', padding: '6px 8px', background: 'rgba(16,185,129,0.15)', color: '#10b981' }}
+                                      onClick={() => handleApproveOrder(order.id)}
+                                      title="Aprovar Manualmente"
+                                    >
+                                      <CheckCircle size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -4287,6 +4417,7 @@ export const AdminDashboardPage: React.FC = () => {
                         <th>Data / Hora</th>
                         <th>Cliente</th>
                         <th>Rastreio UTM & Criativo</th>
+                        <th>Produto</th>
                         <th style={{ textAlign: 'right' }}>Valor</th>
                         <th style={{ textAlign: 'center' }}>Status</th>
                         <th style={{ textAlign: 'center' }}>Ações</th>
@@ -4295,7 +4426,7 @@ export const AdminDashboardPage: React.FC = () => {
                     <tbody>
                       {filteredTrafficOrders.length === 0 ? (
                         <tr>
-                          <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                             Nenhum pedido encontrado com os filtros selecionados.
                           </td>
                         </tr>
@@ -4423,6 +4554,31 @@ export const AdminDashboardPage: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
+                              </td>
+
+                              {/* Produto */}
+                              <td>
+                                {(() => {
+                                  const prodInfo = getOrderProductInfo(order);
+                                  return (
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      fontFamily: 'JetBrains Mono, monospace',
+                                      background: prodInfo.isTikTok ? 'rgba(236, 72, 153, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                                      color: prodInfo.isTikTok ? '#f472b6' : '#38bdf8',
+                                      border: prodInfo.isTikTok ? '1px solid rgba(236, 72, 153, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {prodInfo.isTikTok ? '🌸' : '✨'} {prodInfo.name}
+                                    </span>
+                                  );
+                                })()}
                               </td>
 
                               {/* Valor */}
@@ -5303,17 +5459,30 @@ export const AdminDashboardPage: React.FC = () => {
               {/* Items */}
               <div style={{ background: 'rgba(15,23,42,0.8)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(139,92,246,0.2)', marginBottom: '16px' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#8b5cf6', fontFamily: 'JetBrains Mono' }}>PRODUTOS</h4>
-                {selectedOrder.items?.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div>
-                      <div style={{ color: '#fff', fontWeight: 600 }}>{item.title}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>Qtd: {item.quantity} {item.selectedSize ? `| Tam: ${item.selectedSize}` : ''}</div>
+                {selectedOrder.items?.map((item, idx) => {
+                  let displayTitle = item.title;
+                  if (!displayTitle || displayTitle.toLowerCase().includes('pré-moldado') || displayTitle.toLowerCase().includes('pre-moldado') || displayTitle === 'Body Modelador Feminino') {
+                    const prodInfo = getOrderProductInfo(selectedOrder);
+                    displayTitle = prodInfo.name;
+                  }
+                  const itemSize = item.size || (item as any).selectedSize;
+                  const itemColor = item.color || (item as any).selectedColor;
+                  return (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div>
+                        <div style={{ color: '#fff', fontWeight: 600 }}>{displayTitle}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          Qtd: {item.quantity}
+                          {itemSize ? ` | Tam: ${itemSize}` : ''}
+                          {itemColor ? ` | Cor: ${itemColor}` : ''}
+                        </div>
+                      </div>
+                      <div style={{ color: '#fff', fontWeight: 700 }}>
+                        R$ {((item.unitPrice ? item.unitPrice / 100 : selectedOrder.amount) * item.quantity).toFixed(2)}
+                      </div>
                     </div>
-                    <div style={{ color: '#fff', fontWeight: 700 }}>
-                      R$ {((item.unitPrice ? item.unitPrice / 100 : selectedOrder.amount) * item.quantity).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Logistic & Tracking Management */}
