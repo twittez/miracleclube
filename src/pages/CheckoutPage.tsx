@@ -83,7 +83,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       id: "shield",
       sku: "BUMP-SHIELD",
       name: "Compra Protegida",
-      desc: "Garanta a proteção e prioridade de envio do seu pedido",
+      desc: "Garanta a proteção do seu pedido",
       price: 19.90,
       image: "/assets/orderbump-shield.svg",
       isShield: true,
@@ -93,7 +93,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       id: "bra",
       sku: "BUMP-BRA",
       name: "Sutiã Fit Premium em Gel Sem aros",
-      desc: "Conforto em gel sem aros, sustentação anatômica",
+      desc: "Conforto em gel sem aros",
       price: 29.90,
       image: "/assets/orderbump-bra.png",
       isShield: false,
@@ -103,7 +103,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
       id: "calcinha",
       sku: "BUMP-CALCINHA",
       name: "Calcinhas FitLax™ - Empina BumBum",
-      desc: "Modela a cintura e empina o bumbum sem costura",
+      desc: "Modela a cintura e empina o bumbum",
       price: 24.90,
       image: "/assets/orderbump-calcinha.png",
       isShield: false,
@@ -879,9 +879,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
 
             {/* Order Bumps (Miracle2 Visual Integration) */}
             <div className="order-bumps-container">
-              <h3 className="order-bumps-title">
-                🎁 Ofertas Especiais para seu Pedido
-              </h3>
               {bumpsList.map((bump) => {
                 const isSelected = !!selectedBumps[bump.id];
                 return (
@@ -893,15 +890,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                       className="order-bump-header"
                       onClick={() => toggleBump(bump.id)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="order-bump-checkbox"
-                      />
+                      <div className={`order-bump-custom-checkbox ${isSelected ? "checked" : ""}`}>
+                        {isSelected && (
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2.5 6L5 8.5L9.5 3.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
                       {bump.isShield ? (
                         <div className="order-bump-shield-icon">
-                          <img src={bump.image} alt={bump.name} style={{ width: 26, height: 26 }} />
+                          <svg width="36" height="36" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}>
+                            <path d="M20 5L8 10V18C8 26.2 13.1 33.8 20 36C26.9 33.8 32 26.2 32 18V10L20 5Z" stroke="#E54E88" strokeWidth="2.2" strokeLinejoin="round" fill="none" />
+                            <path d="M15 19.5L18.5 23L25.5 16" stroke="#E54E88" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                         </div>
                       ) : (
                         <img src={bump.image} alt={bump.name} className="order-bump-img" />

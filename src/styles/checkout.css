@@ -530,97 +530,106 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 4px;
-}
-
-.order-bumps-title {
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: #111827;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-top: 14px;
 }
 
 .order-bump-card {
-  border: 1.5px dashed #d8158a;
+  border: 1.5px dashed #E54E88;
   border-radius: 8px;
-  background-color: #FFFFFF;
-  padding: 12px;
+  background-color: #FEF3F8;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   transition: all 0.2s ease;
   position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-bump-card:hover {
+  background-color: #FDF0F6;
 }
 
 .order-bump-card.active {
-  background-color: #FFF5F9;
-  border-color: #d8158a;
-  box-shadow: 0 2px 8px rgba(216, 21, 138, 0.08);
+  background-color: #FEF3F8;
+  border-color: #E54E88;
+  box-shadow: 0 2px 10px rgba(229, 78, 136, 0.12);
 }
 
 .order-bump-header {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   cursor: pointer;
+  user-select: none;
 }
 
-.order-bump-checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: #d8158a;
-  cursor: pointer;
-  margin-top: 2px;
+.order-bump-custom-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #D1D5DB;
+  border-radius: 5px;
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.order-bump-card:hover .order-bump-custom-checkbox {
+  border-color: #E54E88;
+}
+
+.order-bump-custom-checkbox.checked {
+  background-color: #E54E88;
+  border-color: #E54E88;
 }
 
 .order-bump-img {
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   object-fit: cover;
   border-radius: 6px;
-  border: 1px solid #E5E7EB;
   flex-shrink: 0;
   background-color: #F9FAFB;
 }
 
 .order-bump-shield-icon {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background-color: #FDF2F6;
-  border-radius: 6px;
 }
 
 .order-bump-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  min-width: 0;
 }
 
 .order-bump-name {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: #111827;
+  color: #1F2937;
   line-height: 1.25;
 }
 
 .order-bump-desc {
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   color: #6B7280;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .order-bump-price {
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: #d8158a;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #E54E88;
   margin-top: 2px;
 }
 
@@ -628,7 +637,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 8px;
+  padding-top: 10px;
+  margin-top: 4px;
   border-top: 1px dashed #F3B3D2;
 }
 
@@ -663,8 +673,8 @@
 }
 
 .order-bump-pill.selected {
-  background-color: #d8158a;
-  border-color: #d8158a;
+  background-color: #E54E88;
+  border-color: #E54E88;
   color: #FFFFFF;
   font-weight: 700;
 }
