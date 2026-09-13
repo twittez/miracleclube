@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -20,6 +21,14 @@ const { sendUtmifyOrder } = require('./netlify/functions/lib/utmify.js');
 dotenv.config();
 
 const app = express();
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    // Don't buffer Server-Sent Events stream
+    if (req.path === '/api/admin/realtime-stream') return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -39,18 +48,26 @@ const BEEHIVE_SECRET_KEY =
   process.env.PAYBEEHIVE_SECRET_KEY ||
   'sec_live_placeholder';
 
-// Simple file-based order database for persistence
+// In-memory cached file-based order database for high performance
 const DB_FILE = path.resolve('orders_db.json');
+let cachedDb = null;
+let lastDbMtime = 0;
 
 function readDB() {
   try {
     if (fs.existsSync(DB_FILE)) {
-      return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      const stats = fs.statSync(DB_FILE);
+      if (cachedDb && stats.mtimeMs === lastDbMtime) {
+        return cachedDb;
+      }
+      cachedDb = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      lastDbMtime = stats.mtimeMs;
+      return cachedDb;
     }
   } catch (e) {
     console.error('Error reading orders_db.json:', e);
   }
-  return { orders: {}, transactions: {} };
+  return cachedDb || { orders: {}, transactions: {} };
 }
 
 // Global Gateway Settings (persisted and selectable via Admin Panel)
@@ -136,7 +153,11 @@ try {
 
 function writeDB(data) {
   try {
+    cachedDb = data;
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    if (fs.existsSync(DB_FILE)) {
+      lastDbMtime = fs.statSync(DB_FILE).mtimeMs;
+    }
   } catch (e) {
     console.error('Error writing orders_db.json:', e);
   }
@@ -1708,6 +1729,72 @@ app.post('/api/admin/orders/:orderId/tracking', async (req, res) => {
 // ADMIN DASHBOARD API ENDPOINTS (MIRACLE BRASIL)
 // ==============================================================================
 
+// Lightweight order serializer for admin table & cards
+function sanitizeOrderForList(order) {
+  const rawPix = order.pixResult || order.pix || {};
+  const slimPix = {
+    transactionId: rawPix.transactionId || rawPix.id || '',
+    gateway: rawPix.gateway || order.gateway || '',
+    copyPaste: rawPix.copyPaste || rawPix.copy_paste || '',
+    status: rawPix.status || '',
+    pixCopied: !!(order.pixCopied || rawPix.pixCopied),
+    pixCopiedAt: order.pixCopiedAt || rawPix.pixCopiedAt || null,
+    receipt: order.receipt || rawPix.receipt || null
+  };
+
+  const rawUtm = order.utm || order.utm_params || {};
+  const slimUtm = {
+    utm_source: rawUtm.utm_source || 'direct',
+    utm_medium: rawUtm.utm_medium || '',
+    utm_campaign: rawUtm.utm_campaign || '',
+    utm_content: rawUtm.utm_content || '',
+    utm_term: rawUtm.utm_term || '',
+    src: rawUtm.src || '',
+    sck: rawUtm.sck || ''
+  };
+
+  const cleanItems = (order.items || []).map(it => ({
+    title: it.title || it.name || 'Cinta Modeladora',
+    name: it.name || it.title || 'Cinta Modeladora',
+    price: Number(it.price || it.unitPrice || 0),
+    unitPrice: Number(it.unitPrice || it.price || 0),
+    quantity: Number(it.quantity || 1),
+    size: it.size || '',
+    color: it.color || '',
+    image: it.image || '',
+    sku: it.sku || it.productId || ''
+  }));
+
+  return {
+    id: order.id,
+    trackingReference: order.trackingReference || order.tracking_reference || order.id,
+    status: order.status || 'pending_payment',
+    orderStatus: order.orderStatus || order.status || 'pending_payment',
+    amount: Number(order.amount) || 0,
+    gateway: order.gateway || 'axxonpay',
+    customer: {
+      name: order.customer?.name || order.customer_name || '',
+      email: order.customer?.email || order.customer_email || '',
+      phone: order.customer?.phone || order.customer_phone || '',
+      cpf: order.customer?.cpf || order.customer_cpf || ''
+    },
+    shipping: order.shipping_address || order.shipping || {},
+    items: cleanItems,
+    pixResult: slimPix,
+    pix: slimPix,
+    utm: slimUtm,
+    createdAt: order.createdAt || order.created_at || new Date().toISOString(),
+    approvedAt: order.approvedAt || order.approved_at || null,
+    customLogisticStatus: order.customLogisticStatus || order.custom_logistic_status || null,
+    logisticStatus: order.logisticStatus,
+    logisticLabel: order.logisticLabel,
+    elapsedHours: order.elapsedHours,
+    pixCopied: slimPix.pixCopied,
+    pixCopiedAt: slimPix.pixCopiedAt,
+    receipt: slimPix.receipt
+  };
+}
+
 // API 5: Get All Orders & Live Stats for Admin Dashboard
 app.get('/api/admin/orders', async (req, res) => {
   try {
@@ -1790,7 +1877,7 @@ app.get('/api/admin/orders', async (req, res) => {
 
     return res.json({
       success: true,
-      orders: allOrders,
+      orders: allOrders.map(sanitizeOrderForList),
       stats: {
         totalRevenue: totalRev,
         todayRevenue: todayRev,

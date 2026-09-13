@@ -302,6 +302,173 @@ export function getOrderProductInfo(order: OrderRecord): {
   };
 }
 
+// Isolated Clock Widget so seconds ticking never re-renders the 5,800-line dashboard
+const ClockDisplay: React.FC = React.memo(() => {
+  const [time, setTime] = useState<string>(() => {
+    return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' BRT';
+  });
+
+  useEffect(() => {
+    const update = () => {
+      setTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' BRT');
+    };
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <div className="cc-clock-display desktop-only">{time}</div>;
+});
+
+// Reusable Paginated Table Footer
+interface TablePaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (perPage: number) => void;
+  itemName?: string;
+}
+
+const TablePagination: React.FC<TablePaginationProps> = React.memo(({
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+  onItemsPerPageChange,
+  itemName = 'itens'
+}) => {
+  if (totalItems === 0) return null;
+
+  const startIdx = Math.min((currentPage - 1) * itemsPerPage + 1, totalItems);
+  const endIdx = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '12px',
+      padding: '12px 16px',
+      borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+      backgroundColor: 'rgba(15, 23, 42, 0.6)',
+      fontSize: '12px',
+      color: '#94a3b8'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span>
+          Mostrando <strong style={{ color: '#f8fafc' }}>{startIdx}</strong> a <strong style={{ color: '#f8fafc' }}>{endIdx}</strong> de <strong style={{ color: '#38bdf8' }}>{totalItems}</strong> {itemName}
+        </span>
+        {onItemsPerPageChange && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>Por pág:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              style={{
+                background: '#1e293b',
+                color: '#f8fafc',
+                border: '1px solid #334155',
+                borderRadius: '4px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          style={{
+            background: currentPage <= 1 ? 'rgba(30, 41, 59, 0.4)' : '#1e293b',
+            color: currentPage <= 1 ? '#475569' : '#f8fafc',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '4px',
+            padding: '4px 10px',
+            cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+            fontSize: '12px',
+            transition: 'all 0.2s'
+          }}
+        >
+          &larr; Anterior
+        </button>
+
+        {getPageNumbers().map((p, idx) => (
+          typeof p === 'number' ? (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onPageChange(p)}
+              style={{
+                background: p === currentPage ? '#0284c7' : '#1e293b',
+                color: p === currentPage ? '#ffffff' : '#94a3b8',
+                border: p === currentPage ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '4px',
+                minWidth: '28px',
+                height: '28px',
+                padding: '0 6px',
+                cursor: 'pointer',
+                fontWeight: p === currentPage ? 700 : 500,
+                fontSize: '12px'
+              }}
+            >
+              {p}
+            </button>
+          ) : (
+            <span key={idx} style={{ padding: '0 4px', color: '#64748b' }}>...</span>
+          )
+        ))}
+
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          style={{
+            background: currentPage >= totalPages ? 'rgba(30, 41, 59, 0.4)' : '#1e293b',
+            color: currentPage >= totalPages ? '#475569' : '#f8fafc',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '4px',
+            padding: '4px 10px',
+            cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+            fontSize: '12px',
+            transition: 'all 0.2s'
+          }}
+        >
+          Próxima &rarr;
+        </button>
+      </div>
+    </div>
+  );
+});
+
 export const AdminDashboardPage: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -361,8 +528,15 @@ export const AdminDashboardPage: React.FC = () => {
   // Selected Declined Card Modal State
   const [selectedDeclinedCard, setSelectedDeclinedCard] = useState<DeclinedCardRecord | null>(null);
 
-  // Time & Clock State
-  const [currentTime, setCurrentTime] = useState<string>('');
+  // Pagination States for Tables
+  const [orderPage, setOrderPage] = useState<number>(1);
+  const [orderPageSize, setOrderPageSize] = useState<number>(50);
+
+  const [visitorPage, setVisitorPage] = useState<number>(1);
+  const [visitorPageSize, setVisitorPageSize] = useState<number>(50);
+
+  const [trafficPage, setTrafficPage] = useState<number>(1);
+  const [trafficPageSize, setTrafficPageSize] = useState<number>(50);
 
   // Selected Visitor Drawer State
   const [selectedVisitorSessionId, setSelectedVisitorSessionId] = useState<string | null>(null);
@@ -622,18 +796,7 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
 
-  // Clock Ticker
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' BRT'
-      );
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+
 
   // Handle Login
   const handleLogin = (e: React.FormEvent) => {
@@ -812,11 +975,25 @@ export const AdminDashboardPage: React.FC = () => {
       };
     } catch {}
 
-    const pollingInterval = setInterval(fetchAllData, 12000);
+    // Polling backup with tab visibility detection (SSE provides real-time updates)
+    const pollIfVisible = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchAllData();
+      }
+    };
+    const pollingInterval = setInterval(pollIfVisible, 45000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchAllData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       if (eventSource) eventSource.close();
       clearInterval(pollingInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isAuthenticated]);
 
@@ -1114,6 +1291,17 @@ export const AdminDashboardPage: React.FC = () => {
       return true;
     });
   }, [orders, orderStatusFilter, orderOriginFilter, orderSearchQuery]);
+
+  // Reset order page when filters change
+  useEffect(() => {
+    setOrderPage(1);
+  }, [orderStatusFilter, orderOriginFilter, orderSearchQuery]);
+
+  const orderTotalPages = Math.max(1, Math.ceil(filteredOrders.length / orderPageSize));
+  const paginatedOrders = useMemo(() => {
+    const start = (orderPage - 1) * orderPageSize;
+    return filteredOrders.slice(start, start + orderPageSize);
+  }, [filteredOrders, orderPage, orderPageSize]);
 
   // Receipts calculations & filter
   const receiptsList = useMemo(() => orders.filter((o) => !!o.receipt), [orders]);
@@ -1444,6 +1632,17 @@ export const AdminDashboardPage: React.FC = () => {
     });
   }, [dateFilteredTrafficOrders, trafficChannelFilter, trafficStatusFilter, trafficSearchQuery]);
 
+  // Reset traffic page when filters change
+  useEffect(() => {
+    setTrafficPage(1);
+  }, [dateFilteredTrafficOrders, trafficChannelFilter, trafficStatusFilter, trafficSearchQuery]);
+
+  const trafficTotalPages = Math.max(1, Math.ceil(filteredTrafficOrders.length / trafficPageSize));
+  const paginatedTrafficOrders = useMemo(() => {
+    const start = (trafficPage - 1) * trafficPageSize;
+    return filteredTrafficOrders.slice(start, start + trafficPageSize);
+  }, [filteredTrafficOrders, trafficPage, trafficPageSize]);
+
   // CSV Export for Daily Breakdown
   const handleExportDailyCSV = () => {
     if (filteredDailyStats.length === 0) return;
@@ -1549,6 +1748,17 @@ export const AdminDashboardPage: React.FC = () => {
       );
     });
   }, [visitors, visitorSearchQuery]);
+
+  // Reset visitor page when query changes
+  useEffect(() => {
+    setVisitorPage(1);
+  }, [visitorSearchQuery]);
+
+  const visitorTotalPages = Math.max(1, Math.ceil(filteredVisitors.length / visitorPageSize));
+  const paginatedVisitors = useMemo(() => {
+    const start = (visitorPage - 1) * visitorPageSize;
+    return filteredVisitors.slice(start, start + visitorPageSize);
+  }, [filteredVisitors, visitorPage, visitorPageSize]);
 
   // --------------------------------------------------------------------------
   // LOGIN SCREEN
@@ -1894,7 +2104,7 @@ export const AdminDashboardPage: React.FC = () => {
               <span className="cc-topbar-btn-text">APP</span>
             </button>
 
-            <div className="cc-clock-display desktop-only">{currentTime}</div>
+            <ClockDisplay />
 
             <button
               onClick={fetchAllData}
@@ -2223,7 +2433,7 @@ export const AdminDashboardPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredVisitors.map((v) => (
+                    {paginatedVisitors.map((v) => (
                       <tr key={v.sessionId}>
                         <td>
                           <span className={`cc-status-dot ${v.status}`} title={v.status.toUpperCase()} />
@@ -2278,6 +2488,15 @@ export const AdminDashboardPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                currentPage={visitorPage}
+                totalPages={visitorTotalPages}
+                totalItems={filteredVisitors.length}
+                itemsPerPage={visitorPageSize}
+                onPageChange={setVisitorPage}
+                onItemsPerPageChange={(sz) => { setVisitorPageSize(sz); setVisitorPage(1); }}
+                itemName="sessões"
+              />
             </div>
           )}
 
@@ -2659,7 +2878,7 @@ export const AdminDashboardPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map((order) => (
+                    {paginatedOrders.map((order) => (
                       <tr key={order.id}>
                         <td>{new Date(order.createdAt).toLocaleString('pt-BR')}</td>
                         <td>
@@ -2973,6 +3192,15 @@ export const AdminDashboardPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                currentPage={orderPage}
+                totalPages={orderTotalPages}
+                totalItems={filteredOrders.length}
+                itemsPerPage={orderPageSize}
+                onPageChange={setOrderPage}
+                onItemsPerPageChange={(sz) => { setOrderPageSize(sz); setOrderPage(1); }}
+                itemName="pedidos"
+              />
             </div>
           )}
 
@@ -4433,7 +4661,7 @@ export const AdminDashboardPage: React.FC = () => {
                           </td>
                         </tr>
                       ) : (
-                        filteredTrafficOrders.map((order) => {
+                        paginatedTrafficOrders.map((order) => {
                           const isPaid = order.status === 'paid' || order.orderStatus === 'paid';
                           const origin = order.trafficOrigin;
 
@@ -4639,6 +4867,15 @@ export const AdminDashboardPage: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination
+                  currentPage={trafficPage}
+                  totalPages={trafficTotalPages}
+                  totalItems={filteredTrafficOrders.length}
+                  itemsPerPage={trafficPageSize}
+                  onPageChange={setTrafficPage}
+                  onItemsPerPageChange={(sz) => { setTrafficPageSize(sz); setTrafficPage(1); }}
+                  itemName="pedidos"
+                />
               </div>
             </div>
           )}
