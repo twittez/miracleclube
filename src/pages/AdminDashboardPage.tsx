@@ -495,19 +495,12 @@ export const AdminDashboardPage: React.FC = () => {
     | 'taxes'
   >('dashboard');
 
-  // Gateway Settings State
+  // Gateway Settings State (Beehive only)
   const [gatewaySettings, setGatewaySettings] = useState<{
-    activeGateway: 'axxonpay' | 'beehive';
-    fallbackToBeehive: boolean;
-    axxonpay: { secretKey: string; publicKey: string };
+    activeGateway: 'beehive';
     beehive: { apiKey: string };
   }>({
-    activeGateway: 'axxonpay',
-    fallbackToBeehive: true,
-    axxonpay: {
-      secretKey: 'sk_72642b2864b48ec909e1258a5ec9a8fee63bd57079ce26d3705b32cd43741365',
-      publicKey: 'pk_8519c01597936f76f7d364735a5a36b0'
-    },
+    activeGateway: 'beehive',
     beehive: { apiKey: '' }
   });
   const [isSavingGateway, setIsSavingGateway] = useState<boolean>(false);
@@ -850,12 +843,10 @@ export const AdminDashboardPage: React.FC = () => {
 
       if (gatewayRes.status === 'fulfilled' && gatewayRes.value.ok) {
         const gData = await gatewayRes.value.json();
-        if (gData.activeGateway) {
+        if (gData.beehive) {
           setGatewaySettings((prev) => ({
             ...prev,
-            activeGateway: gData.activeGateway,
-            fallbackToBeehive: gData.fallbackToBeehive ?? true,
-            axxonpay: gData.axxonpay || prev.axxonpay,
+            activeGateway: 'beehive',
             beehive: gData.beehive || prev.beehive
           }));
         }
@@ -1949,12 +1940,12 @@ export const AdminDashboardPage: React.FC = () => {
             <span
               className="cc-nav-badge"
               style={{
-                color: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#06b6d4',
-                borderColor: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#06b6d4',
-                background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16,185,129,0.15)' : 'rgba(6,182,212,0.15)'
+                color: '#06b6d4',
+                borderColor: '#06b6d4',
+                background: 'rgba(6,182,212,0.15)'
               }}
             >
-              {gatewaySettings.activeGateway === 'axxonpay' ? 'AXXON' : 'BEEHIVE'}
+              BEEHIVE
             </span>
           </button>
 
@@ -5063,245 +5054,94 @@ export const AdminDashboardPage: React.FC = () => {
                         fontSize: '11px',
                         fontWeight: 800,
                         letterSpacing: '0.05em',
-                        background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                        color: gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : '#38bdf8',
-                        border: `1px solid ${gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`
+                        background: 'rgba(56, 189, 248, 0.2)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.4)'
                       }}
                     >
-                      {gatewaySettings.activeGateway === 'axxonpay' ? '⚡ AXXONPAY (PRIMÁRIO)' : '🐝 BEEHIVE (PRIMÁRIO)'}
+                      🐝 BEEHIVE (PRIMÁRIO)
                     </span>
                   </div>
                 </div>
 
                 <div style={{ padding: '24px' }}>
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    Escolha qual provedor processará os pagamentos Pix gerados no checkout da Miracle. Você pode alternar instantaneamente entre a <strong style={{ color: '#fff' }}>AxxonPay</strong> e a <strong style={{ color: '#fff' }}>Beehive</strong>, ajustar as chaves de API e configurar os webhooks de confirmação de pagamento.
+                    Configure as credenciais do gateway <strong style={{ color: '#38bdf8' }}>Beehive</strong> para processar os pagamentos Pix gerados no checkout da Miracle.
                   </p>
 
                   <form onSubmit={handleSaveGatewaySettings}>
-                    {/* Gateway Selection Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                      
-                      {/* Card 1: AxxonPay */}
-                      <div
-                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'axxonpay' }))}
-                        style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'axxonpay' ? '#10b981' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'axxonpay' ? 'rgba(16, 185, 129, 0.04)' : 'rgba(15, 23, 42, 0.4)',
-                          borderRadius: '10px',
-                          padding: '20px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                              type="radio"
-                              name="activeGateway"
-                              checked={gatewaySettings.activeGateway === 'axxonpay'}
-                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'axxonpay' }))}
-                              style={{ accentColor: '#10b981', cursor: 'pointer', width: '18px', height: '18px' }}
-                            />
-                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>AxxonPay</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>
-                              NOVO & RECOMENDADO
-                            </span>
-                          </div>
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway moderno com liquidação rápida e suporte a Webhook direto para disparo no UTMify, Meta CAPI e TikTok Events.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">SECRET KEY (sk_...)</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.axxonpay.secretKey}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                axxonpay: { ...prev.axxonpay, secretKey: e.target.value }
-                              }))}
-                              placeholder="sk_..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">PUBLIC KEY / SELLER ID (pk_...)</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.axxonpay.publicKey}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                axxonpay: { ...prev.axxonpay, publicKey: e.target.value }
-                              }))}
-                              placeholder="pk_..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          {/* Webhook Box */}
-                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK PARA O PAINEL AXXONPAY:</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/axxonpay');
-                                  setCopiedGatewayWebhook('axxonpay');
-                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: copiedGatewayWebhook === 'axxonpay' ? '#10b981' : '#38bdf8',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: 0
-                                }}
-                              >
-                                {copiedGatewayWebhook === 'axxonpay' ? <CheckCheck size={13} /> : <Copy size={13} />}
-                                {copiedGatewayWebhook === 'axxonpay' ? 'Copiado!' : 'Copiar'}
-                              </button>
-                            </div>
-                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miraclebrasil.com/api/webhooks/axxonpay
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card 2: Beehive */}
-                      <div
-                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
-                        style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'beehive' ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'beehive' ? 'rgba(56, 189, 248, 0.04)' : 'rgba(15, 23, 42, 0.4)',
-                          borderRadius: '10px',
-                          padding: '20px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                              type="radio"
-                              name="activeGateway"
-                              checked={gatewaySettings.activeGateway === 'beehive'}
-                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
-                              style={{ accentColor: '#38bdf8', cursor: 'pointer', width: '18px', height: '18px' }}
-                            />
-                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Beehive</span>
-                          </div>
-                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontWeight: 700 }}>
-                            SECUNDÁRIO / BACKUP
-                          </span>
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway alternativo configurado como redundância para garantir 100% de disponibilidade no checkout.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">CHAVE DE API / TOKEN BEEHIVE</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.beehive.apiKey}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                beehive: { ...prev.beehive, apiKey: e.target.value }
-                              }))}
-                              placeholder="Chave Beehive (opcional se já no .env)"
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          {/* Webhook Box */}
-                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK BEEHIVE:</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/beehive');
-                                  setCopiedGatewayWebhook('beehive');
-                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: copiedGatewayWebhook === 'beehive' ? '#10b981' : '#38bdf8',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: 0
-                                }}
-                              >
-                                {copiedGatewayWebhook === 'beehive' ? <CheckCheck size={13} /> : <Copy size={13} />}
-                                {copiedGatewayWebhook === 'beehive' ? 'Copiado!' : 'Copiar'}
-                              </button>
-                            </div>
-                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miraclebrasil.com/api/webhooks/beehive
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* Fallback Switch */}
+                    {/* Beehive Card */}
                     <div
                       style={{
-                        padding: '16px 20px',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        border: '2px solid #38bdf8',
+                        background: 'rgba(56, 189, 248, 0.04)',
+                        borderRadius: '10px',
+                        padding: '20px',
                         marginBottom: '24px'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <ShieldCheck size={22} style={{ color: '#10b981' }} />
-                        <div>
-                          <div style={{ color: '#fff', fontSize: '14px', fontWeight: 600 }}>
-                            Proteção Anti-Perda de Vendas (Fallback Automático)
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '22px' }}>🐝</span>
+                          <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Beehive</span>
+                        </div>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 700 }}>
+                          GATEWAY ATIVO
+                        </span>
+                      </div>
+
+                      <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                        Gateway de pagamento Pix integrado para processar todas as transações do checkout da Miracle.
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div className="cc-input-group">
+                          <label className="cc-input-label">CHAVE DE API / TOKEN BEEHIVE</label>
+                          <input
+                            type="text"
+                            className="cc-input-field"
+                            value={gatewaySettings.beehive.apiKey}
+                            onChange={(e) => setGatewaySettings(prev => ({
+                              ...prev,
+                              beehive: { ...prev.beehive, apiKey: e.target.value }
+                            }))}
+                            placeholder="Chave Beehive (opcional se já no .env)"
+                            style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                          />
+                        </div>
+
+                        {/* Webhook Box */}
+                        <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK BEEHIVE:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/beehive');
+                                setCopiedGatewayWebhook('beehive');
+                                setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: copiedGatewayWebhook === 'beehive' ? '#10b981' : '#38bdf8',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: 0
+                              }}
+                            >
+                              {copiedGatewayWebhook === 'beehive' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                              {copiedGatewayWebhook === 'beehive' ? 'Copiado!' : 'Copiar'}
+                            </button>
                           </div>
-                          <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '2px' }}>
-                            Se o gateway primário estiver fora do ar ou com lentidão momentânea, o checkout alterna instantaneamente para o gateway de contingência.
-                          </div>
+                          <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                            https://miraclebrasil.com/api/webhooks/beehive
+                          </code>
                         </div>
                       </div>
-                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-                        <input
-                          type="checkbox"
-                          checked={gatewaySettings.fallbackToBeehive}
-                          onChange={(e) => setGatewaySettings(prev => ({ ...prev, fallbackToBeehive: e.target.checked }))}
-                          style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
-                        />
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: gatewaySettings.fallbackToBeehive ? '#10b981' : '#64748b' }}>
-                          {gatewaySettings.fallbackToBeehive ? 'ATIVADO' : 'DESATIVADO'}
-                        </span>
-                      </label>
                     </div>
 
                     {/* Save & Test Buttons */}

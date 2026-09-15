@@ -9,7 +9,6 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
-import { createPixPayment as createAxxonPixPayment } from './backend/services/axxonPayService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,14 +69,9 @@ function readDB() {
   return cachedDb || { orders: {}, transactions: {} };
 }
 
-// Global Gateway Settings (persisted and selectable via Admin Panel)
+// Global Gateway Settings (Beehive only)
 let gatewaySettings = {
-  activeGateway: 'axxonpay', // Default primary as requested
-  fallbackToBeehive: true,
-  axxonpay: {
-    secretKey: process.env.AXXONPAY_SECRET_KEY || 'sk_72642b2864b48ec909e1258a5ec9a8fee63bd57079ce26d3705b32cd43741365',
-    publicKey: process.env.AXXONPAY_PUBLIC_KEY || 'pk_8519c01597936f76f7d364735a5a36b0'
-  },
+  activeGateway: 'beehive',
   beehive: {
     apiKey: BEEHIVE_SECRET_KEY
   }
@@ -89,7 +83,7 @@ try {
     gatewaySettings = {
       ...gatewaySettings,
       ...initialDb.gatewaySettings,
-      axxonpay: { ...gatewaySettings.axxonpay, ...(initialDb.gatewaySettings.axxonpay || {}) },
+      activeGateway: 'beehive', // Always force Beehive
       beehive: { ...gatewaySettings.beehive, ...(initialDb.gatewaySettings.beehive || {}) }
     };
   }
@@ -829,81 +823,47 @@ app.post('/api/payments/pix', async (req, res) => {
     };
 
     let pixResult = null;
-    let gatewayUsed = gatewaySettings.activeGateway || 'axxonpay';
+    let gatewayUsed = 'beehive';
 
-    // 1. If AxxonPay is the active gateway
-    if (gatewaySettings.activeGateway === 'axxonpay') {
+    // Generate Pix via Beehive
+    console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
+    const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
+    if (beehiveKey && !beehiveKey.includes('placeholder')) {
       try {
-        console.log(`[Payment Router] Generating Pix via primary gateway: AXXONPAY for Order ${orderId}...`);
-        const axxonRes = await createAxxonPixPayment({
-          id: orderId,
-          trackingReference: trackingRef,
-          amount: calculatedAmountCentavos / 100,
-          customer,
-          shipping,
-          items
-        }, gatewaySettings.axxonpay);
+        const authHeader = `Basic ${Buffer.from(`${beehiveKey.trim()}:x`).toString('base64')}`;
+        const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(beehivePayload)
+        });
 
-        if (axxonRes && axxonRes.success && (axxonRes.copyPaste || axxonRes.qrCode)) {
-          pixResult = {
-            transactionId: axxonRes.transactionId,
-            qrCode: axxonRes.qrCode,
-            copyPaste: axxonRes.copyPaste,
-            qrcode: axxonRes.copyPaste,
-            copy_paste: axxonRes.copyPaste,
-            gateway: 'axxonpay'
-          };
-          gatewayUsed = 'axxonpay';
-          console.log(`[AxxonPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
-        } else {
-          console.warn(`[AxxonPay Alert] Failed to generate Pix via AxxonPay: ${axxonRes?.error}. FallbackToBeehive: ${gatewaySettings.fallbackToBeehive}`);
-        }
-      } catch (axxonErr) {
-        console.error('[AxxonPay Exception]:', axxonErr.message);
-      }
-    }
+        const bhText = await bhResponse.text();
+        if (bhResponse.ok) {
+          const bhData = JSON.parse(bhText);
+          const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
+          const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
+            ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
+            : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
 
-    // 2. If Beehive is selected OR fallback was triggered
-    if ((!pixResult || !pixResult.copyPaste) && (gatewaySettings.activeGateway === 'beehive' || gatewaySettings.fallbackToBeehive)) {
-      console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
-      const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
-      if (beehiveKey && !beehiveKey.includes('placeholder')) {
-        try {
-          const authHeader = `Basic ${Buffer.from(`${beehiveKey.trim()}:x`).toString('base64')}`;
-          const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(beehivePayload)
-          });
-
-          const bhText = await bhResponse.text();
-          if (bhResponse.ok) {
-            const bhData = JSON.parse(bhText);
-            const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
-            const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
-              ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
-              : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
-
-            if (copyPasteStr) {
-              pixResult = {
-                transactionId: bhData.id || `BH-${Date.now()}`,
-                qrCode: qrCodeUrl,
-                copyPaste: copyPasteStr,
-                qrcode: copyPasteStr,
-                copy_paste: copyPasteStr,
-                gateway: 'beehive'
-              };
-              gatewayUsed = 'beehive';
-            }
-          } else {
-            console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
+          if (copyPasteStr) {
+            pixResult = {
+              transactionId: bhData.id || `BH-${Date.now()}`,
+              qrCode: qrCodeUrl,
+              copyPaste: copyPasteStr,
+              qrcode: copyPasteStr,
+              copy_paste: copyPasteStr,
+              gateway: 'beehive'
+            };
+            gatewayUsed = 'beehive';
           }
-        } catch (e) {
-          console.error('[Beehive API Exception]:', e.message);
+        } else {
+          console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
         }
+      } catch (e) {
+        console.error('[Beehive API Exception]:', e.message);
       }
     }
 
@@ -1125,129 +1085,6 @@ app.post('/api/webhooks/beehive', async (req, res) => {
   }
 });
 
-// API 3.1: Webhook Handler from AxxonPay
-app.post('/api/webhooks/axxonpay', async (req, res) => {
-  try {
-    const event = req.body;
-    console.log('[AxxonPay Webhook Received]:', JSON.stringify(event));
-
-    // 1. Check all event names and status fields
-    const eventName = String(event?.event || event?.type || '').toLowerCase().trim();
-    const dataStatus = String(
-      event?.data?.status ||
-      event?.status ||
-      event?.transaction?.status ||
-      event?.paymentStatus ||
-      ''
-    ).toLowerCase().trim();
-
-    const validPaidStatuses = [
-      'finished', 'paid', 'approved', 'settled', 'completed', 'success', 'pago',
-      'payment.approved', 'transaction.paid', 'payment.paid'
-    ];
-
-    const isPaid = validPaidStatuses.some(s => eventName.includes(s) || dataStatus.includes(s));
-
-    // 2. Parse metadata (which AxxonPay sends as a JSON string inside data.metadata)
-    let parsedMetadata = {};
-    const rawMeta = event?.data?.metadata || event?.metadata;
-    if (typeof rawMeta === 'string') {
-      try {
-        parsedMetadata = JSON.parse(rawMeta);
-      } catch (e) {
-        console.warn('[AxxonPay Webhook] Failed to parse metadata string:', e.message);
-      }
-    } else if (rawMeta && typeof rawMeta === 'object') {
-      parsedMetadata = rawMeta;
-    }
-
-    const transactionId = String(
-      event?.data?.id ||
-      event?.id ||
-      event?.transactionId ||
-      event?.data?.externalId ||
-      event?.externalId ||
-      event?.transaction?.id ||
-      event?.paymentId ||
-      ''
-    ).trim();
-
-    const metaOrderId =
-      parsedMetadata?.orderId ||
-      parsedMetadata?.trackingReference ||
-      event?.data?.orderId ||
-      event?.data?.order_id ||
-      event?.orderId ||
-      event?.metadata?.orderId ||
-      event?.transaction?.reference_id ||
-      event?.metadata?.trackingReference;
-
-    console.log(`[AxxonPay Webhook Parsed] isPaid: ${isPaid} | event: ${eventName} | status: ${dataStatus} | orderId: ${metaOrderId} | txId: ${transactionId}`);
-
-    if (isPaid) {
-      let order = null;
-      if (metaOrderId) {
-        order = await db.getOrderAsync(metaOrderId);
-      }
-      if (!order && transactionId) {
-        order = await db.getOrderByTransactionIdAsync(transactionId);
-      }
-
-      // If still not found, search in DB by customer email or transaction ID inside pixResult
-      if (!order) {
-        const allDb = readDB();
-        const ordersList = Object.values(allDb.orders || {});
-        order = ordersList.find(o => 
-          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
-          (metaOrderId && (o.id === metaOrderId || o.trackingReference === metaOrderId)) ||
-          (event?.data?.customerEmail && o.customer?.email?.toLowerCase() === event.data.customerEmail.toLowerCase())
-        );
-      }
-
-      if (order) {
-        order.status = 'paid';
-        order.orderStatus = 'paid';
-        order.approvedAt = new Date().toISOString();
-        order.updatedAt = new Date().toISOString();
-        order.gateway = 'axxonpay';
-        await db.saveOrderAsync(order);
-
-        console.log(`[AxxonPay Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
-
-        // Dispatch to UTMify
-        try {
-          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
-        } catch (utmErr) {
-          console.error('[AxxonPay Webhook] UTMify dispatch error:', utmErr.message);
-        }
-
-        // Trigger Meta CAPI & TikTok Events API
-        try {
-          await triggerCapiPurchase(order, req);
-        } catch (capiErr) {
-          console.error('[AxxonPay Webhook] CAPI dispatch error:', capiErr.message);
-        }
-
-        // Broadcast to Control Center
-        broadcastRealtime('order_paid', {
-          orderId: order.id,
-          trackingReference: order.trackingReference,
-          amount: order.amount,
-          customerName: order.customer?.name,
-          gateway: 'axxonpay',
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        console.warn(`[AxxonPay Webhook] Order NOT FOUND for txId: ${transactionId}, orderId: ${metaOrderId}`);
-      }
-    }
-
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[AxxonPay Webhook Error]:', err);
-    return res.status(500).json({ error: 'Erro no processamento do webhook AxxonPay.' });
-  }
-});
 
 // Reconcile and manually approve an order
 app.post('/api/admin/orders/:id/approve', async (req, res) => {
@@ -1278,7 +1115,7 @@ app.post('/api/admin/orders/:id/approve', async (req, res) => {
       trackingReference: order.trackingReference,
       amount: order.amount,
       customerName: order.customer?.name,
-      gateway: order.gateway || 'axxonpay',
+      gateway: order.gateway || 'beehive',
       timestamp: new Date().toISOString()
     });
 
@@ -1319,7 +1156,7 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
         }
       ],
       paymentMethod: 'pix',
-      gateway: 'axxonpay',
+      gateway: 'beehive',
       logisticStatus: 'separacao',
       pixCopied: true,
       utm: {
@@ -1339,7 +1176,7 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
       trackingReference,
       amount: numAmount,
       customerName,
-      gateway: 'axxonpay',
+      gateway: 'beehive',
       timestamp: new Date().toISOString()
     };
 
@@ -1364,12 +1201,7 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
 app.get('/api/admin/gateway-settings', (req, res) => {
   return res.json({
     success: true,
-    activeGateway: gatewaySettings.activeGateway,
-    fallbackToBeehive: gatewaySettings.fallbackToBeehive,
-    axxonpay: {
-      secretKey: gatewaySettings.axxonpay.secretKey,
-      publicKey: gatewaySettings.axxonpay.publicKey
-    },
+    activeGateway: 'beehive',
     beehive: {
       apiKey: gatewaySettings.beehive.apiKey
     }
@@ -1379,18 +1211,8 @@ app.get('/api/admin/gateway-settings', (req, res) => {
 // API 3.3: Update Gateway Settings
 app.post('/api/admin/gateway-settings', (req, res) => {
   try {
-    const { activeGateway, fallbackToBeehive, axxonpay, beehive } = req.body;
+    const { beehive } = req.body;
 
-    if (activeGateway && ['axxonpay', 'beehive'].includes(activeGateway)) {
-      gatewaySettings.activeGateway = activeGateway;
-    }
-    if (typeof fallbackToBeehive === 'boolean') {
-      gatewaySettings.fallbackToBeehive = fallbackToBeehive;
-    }
-    if (axxonpay) {
-      if (axxonpay.secretKey) gatewaySettings.axxonpay.secretKey = String(axxonpay.secretKey).trim();
-      if (axxonpay.publicKey) gatewaySettings.axxonpay.publicKey = String(axxonpay.publicKey).trim();
-    }
     if (beehive && beehive.apiKey) {
       gatewaySettings.beehive.apiKey = String(beehive.apiKey).trim();
     }
@@ -1400,16 +1222,16 @@ app.post('/api/admin/gateway-settings', (req, res) => {
     currentDb.gatewaySettings = gatewaySettings;
     writeDB(currentDb);
 
-    console.log(`[Gateway Settings Updated] Active Gateway: ${gatewaySettings.activeGateway.toUpperCase()}`);
+    console.log('[Gateway Settings Updated] Active Gateway: BEEHIVE');
 
     broadcastRealtime('gateway_updated', {
-      activeGateway: gatewaySettings.activeGateway,
+      activeGateway: 'beehive',
       timestamp: new Date().toISOString()
     });
 
     return res.json({
       success: true,
-      message: `Configuração atualizada com sucesso! Gateway ativo: ${gatewaySettings.activeGateway.toUpperCase()}`,
+      message: 'Configuração atualizada com sucesso! Gateway ativo: BEEHIVE',
       gatewaySettings
     });
   } catch (err) {
@@ -1771,7 +1593,7 @@ function sanitizeOrderForList(order) {
     status: order.status || 'pending_payment',
     orderStatus: order.orderStatus || order.status || 'pending_payment',
     amount: Number(order.amount) || 0,
-    gateway: order.gateway || 'axxonpay',
+    gateway: order.gateway || 'beehive',
     customer: {
       name: order.customer?.name || order.customer_name || '',
       email: order.customer?.email || order.customer_email || '',
@@ -2005,7 +1827,7 @@ if (fs.existsSync(DIST_PATH)) {
 app.listen(PORT, async () => {
   console.log(`🚀 Payment Backend Server running on http://localhost:${PORT}`);
 
-  // Auto-reconcile known paid orders from AxxonPay
+  // Auto-reconcile known paid orders
   try {
     const knownPaidOrderIds = ['ORD-2026-76F2B916', 'ORD-2026-5C6A3EC7'];
     for (const orderId of knownPaidOrderIds) {
@@ -2015,7 +1837,7 @@ app.listen(PORT, async () => {
         order.orderStatus = 'paid';
         order.approvedAt = new Date().toISOString();
         order.updatedAt = new Date().toISOString();
-        order.gateway = 'axxonpay';
+        order.gateway = 'beehive';
         await db.saveOrderAsync(order);
         console.log(`[Auto-Reconcile] Order ${orderId} confirmed as PAID. Dispatching to UTMify & TikTok...`);
         try {
@@ -2033,7 +1855,7 @@ app.listen(PORT, async () => {
           trackingReference: order.trackingReference,
           amount: order.amount,
           customerName: order.customer?.name,
-          gateway: 'axxonpay',
+          gateway: 'beehive',
           timestamp: new Date().toISOString()
         });
       }
