@@ -9,6 +9,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
+import { createPixPayment as createHyperCashPixPayment } from './backend/services/hyperCashService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,11 +70,15 @@ function readDB() {
   return cachedDb || { orders: {}, transactions: {} };
 }
 
-// Global Gateway Settings (Beehive only)
+// Global Gateway Settings (Beehive and HyperCash supported, Beehive default)
 let gatewaySettings = {
-  activeGateway: 'beehive',
+  activeGateway: 'beehive', // Primary default
   beehive: {
     apiKey: BEEHIVE_SECRET_KEY
+  },
+  hypercash: {
+    secretKey: process.env.HYPERCASH_SECRET_KEY || 'sk_643002c4cb2675159b5124a7bff9614e6c90e0c0',
+    publicKey: process.env.HYPERCASH_PUBLIC_KEY || 'pk_8b4c8fb57c1eab77b22ab9654538ccc32266a109'
   }
 };
 
@@ -83,8 +88,9 @@ try {
     gatewaySettings = {
       ...gatewaySettings,
       ...initialDb.gatewaySettings,
-      activeGateway: 'beehive', // Always force Beehive
-      beehive: { ...gatewaySettings.beehive, ...(initialDb.gatewaySettings.beehive || {}) }
+      activeGateway: initialDb.gatewaySettings.activeGateway || 'beehive',
+      beehive: { ...gatewaySettings.beehive, ...(initialDb.gatewaySettings.beehive || {}) },
+      hypercash: { ...gatewaySettings.hypercash, ...(initialDb.gatewaySettings.hypercash || {}) }
     };
   }
 } catch (err) {
@@ -823,47 +829,81 @@ app.post('/api/payments/pix', async (req, res) => {
     };
 
     let pixResult = null;
-    let gatewayUsed = 'beehive';
+    let gatewayUsed = gatewaySettings.activeGateway || 'beehive';
 
-    // Generate Pix via Beehive
-    console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
-    const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
-    if (beehiveKey && !beehiveKey.includes('placeholder')) {
+    // 1. If HyperCash is the active gateway
+    if (gatewaySettings.activeGateway === 'hypercash' || gatewaySettings.activeGateway === 'hyper') {
       try {
-        const authHeader = `Basic ${Buffer.from(`${beehiveKey.trim()}:x`).toString('base64')}`;
-        const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(beehivePayload)
-        });
+        console.log(`[Payment Router] Generating Pix via primary gateway: HYPERCASH for Order ${orderId}...`);
+        const hyperRes = await createHyperCashPixPayment({
+          id: orderId,
+          trackingReference: trackingRef,
+          amount: calculatedAmountCentavos / 100,
+          customer,
+          shipping,
+          items
+        }, gatewaySettings.hypercash);
 
-        const bhText = await bhResponse.text();
-        if (bhResponse.ok) {
-          const bhData = JSON.parse(bhText);
-          const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
-          const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
-            ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
-            : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
-
-          if (copyPasteStr) {
-            pixResult = {
-              transactionId: bhData.id || `BH-${Date.now()}`,
-              qrCode: qrCodeUrl,
-              copyPaste: copyPasteStr,
-              qrcode: copyPasteStr,
-              copy_paste: copyPasteStr,
-              gateway: 'beehive'
-            };
-            gatewayUsed = 'beehive';
-          }
+        if (hyperRes && hyperRes.success && (hyperRes.copyPaste || hyperRes.qrCode)) {
+          pixResult = {
+            transactionId: hyperRes.transactionId,
+            qrCode: hyperRes.qrCode,
+            copyPaste: hyperRes.copyPaste,
+            qrcode: hyperRes.copyPaste,
+            copy_paste: hyperRes.copyPaste,
+            gateway: 'hypercash'
+          };
+          gatewayUsed = 'hypercash';
+          console.log(`[HyperCash Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
         } else {
-          console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
+          console.warn(`[HyperCash Alert] Failed to generate Pix via HyperCash: ${hyperRes?.error}. Falling back to Beehive...`);
         }
-      } catch (e) {
-        console.error('[Beehive API Exception]:', e.message);
+      } catch (hyperErr) {
+        console.error('[HyperCash Exception]:', hyperErr.message);
+      }
+    }
+
+    // 2. If Beehive is selected OR fallback was triggered
+    if (!pixResult || !pixResult.copyPaste) {
+      console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
+      const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
+      if (beehiveKey && !beehiveKey.includes('placeholder')) {
+        try {
+          const authHeader = `Basic ${Buffer.from(`${beehiveKey.trim()}:x`).toString('base64')}`;
+          const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(beehivePayload)
+          });
+
+          const bhText = await bhResponse.text();
+          if (bhResponse.ok) {
+            const bhData = JSON.parse(bhText);
+            const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
+            const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
+              ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
+              : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
+
+            if (copyPasteStr) {
+              pixResult = {
+                transactionId: bhData.id || `BH-${Date.now()}`,
+                qrCode: qrCodeUrl,
+                copyPaste: copyPasteStr,
+                qrcode: copyPasteStr,
+                copy_paste: copyPasteStr,
+                gateway: 'beehive'
+              };
+              gatewayUsed = 'beehive';
+            }
+          } else {
+            console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
+          }
+        } catch (e) {
+          console.error('[Beehive API Exception]:', e.message);
+        }
       }
     }
 
@@ -1085,6 +1125,88 @@ app.post('/api/webhooks/beehive', async (req, res) => {
   }
 });
 
+// API 3.1.1: Webhook Handler from HyperCash
+app.post('/api/webhooks/hypercash', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('[HyperCash Webhook Received]:', JSON.stringify(event));
+
+    const dataObj = event?.data || event;
+    const eventStatus = String(
+      dataObj?.status ||
+      event?.status ||
+      event?.event ||
+      ''
+    ).toLowerCase().trim();
+
+    const validPaidStatuses = [
+      'paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago',
+      'transaction.paid', 'payment.approved'
+    ];
+
+    const isPaid = validPaidStatuses.some(s => eventStatus.includes(s));
+    const transactionId = String(dataObj?.id || event?.id || dataObj?.transactionId || '').trim();
+    const metaOrderId = dataObj?.metadata?.order_id || dataObj?.metadata?.orderId || dataObj?.externalRef || event?.externalRef;
+
+    console.log(`[HyperCash Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | orderId: ${metaOrderId} | txId: ${transactionId}`);
+
+    if (isPaid) {
+      let order = null;
+      if (metaOrderId) {
+        order = await db.getOrderAsync(metaOrderId);
+      }
+      if (!order && transactionId) {
+        order = await db.getOrderByTransactionIdAsync(transactionId);
+      }
+      if (!order) {
+        const allDb = readDB();
+        const ordersList = Object.values(allDb.orders || {});
+        order = ordersList.find(o =>
+          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
+          (metaOrderId && (o.id === metaOrderId || o.trackingReference === metaOrderId)) ||
+          (dataObj?.customer?.email && o.customer?.email?.toLowerCase() === dataObj.customer.email.toLowerCase())
+        );
+      }
+
+      if (order) {
+        order.status = 'paid';
+        order.orderStatus = 'paid';
+        order.approvedAt = new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        order.gateway = 'hypercash';
+        await db.saveOrderAsync(order);
+
+        console.log(`[HyperCash Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
+        try {
+          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        } catch (utmErr) {
+          console.error('[HyperCash Webhook] UTMify dispatch error:', utmErr.message);
+        }
+        try {
+          await triggerCapiPurchase(order, req);
+        } catch (capiErr) {
+          console.error('[HyperCash Webhook] CAPI dispatch error:', capiErr.message);
+        }
+
+        broadcastRealtime('order_paid', {
+          orderId: order.id,
+          trackingReference: order.trackingReference,
+          amount: order.amount,
+          customerName: order.customer?.name,
+          gateway: 'hypercash',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.warn(`[HyperCash Webhook] Order NOT FOUND for txId: ${transactionId}, orderId: ${metaOrderId}`);
+      }
+    }
+
+    return res.json({ received: true });
+  } catch (err) {
+    console.error('[HyperCash Webhook Error]:', err);
+    return res.status(500).json({ error: 'Erro no processamento do webhook HyperCash.' });
+  }
+});
 
 // Reconcile and manually approve an order
 app.post('/api/admin/orders/:id/approve', async (req, res) => {
@@ -1201,9 +1323,13 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
 app.get('/api/admin/gateway-settings', (req, res) => {
   return res.json({
     success: true,
-    activeGateway: 'beehive',
+    activeGateway: gatewaySettings.activeGateway || 'beehive',
     beehive: {
-      apiKey: gatewaySettings.beehive.apiKey
+      apiKey: gatewaySettings.beehive?.apiKey || ''
+    },
+    hypercash: {
+      secretKey: gatewaySettings.hypercash?.secretKey || '',
+      publicKey: gatewaySettings.hypercash?.publicKey || ''
     }
   });
 });
@@ -1211,10 +1337,19 @@ app.get('/api/admin/gateway-settings', (req, res) => {
 // API 3.3: Update Gateway Settings
 app.post('/api/admin/gateway-settings', (req, res) => {
   try {
-    const { beehive } = req.body;
+    const { activeGateway, beehive, hypercash } = req.body;
 
-    if (beehive && beehive.apiKey) {
+    if (activeGateway && ['beehive', 'hypercash', 'hyper'].includes(activeGateway)) {
+      gatewaySettings.activeGateway = activeGateway === 'hyper' ? 'hypercash' : activeGateway;
+    }
+    if (beehive && beehive.apiKey !== undefined) {
+      if (!gatewaySettings.beehive) gatewaySettings.beehive = {};
       gatewaySettings.beehive.apiKey = String(beehive.apiKey).trim();
+    }
+    if (hypercash) {
+      if (!gatewaySettings.hypercash) gatewaySettings.hypercash = {};
+      if (hypercash.secretKey !== undefined) gatewaySettings.hypercash.secretKey = String(hypercash.secretKey).trim();
+      if (hypercash.publicKey !== undefined) gatewaySettings.hypercash.publicKey = String(hypercash.publicKey).trim();
     }
 
     // Persist to database file
@@ -1222,16 +1357,16 @@ app.post('/api/admin/gateway-settings', (req, res) => {
     currentDb.gatewaySettings = gatewaySettings;
     writeDB(currentDb);
 
-    console.log('[Gateway Settings Updated] Active Gateway: BEEHIVE');
+    console.log(`[Gateway Settings Updated] Active Gateway: ${gatewaySettings.activeGateway.toUpperCase()}`);
 
     broadcastRealtime('gateway_updated', {
-      activeGateway: 'beehive',
+      activeGateway: gatewaySettings.activeGateway,
       timestamp: new Date().toISOString()
     });
 
     return res.json({
       success: true,
-      message: 'Configuração atualizada com sucesso! Gateway ativo: BEEHIVE',
+      message: `Configuração atualizada com sucesso! Gateway ativo: ${gatewaySettings.activeGateway.toUpperCase()}`,
       gatewaySettings
     });
   } catch (err) {
