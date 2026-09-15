@@ -829,10 +829,11 @@ app.post('/api/payments/pix', async (req, res) => {
     };
 
     let pixResult = null;
-    let gatewayUsed = gatewaySettings.activeGateway || 'beehive';
+    const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'beehive').toLowerCase();
+    let gatewayUsed = (requestedGateway === 'hypercash' || requestedGateway === 'hyper') ? 'hypercash' : 'beehive';
 
-    // 1. If HyperCash is the active gateway
-    if (gatewaySettings.activeGateway === 'hypercash' || gatewaySettings.activeGateway === 'hyper') {
+    // 1. If HyperCash is requested or active
+    if (gatewayUsed === 'hypercash') {
       try {
         console.log(`[Payment Router] Generating Pix via primary gateway: HYPERCASH for Order ${orderId}...`);
         const hyperRes = await createHyperCashPixPayment({
