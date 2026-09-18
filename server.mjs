@@ -990,6 +990,9 @@ app.post('/api/payments/pix', async (req, res) => {
         } catch (e) {
           console.error('[Beehive API Exception]:', e.message);
         }
+      }
+    }
+
     // 4. Secondary fallback: WinnerPay if Beehive failed and was not primary
     if ((!pixResult || !pixResult.copyPaste) && gatewayUsed !== 'winnerpay') {
       try {
