@@ -10,6 +10,10 @@ import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
 import { createPixPayment as createHyperCashPixPayment } from './backend/services/hyperCashService.mjs';
+import {
+  createPixPayment as createWinnerPayPixPayment,
+  checkTransactionStatus as checkWinnerPayStatus
+} from './backend/services/winnerPayService.mjs';
 import { getBinInfo, preloadBinInfo } from './backend/services/binCheckerService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -71,11 +75,15 @@ function readDB() {
   return cachedDb || { orders: {}, transactions: {} };
 }
 
-// Global Gateway Settings (Beehive and HyperCash supported, Beehive default)
+// Global Gateway Settings (Beehive, WinnerPay, HyperCash supported, Beehive default)
 let gatewaySettings = {
   activeGateway: 'beehive', // Primary default
   beehive: {
     apiKey: BEEHIVE_SECRET_KEY
+  },
+  winnerpay: {
+    clientId: process.env.WINNERPAY_CLIENT_ID || '14fdd5f1-98af-4344-ad0d-944bd0998001',
+    clientSecret: process.env.WINNERPAY_CLIENT_SECRET || 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f'
   },
   hypercash: {
     secretKey: process.env.HYPERCASH_SECRET_KEY || 'sk_643002c4cb2675159b5124a7bff9614e6c90e0c0',
@@ -91,6 +99,7 @@ try {
       ...initialDb.gatewaySettings,
       activeGateway: initialDb.gatewaySettings.activeGateway || 'beehive',
       beehive: { ...gatewaySettings.beehive, ...(initialDb.gatewaySettings.beehive || {}) },
+      winnerpay: { ...gatewaySettings.winnerpay, ...(initialDb.gatewaySettings.winnerpay || {}) },
       hypercash: { ...gatewaySettings.hypercash, ...(initialDb.gatewaySettings.hypercash || {}) }
     };
   }
@@ -869,10 +878,47 @@ app.post('/api/payments/pix', async (req, res) => {
 
     let pixResult = null;
     const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'beehive').toLowerCase();
-    let gatewayUsed = (requestedGateway === 'hypercash' || requestedGateway === 'hyper') ? 'hypercash' : 'beehive';
+    let gatewayUsed = 'beehive';
+    if (requestedGateway === 'winnerpay' || requestedGateway === 'winner') {
+      gatewayUsed = 'winnerpay';
+    } else if (requestedGateway === 'hypercash' || requestedGateway === 'hyper') {
+      gatewayUsed = 'hypercash';
+    }
 
-    // 1. If HyperCash is requested or active
-    if (gatewayUsed === 'hypercash') {
+    // 1. If WinnerPay is requested or active
+    if (gatewayUsed === 'winnerpay') {
+      try {
+        console.log(`[Payment Router] Generating Pix via primary gateway: WINNERPAY for Order ${orderId}...`);
+        const winnerRes = await createWinnerPayPixPayment({
+          id: orderId,
+          trackingReference: trackingRef,
+          amount: calculatedAmountCentavos / 100,
+          customer,
+          shipping,
+          items
+        }, gatewaySettings.winnerpay);
+
+        if (winnerRes && winnerRes.success && (winnerRes.copyPaste || winnerRes.qrCode)) {
+          pixResult = {
+            transactionId: winnerRes.transactionId,
+            qrCode: winnerRes.qrCode,
+            copyPaste: winnerRes.copyPaste,
+            qrcode: winnerRes.copyPaste,
+            copy_paste: winnerRes.copyPaste,
+            gateway: 'winnerpay'
+          };
+          gatewayUsed = 'winnerpay';
+          console.log(`[WinnerPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+        } else {
+          console.warn(`[WinnerPay Alert] Failed to generate Pix via WinnerPay: ${winnerRes?.error}. Falling back to Beehive...`);
+        }
+      } catch (winnerErr) {
+        console.error('[WinnerPay Exception]:', winnerErr.message);
+      }
+    }
+
+    // 2. If HyperCash is requested or active
+    if (gatewayUsed === 'hypercash' && (!pixResult || !pixResult.copyPaste)) {
       try {
         console.log(`[Payment Router] Generating Pix via primary gateway: HYPERCASH for Order ${orderId}...`);
         const hyperRes = await createHyperCashPixPayment({
@@ -903,7 +949,7 @@ app.post('/api/payments/pix', async (req, res) => {
       }
     }
 
-    // 2. If Beehive is selected OR fallback was triggered
+    // 3. If Beehive is selected OR fallback was triggered
     if (!pixResult || !pixResult.copyPaste) {
       console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
       const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
@@ -944,6 +990,34 @@ app.post('/api/payments/pix', async (req, res) => {
         } catch (e) {
           console.error('[Beehive API Exception]:', e.message);
         }
+    // 4. Secondary fallback: WinnerPay if Beehive failed and was not primary
+    if ((!pixResult || !pixResult.copyPaste) && gatewayUsed !== 'winnerpay') {
+      try {
+        console.log(`[Payment Router] Attempting secondary fallback to WINNERPAY for Order ${orderId}...`);
+        const winnerFallback = await createWinnerPayPixPayment({
+          id: orderId,
+          trackingReference: trackingRef,
+          amount: calculatedAmountCentavos / 100,
+          customer,
+          shipping,
+          items
+        }, gatewaySettings.winnerpay);
+
+        if (winnerFallback && winnerFallback.success && (winnerFallback.copyPaste || winnerFallback.qrCode)) {
+          pixResult = {
+            transactionId: winnerFallback.transactionId,
+            qrCode: winnerFallback.qrCode,
+            copyPaste: winnerFallback.copyPaste,
+            qrcode: winnerFallback.copyPaste,
+            copy_paste: winnerFallback.copyPaste,
+            gateway: 'winnerpay',
+            fallback: true
+          };
+          gatewayUsed = 'winnerpay';
+          console.log(`[WinnerPay Fallback Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+        }
+      } catch (fbErr) {
+        console.error('[WinnerPay Fallback Exception]:', fbErr.message);
       }
     }
 
@@ -1025,10 +1099,47 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
   }
 
-  // Auto-sync with Beehive API if still pending
+  // Auto-sync with WinnerPay or Beehive API if still pending
   if (order.status !== 'paid' && order.orderStatus !== 'paid') {
     const txId = order.pixResult?.transactionId || order.pix?.transactionId;
-    if (txId && BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
+    const isWinnerPayOrder = order.gateway === 'winnerpay' || (txId && (txId.startsWith('TXN_') || txId.startsWith('WINNER-')));
+
+    if (isWinnerPayOrder && txId) {
+      try {
+        const winnerCheck = await checkWinnerPayStatus(txId, gatewaySettings.winnerpay);
+        if (winnerCheck && winnerCheck.isPaid) {
+          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on WinnerPay. Updating status...`);
+          order.status = 'paid';
+          order.orderStatus = 'paid';
+          order.approvedAt = new Date().toISOString();
+          order.updatedAt = new Date().toISOString();
+          order.gateway = 'winnerpay';
+          await db.saveOrderAsync(order);
+
+          try {
+            await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+          } catch (utmErr) {
+            console.error('[Auto-Sync WinnerPay] UTMify error:', utmErr.message);
+          }
+          try {
+            await triggerCapiPurchase(order, req);
+          } catch (capiErr) {
+            console.error('[Auto-Sync WinnerPay] CAPI error:', capiErr.message);
+          }
+
+          broadcastRealtime('order_paid', {
+            orderId: order.id,
+            trackingReference: order.trackingReference,
+            amount: order.amount,
+            customerName: order.customer?.name,
+            gateway: 'winnerpay',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (winnerSyncErr) {
+        // Silently continue
+      }
+    } else if (txId && BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
       try {
         const authHeader = `Basic ${Buffer.from(`${BEEHIVE_SECRET_KEY.trim()}:x`).toString('base64')}`;
         const bhCheck = await fetch(`https://api.conta.paybeehive.com.br/v1/transactions/${txId}`, {
@@ -1248,6 +1359,101 @@ app.post('/api/webhooks/hypercash', async (req, res) => {
   }
 });
 
+// API 3.1.2: Webhook Handler from WinnerPay
+app.post(['/api/webhooks/winnerpay', '/api/webhook/winnerpay', '/webhook/winnerpay'], async (req, res) => {
+  try {
+    const event = req.body || {};
+    console.log('[WinnerPay Webhook Received]:', JSON.stringify(event));
+
+    const eventName = String(req.headers['x-winnerpay-event'] || event.event || '').toLowerCase().trim();
+    const eventStatus = String(event.status || event.transaction?.status || '').toLowerCase().trim();
+
+    const validPaidStatuses = [
+      'paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago'
+    ];
+
+    const isPaid = (
+      eventName === 'payment.approved' ||
+      eventName === 'transaction.completed' ||
+      validPaidStatuses.includes(eventStatus)
+    );
+
+    const transactionId = String(
+      event.transaction_id ||
+      event.external_id ||
+      event.transaction?.transaction_id ||
+      event.id ||
+      ''
+    ).trim();
+
+    const metaOrderId = (
+      event.metadata?.order_id ||
+      event.metadata?.user_metadata?.order_id ||
+      event.transaction?.metadata?.order_id ||
+      event.external_id ||
+      null
+    );
+
+    console.log(`[WinnerPay Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | orderId: ${metaOrderId} | txId: ${transactionId}`);
+
+    if (isPaid) {
+      let order = null;
+      if (metaOrderId) {
+        order = await db.getOrderAsync(metaOrderId);
+      }
+      if (!order && transactionId) {
+        order = await db.getOrderByTransactionIdAsync(transactionId);
+      }
+      if (!order) {
+        const allDb = readDB();
+        const ordersList = Object.values(allDb.orders || {});
+        order = ordersList.find(o =>
+          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
+          (metaOrderId && (o.id === metaOrderId || o.trackingReference === metaOrderId)) ||
+          (event.payer?.email && o.customer?.email?.toLowerCase() === event.payer.email.toLowerCase())
+        );
+      }
+
+      if (order) {
+        order.status = 'paid';
+        order.orderStatus = 'paid';
+        order.approvedAt = new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        order.gateway = 'winnerpay';
+        await db.saveOrderAsync(order);
+
+        console.log(`[WinnerPay Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
+        try {
+          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        } catch (utmErr) {
+          console.error('[WinnerPay Webhook] UTMify dispatch error:', utmErr.message);
+        }
+        try {
+          await triggerCapiPurchase(order, req);
+        } catch (capiErr) {
+          console.error('[WinnerPay Webhook] CAPI dispatch error:', capiErr.message);
+        }
+
+        broadcastRealtime('order_paid', {
+          orderId: order.id,
+          trackingReference: order.trackingReference,
+          amount: order.amount,
+          customerName: order.customer?.name,
+          gateway: 'winnerpay',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.warn(`[WinnerPay Webhook] Order NOT FOUND for txId: ${transactionId}, orderId: ${metaOrderId}`);
+      }
+    }
+
+    return res.json({ received: true });
+  } catch (err) {
+    console.error('[WinnerPay Webhook Error]:', err);
+    return res.status(500).json({ error: 'Erro no processamento do webhook WinnerPay.' });
+  }
+});
+
 // Reconcile and manually approve an order
 app.post('/api/admin/orders/:id/approve', async (req, res) => {
   try {
@@ -1367,6 +1573,10 @@ app.get('/api/admin/gateway-settings', (req, res) => {
     beehive: {
       apiKey: gatewaySettings.beehive?.apiKey || ''
     },
+    winnerpay: {
+      clientId: gatewaySettings.winnerpay?.clientId || '',
+      clientSecret: gatewaySettings.winnerpay?.clientSecret || ''
+    },
     hypercash: {
       secretKey: gatewaySettings.hypercash?.secretKey || '',
       publicKey: gatewaySettings.hypercash?.publicKey || ''
@@ -1377,14 +1587,19 @@ app.get('/api/admin/gateway-settings', (req, res) => {
 // API 3.3: Update Gateway Settings
 app.post('/api/admin/gateway-settings', (req, res) => {
   try {
-    const { activeGateway, beehive, hypercash } = req.body;
+    const { activeGateway, beehive, winnerpay, hypercash } = req.body;
 
-    if (activeGateway && ['beehive', 'hypercash', 'hyper'].includes(activeGateway)) {
-      gatewaySettings.activeGateway = activeGateway === 'hyper' ? 'hypercash' : activeGateway;
+    if (activeGateway && ['beehive', 'winnerpay', 'winner', 'hypercash', 'hyper'].includes(activeGateway)) {
+      gatewaySettings.activeGateway = (activeGateway === 'winner' ? 'winnerpay' : (activeGateway === 'hyper' ? 'hypercash' : activeGateway));
     }
     if (beehive && beehive.apiKey !== undefined) {
       if (!gatewaySettings.beehive) gatewaySettings.beehive = {};
       gatewaySettings.beehive.apiKey = String(beehive.apiKey).trim();
+    }
+    if (winnerpay) {
+      if (!gatewaySettings.winnerpay) gatewaySettings.winnerpay = {};
+      if (winnerpay.clientId !== undefined) gatewaySettings.winnerpay.clientId = String(winnerpay.clientId).trim();
+      if (winnerpay.clientSecret !== undefined) gatewaySettings.winnerpay.clientSecret = String(winnerpay.clientSecret).trim();
     }
     if (hypercash) {
       if (!gatewaySettings.hypercash) gatewaySettings.hypercash = {};

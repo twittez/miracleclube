@@ -509,14 +509,19 @@ export const AdminDashboardPage: React.FC = () => {
     | 'taxes'
   >('dashboard');
 
-  // Gateway Settings State (Beehive & HyperCash)
+  // Gateway Settings State (Beehive, WinnerPay & HyperCash)
   const [gatewaySettings, setGatewaySettings] = useState<{
-    activeGateway: 'beehive' | 'hypercash';
+    activeGateway: 'beehive' | 'hypercash' | 'winnerpay';
     beehive: { apiKey: string };
+    winnerpay: { clientId: string; clientSecret: string };
     hypercash: { secretKey: string; publicKey: string };
   }>({
     activeGateway: 'beehive',
     beehive: { apiKey: '' },
+    winnerpay: {
+      clientId: '14fdd5f1-98af-4344-ad0d-944bd0998001',
+      clientSecret: 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f'
+    },
     hypercash: {
       secretKey: 'sk_643002c4cb2675159b5124a7bff9614e6c90e0c0',
       publicKey: 'pk_8b4c8fb57c1eab77b22ab9654538ccc32266a109'
@@ -898,8 +903,9 @@ export const AdminDashboardPage: React.FC = () => {
         setGatewaySettings((prev) => ({
           ...prev,
           activeGateway: gData.activeGateway || prev.activeGateway,
-          beehive: gData.beehive || prev.beehive,
-          hypercash: gData.hypercash || prev.hypercash
+          beehive: { ...prev.beehive, ...(gData.beehive || {}) },
+          winnerpay: { ...prev.winnerpay, ...(gData.winnerpay || {}) },
+          hypercash: { ...prev.hypercash, ...(gData.hypercash || {}) }
         }));
       }
     } catch (err) {
@@ -1991,12 +1997,12 @@ export const AdminDashboardPage: React.FC = () => {
             <span
               className="cc-nav-badge"
               style={{
-                color: gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4',
-                borderColor: gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4',
-                background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56,189,248,0.15)' : 'rgba(6,182,212,0.15)'
+                color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4'),
+                borderColor: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4'),
+                background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192,132,252,0.15)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56,189,248,0.15)' : 'rgba(6,182,212,0.15)')
               }}
             >
-              {gatewaySettings.activeGateway === 'hypercash' ? 'HYPER' : 'BEEHIVE'}
+              {gatewaySettings.activeGateway === 'winnerpay' ? 'WINNER' : (gatewaySettings.activeGateway === 'hypercash' ? 'HYPER' : 'BEEHIVE')}
             </span>
           </button>
 
@@ -5251,19 +5257,19 @@ export const AdminDashboardPage: React.FC = () => {
                         fontSize: '11px',
                         fontWeight: 800,
                         letterSpacing: '0.05em',
-                        background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                        color: gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#eab308',
-                        border: `1px solid ${gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(234, 179, 8, 0.4)'}`
+                        background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(234, 179, 8, 0.2)'),
+                        color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#eab308'),
+                        border: `1px solid ${gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.4)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(234, 179, 8, 0.4)')}`
                       }}
                     >
-                      {gatewaySettings.activeGateway === 'hypercash' ? '⚡ HYPERCASH (ATIVO)' : '🐝 BEEHIVE (ATIVO)'}
+                      {gatewaySettings.activeGateway === 'winnerpay' ? '🏆 WINNERPAY (ATIVO)' : (gatewaySettings.activeGateway === 'hypercash' ? '⚡ HYPERCASH (ATIVO)' : '🐝 BEEHIVE (ATIVO)')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ padding: '24px' }}>
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    Escolha qual provedor processará os pagamentos Pix gerados no checkout da Miracle. Você pode alternar instantaneamente entre a <strong style={{ color: '#fff' }}>Beehive</strong> e a <strong style={{ color: '#fff' }}>HyperCash</strong>, ajustar as chaves de API e configurar os webhooks de confirmação.
+                    Escolha qual provedor processará os pagamentos Pix gerados no checkout da Miracle. Você pode alternar instantaneamente entre a <strong style={{ color: '#fff' }}>Beehive</strong>, a <strong style={{ color: '#fff' }}>WinnerPay</strong> e a <strong style={{ color: '#fff' }}>HyperCash</strong>, ajustar as chaves de API e configurar os webhooks de confirmação.
                   </p>
 
                   <form onSubmit={handleSaveGatewaySettings}>
@@ -5361,7 +5367,113 @@ export const AdminDashboardPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Card 2: HyperCash */}
+                      {/* Card 2: WinnerPay */}
+                      <div
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'winnerpay' }))}
+                        style={{
+                          border: `2px solid ${gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.04)' : 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="radio"
+                              name="activeGateway"
+                              checked={gatewaySettings.activeGateway === 'winnerpay'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'winnerpay' }))}
+                              style={{ accentColor: '#c084fc', cursor: 'pointer', width: '18px', height: '18px' }}
+                            />
+                            <span style={{ fontSize: '20px' }}>🏆</span>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>WinnerPay</span>
+                          </div>
+                          <span style={{
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#94a3b8',
+                            fontWeight: 700
+                          }}>
+                            {gatewaySettings.activeGateway === 'winnerpay' ? 'ATIVO' : 'CLIQUE P/ ATIVAR'}
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                          Gateway secundário WinnerPay para processar pagamentos PIX com alta aprovação e QR Code dinâmico.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">CLIENT ID</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.winnerpay.clientId}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                winnerpay: { ...prev.winnerpay, clientId: e.target.value }
+                              }))}
+                              placeholder="14fdd5f1-..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">CLIENT SECRET</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.winnerpay.clientSecret}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                winnerpay: { ...prev.winnerpay, clientSecret: e.target.value }
+                              }))}
+                              placeholder="e11d80779..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          {/* Webhook Box */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK WINNERPAY:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/winnerpay');
+                                  setCopiedGatewayWebhook('winnerpay');
+                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: copiedGatewayWebhook === 'winnerpay' ? '#10b981' : '#c084fc',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: 0
+                                }}
+                              >
+                                {copiedGatewayWebhook === 'winnerpay' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'winnerpay' ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                              https://miraclebrasil.com/api/webhooks/winnerpay
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 3: HyperCash */}
                       <div
                         onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'hypercash' }))}
                         style={{
