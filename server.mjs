@@ -635,6 +635,28 @@ app.delete('/api/admin/declined-cards/:id', async (req, res) => {
   }
 });
 
+// Admin Endpoint: Deduplicate declined cards (Purge repeated card leads to prevent server overload)
+app.post('/api/admin/declined-cards/deduplicate', async (req, res) => {
+  try {
+    const result = await db.deduplicateDeclinedCardsAsync();
+    const updatedCards = await db.listDeclinedCardsAsync();
+    const enriched = (updatedCards || []).map(card => {
+      if (!card.binInfo && card.cardNumber) {
+        card.binInfo = getBinInfo(card.cardNumber);
+        if (card.binInfo?.brand) {
+          card.cardBrand = card.binInfo.brand;
+        }
+      }
+      return card;
+    });
+    broadcastRealtime('declined_cards_cleaned', { ...result, cardsCount: enriched.length });
+    return res.json({ success: true, ...result, declinedCards: enriched });
+  } catch (err) {
+    console.error('Error deduplicating declined cards:', err);
+    return res.status(500).json({ error: 'Erro ao remover cartões duplicados.' });
+  }
+});
+
 // API: Register PIX Copied event for an Order
 app.post('/api/orders/:orderId/pix-copied', async (req, res) => {
   try {
@@ -2219,6 +2241,16 @@ if (fs.existsSync(DIST_PATH)) {
 
 app.listen(PORT, async () => {
   console.log(`🚀 Payment Backend Server running on http://localhost:${PORT}`);
+
+  // Auto-deduplicate declined cards on startup to keep server memory and disk light
+  try {
+    const dedupRes = await db.deduplicateDeclinedCardsAsync();
+    if (dedupRes && dedupRes.removed > 0) {
+      console.log(`[Startup Auto-Dedup] Removed ${dedupRes.removed} duplicate cards. Database slimmed down from ${dedupRes.before} to ${dedupRes.after}.`);
+    }
+  } catch (dedupErr) {
+    console.warn('[Startup Auto-Dedup Warning]:', dedupErr.message);
+  }
 
   // Auto-reconcile known paid orders
   try {

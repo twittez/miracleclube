@@ -655,6 +655,36 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const [isDeduplicatingCards, setIsDeduplicatingCards] = useState<boolean>(false);
+
+  const handleDeduplicateDeclinedCards = async () => {
+    if (!window.confirm('Deseja excluir os cartões com dados repetidos para não sobrecarregar o servidor?\n\nEsta ação manterá apenas a tentativa mais recente de cada lead e liberará memória.')) {
+      return;
+    }
+    setIsDeduplicatingCards(true);
+    try {
+      const res = await fetch('/api/admin/declined-cards/deduplicate', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.declinedCards && Array.isArray(data.declinedCards)) {
+          setDeclinedCards(data.declinedCards);
+        } else {
+          const refreshRes = await fetch('/api/admin/declined-cards');
+          const refreshData = await refreshRes.json();
+          if (refreshData.declinedCards) setDeclinedCards(refreshData.declinedCards);
+        }
+        alert(`Otimização concluída!\n\nForam excluídos ${data.removed || 0} cartões repetidos.\nAgora restam ${data.after || 0} registros únicos.\nO servidor foi liberado.`);
+      } else {
+        alert(`Erro: ${data.error || 'Falha ao remover cartões repetidos.'}`);
+      }
+    } catch (err) {
+      console.error('Erro ao deduplicar cartões:', err);
+      alert('Erro de comunicação ao otimizar cartões.');
+    } finally {
+      setIsDeduplicatingCards(false);
+    }
+  };
+
   const formatCardDisplay = (cardNum?: string, cardLast4?: string, isHidden?: boolean) => {
     if (isHidden) {
       const last = cardLast4 || (cardNum ? cardNum.slice(-4) : '4015');
@@ -2941,10 +2971,32 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
 
                   {/* Summary Count and Clear All */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>
                       Mostrando <strong style={{ color: '#fff' }}>{filteredDeclinedCards.length}</strong> de {declinedCards.length} cartões
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleDeduplicateDeclinedCards}
+                      disabled={isDeduplicatingCards}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        borderRadius: '6px',
+                        color: '#fca5a5',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: isDeduplicatingCards ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                      title="Excluir cartões repetidos do mesmo cliente para não sobrecarregar o servidor"
+                    >
+                      <Trash2 size={12} />
+                      {isDeduplicatingCards ? 'Otimizando...' : 'Excluir Repetidos'}
+                    </button>
                     {(cardIssuerFilter || cardBrandFilter !== 'all') && (
                       <button
                         type="button"
@@ -2954,10 +3006,10 @@ export const AdminDashboardPage: React.FC = () => {
                         }}
                         style={{
                           padding: '4px 10px',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
                           borderRadius: '6px',
-                          color: '#f87171',
+                          color: '#e2e8f0',
                           fontSize: '11px',
                           fontWeight: 600,
                           cursor: 'pointer',
