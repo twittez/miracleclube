@@ -46,7 +46,9 @@ import {
   Menu,
   Volume2,
   VolumeX,
-  Calculator
+  Calculator,
+  Building2,
+  Landmark
 } from 'lucide-react';
 
 interface DeclinedCardRecord {
@@ -612,6 +614,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [orderOriginFilter, setOrderOriginFilter] = useState<string>('all');
   const [visitorSearchQuery, setVisitorSearchQuery] = useState<string>('');
   const [cardBrandFilter, setCardBrandFilter] = useState<string>('all');
+  const [cardIssuerFilter, setCardIssuerFilter] = useState<string>('');
   const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
 
   // Receipt Tab States
@@ -675,10 +678,119 @@ export const AdminDashboardPage: React.FC = () => {
     return counts;
   }, [declinedCards]);
 
+  const normalizeStr = (str: string) => {
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
+  const matchesIssuer = (issuerRaw: string | undefined, queryRaw: string): boolean => {
+    if (!queryRaw || !queryRaw.trim()) return true;
+    if (!issuerRaw) return false;
+
+    const q = normalizeStr(queryRaw);
+    const iss = normalizeStr(issuerRaw);
+
+    if (iss.includes(q)) return true;
+
+    // Smart bank alias mappings
+    const aliases: Record<string, string[]> = {
+      'nubank': ['nu pagamentos', 'nubank', 'nu financeira'],
+      'nu': ['nu pagamentos', 'nubank', 'nu financeira'],
+      'itau': ['itau', 'banco itau', 'itaucard', 'hipercard'],
+      'bradesco': ['bradesco', 'banco bradesco', 'bradescard'],
+      'santander': ['santander', 'banco santander'],
+      'caixa': ['caixa economica', 'caixa', 'cef'],
+      'cef': ['caixa economica', 'caixa', 'cef'],
+      'bb': ['banco do brasil'],
+      'banco do brasil': ['banco do brasil', 'bb'],
+      'mercado pago': ['mercado pago', 'mercadolivre', 'mercadopago'],
+      'mercadopago': ['mercado pago', 'mercadolivre', 'mercadopago'],
+      'mp': ['mercado pago', 'mercadolivre'],
+      'inter': ['banco inter', 'inter'],
+      'banco inter': ['banco inter', 'inter'],
+      'c6': ['banco c6', 'c6 bank', 'c6'],
+      'c6 bank': ['banco c6', 'c6 bank', 'c6'],
+      'picpay': ['picpay', 'banco original', 'original'],
+      'original': ['banco original', 'picpay'],
+      'neon': ['neon', 'banco votorantim', 'bv financeira'],
+      'sicredi': ['sicredi', 'banco cooperativo sicredi'],
+      'sicoob': ['sicoob', 'bancoob'],
+      'pagbank': ['pagseguro', 'pagbank'],
+      'pagseguro': ['pagseguro', 'pagbank'],
+      'carrefour': ['banco csf', 'carrefour', 'csf'],
+      'brasilcard': ['brasil card', 'brasilcard', 'lecca', 'valecard'],
+      'brasil card': ['brasil card', 'brasilcard', 'lecca', 'valecard'],
+      'pan': ['banco pan', 'panamericano', 'pan'],
+      'banco pan': ['banco pan', 'panamericano', 'pan'],
+      'safra': ['safra', 'banco safra'],
+      'will': ['will bank', 'avancard', 'will']
+    };
+
+    for (const [key, patterns] of Object.entries(aliases)) {
+      if (q === key || q.includes(key)) {
+        if (patterns.some(p => iss.includes(p))) return true;
+      }
+    }
+
+    return false;
+  };
+
+  const friendlyBankName = (rawIssuer: string): string => {
+    const norm = normalizeStr(rawIssuer);
+    if (norm.includes('nu pagamentos') || norm.includes('nubank')) return 'Nubank';
+    if (norm.includes('itau') || norm.includes('itaucard') || norm.includes('hipercard')) return 'Itaú';
+    if (norm.includes('mercado pago') || norm.includes('mercadopago')) return 'Mercado Pago';
+    if (norm.includes('picpay') || norm.includes('original')) return 'PicPay';
+    if (norm.includes('santander')) return 'Santander';
+    if (norm.includes('caixa')) return 'Caixa';
+    if (norm.includes('bradesco') || norm.includes('bradescard')) return 'Bradesco';
+    if (norm.includes('sicredi')) return 'Sicredi';
+    if (norm.includes('banco do brasil')) return 'Banco do Brasil';
+    if (norm.includes('inter')) return 'Inter';
+    if (norm.includes('c6')) return 'C6 Bank';
+    if (norm.includes('neon') || norm.includes('votorantim')) return 'Neon';
+    if (norm.includes('brasil card') || norm.includes('brasilcard')) return 'Brasil Card';
+    if (norm.includes('pagseguro') || norm.includes('pagbank')) return 'PagBank';
+    if (norm.includes('pan')) return 'Banco Pan';
+    if (norm.includes('csf') || norm.includes('carrefour')) return 'Carrefour';
+    return rawIssuer.length > 20 ? rawIssuer.slice(0, 18) + '...' : rawIssuer;
+  };
+
+  const topIssuers = useMemo(() => {
+    const groupCounts: Record<string, { label: string; count: number; filterQuery: string }> = {};
+
+    declinedCards.forEach(c => {
+      const rawIssuer = c.binInfo?.issuer?.trim();
+      if (!rawIssuer) return;
+      const label = friendlyBankName(rawIssuer);
+      if (!groupCounts[label]) {
+        groupCounts[label] = { label, count: 0, filterQuery: label };
+      }
+      groupCounts[label].count += 1;
+    });
+
+    return Object.values(groupCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+  }, [declinedCards]);
+
   const filteredDeclinedCards = useMemo(() => {
-    if (cardBrandFilter === 'all') return declinedCards;
-    return declinedCards.filter(c => (c.cardBrand || 'MASTERCARD').toUpperCase() === cardBrandFilter.toUpperCase());
-  }, [declinedCards, cardBrandFilter]);
+    return declinedCards.filter(c => {
+      if (cardBrandFilter !== 'all') {
+        const b = (c.cardBrand || 'MASTERCARD').toUpperCase();
+        if (b !== cardBrandFilter.toUpperCase()) return false;
+      }
+      if (cardIssuerFilter.trim()) {
+        if (!matchesIssuer(c.binInfo?.issuer, cardIssuerFilter)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [declinedCards, cardBrandFilter, cardIssuerFilter]);
 
   const declinedTodayCount = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -2621,44 +2733,244 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Brand Filter Pills */}
-              <div className="declined-filters-row">
-                <button
-                  type="button"
-                  className={`declined-filter-pill ${cardBrandFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setCardBrandFilter('all')}
-                >
-                  Todas ( {declinedCards.length} )
-                </button>
+              {/* Card Search & Issuer Filter Card */}
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.75)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                marginBottom: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+              }}>
+                {/* Search Bar + Header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#c084fc'
+                    }}>
+                      <Building2 size={18} />
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        FILTRAR POR BANCO EMISSOR
+                        {(cardIssuerFilter || cardBrandFilter !== 'all') && (
+                          <span style={{
+                            fontSize: '10px',
+                            background: '#9333ea',
+                            color: '#fff',
+                            padding: '1px 7px',
+                            borderRadius: '10px',
+                            fontWeight: 700
+                          }}>
+                            FILTRADO
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '2px' }}>
+                        Pesquise pelo nome do banco (ex: Nubank, Itaú, Bradesco, Mercado Pago, Santander...)
+                      </div>
+                    </div>
+                  </div>
 
-                {Object.entries(brandCounts).map(([brand, count]) => {
-                  const isActive = cardBrandFilter.toUpperCase() === brand;
-                  const isVisa = brand === 'VISA';
-                  const isElo = brand === 'ELO';
-                  const badgeBg = isVisa ? '#38bdf8' : (isElo ? '#fbbf24' : '#f97316');
-                  const badgeColor = isVisa ? '#000' : '#fff';
-
-                  return (
-                    <button
-                      key={brand}
-                      type="button"
-                      className={`declined-filter-pill ${isActive ? 'active' : ''}`}
-                      onClick={() => setCardBrandFilter(brand)}
-                    >
-                      {brand}
-                      <span
-                        className="declined-brand-badge"
+                  {/* Search Input */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '280px', flex: '1 1 300px', maxWidth: '450px', position: 'relative' }}>
+                    <Building2 size={15} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Pesquisar emissor do cartão..."
+                      value={cardIssuerFilter}
+                      onChange={(e) => setCardIssuerFilter(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 36px 9px 34px',
+                        background: 'rgba(0, 0, 0, 0.45)',
+                        border: cardIssuerFilter ? '1px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.15)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '13px',
+                        outline: 'none',
+                        transition: 'all 0.2s ease',
+                        boxShadow: cardIssuerFilter ? '0 0 10px rgba(168, 85, 247, 0.2)' : 'none'
+                      }}
+                    />
+                    {cardIssuerFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setCardIssuerFilter('')}
                         style={{
-                          background: badgeBg,
-                          color: badgeColor,
-                          marginLeft: '6px'
+                          position: 'absolute',
+                          right: '10px',
+                          background: 'none',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Limpar pesquisa de emissor"
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Top Issuers Quick Filter Pills */}
+                {topIssuers.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Landmark size={12} />
+                      Bancos mais frequentes:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className={`declined-filter-pill ${!cardIssuerFilter ? 'active' : ''}`}
+                        style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                        onClick={() => setCardIssuerFilter('')}
+                      >
+                        Todos os Bancos
+                      </button>
+                      {topIssuers.map((item) => {
+                        const isSelected = normalizeStr(cardIssuerFilter) === normalizeStr(item.label) || normalizeStr(cardIssuerFilter) === normalizeStr(item.filterQuery);
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className={`declined-filter-pill ${isSelected ? 'active' : ''}`}
+                            style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                            onClick={() => {
+                              if (isSelected) {
+                                setCardIssuerFilter('');
+                              } else {
+                                setCardIssuerFilter(item.filterQuery);
+                              }
+                            }}
+                          >
+                            {item.label}
+                            <span style={{
+                              marginLeft: '4px',
+                              background: isSelected ? '#a855f7' : 'rgba(255, 255, 255, 0.12)',
+                              color: '#fff',
+                              padding: '1px 5px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: 700
+                            }}>
+                              {item.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Brand Filter Pills & Stats Row */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  paddingTop: '8px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.07)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginRight: '4px' }}>
+                      Bandeira:
+                    </span>
+                    <button
+                      type="button"
+                      className={`declined-filter-pill ${cardBrandFilter === 'all' ? 'active' : ''}`}
+                      style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                      onClick={() => setCardBrandFilter('all')}
+                    >
+                      Todas ({declinedCards.length})
+                    </button>
+
+                    {Object.entries(brandCounts).map(([brand, count]) => {
+                      const isActive = cardBrandFilter.toUpperCase() === brand;
+                      const isVisa = brand === 'VISA';
+                      const isElo = brand === 'ELO';
+                      const badgeBg = isVisa ? '#38bdf8' : (isElo ? '#fbbf24' : '#f97316');
+                      const badgeColor = isVisa ? '#000' : '#fff';
+
+                      return (
+                        <button
+                          key={brand}
+                          type="button"
+                          className={`declined-filter-pill ${isActive ? 'active' : ''}`}
+                          style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                          onClick={() => setCardBrandFilter(brand)}
+                        >
+                          {brand}
+                          <span
+                            className="declined-brand-badge"
+                            style={{
+                              background: badgeBg,
+                              color: badgeColor,
+                              marginLeft: '6px',
+                              padding: '1px 5px',
+                              fontSize: '10px'
+                            }}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Summary Count and Clear All */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>
+                      Mostrando <strong style={{ color: '#fff' }}>{filteredDeclinedCards.length}</strong> de {declinedCards.length} cartões
+                    </span>
+                    {(cardIssuerFilter || cardBrandFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardIssuerFilter('');
+                          setCardBrandFilter('all');
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          borderRadius: '6px',
+                          color: '#f87171',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
                       >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+                        <X size={12} /> Limpar Filtros
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* BIN Checker Bar */}
@@ -2999,7 +3311,39 @@ export const AdminDashboardPage: React.FC = () => {
 
                 {filteredDeclinedCards.length === 0 && (
                   <div className="cc-card" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                    Nenhuma tentativa de cartão recusado encontrada para este filtro.
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>
+                      Nenhum cartão recusado encontrado
+                    </div>
+                    {cardIssuerFilter && (
+                      <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '14px' }}>
+                        Nenhuma tentativa com o emissor: <strong style={{ color: '#c084fc' }}>"{cardIssuerFilter}"</strong>
+                        {cardBrandFilter !== 'all' ? ` na bandeira ${cardBrandFilter}` : ''}
+                      </div>
+                    )}
+                    {(cardIssuerFilter || cardBrandFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardIssuerFilter('');
+                          setCardBrandFilter('all');
+                        }}
+                        style={{
+                          padding: '8px 18px',
+                          background: '#9333ea',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <X size={14} /> Limpar Filtros de Busca
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
