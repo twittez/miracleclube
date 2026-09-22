@@ -1,14 +1,14 @@
 /**
  * Service for WinnerPay Gateway Integration
- * Documentation: https://documentacao.winnerpayy.com.br/
- * Base URL: https://api.winnerpayy.com.br/api
+ * Documentation: https://documentacao.winnerpayments.com.br/
+ * Base URL: https://api.winnerpayments.com.br/api
  * Primary endpoints:
  *  - POST /financial/receber-pix
  *  - GET /dashboard/transactions/:transactionId
  * Authentication: Basic Auth with base64(clientId:clientSecret)
  */
 
-const WINNERPAY_API_URL = process.env.WINNERPAY_API_URL || 'https://api.winnerpayy.com.br/api';
+const WINNERPAY_API_URL = process.env.WINNERPAY_API_URL || 'https://api.winnerpayments.com.br/api';
 const DEFAULT_CLIENT_ID = process.env.WINNERPAY_CLIENT_ID || '14fdd5f1-98af-4344-ad0d-944bd0998001';
 const DEFAULT_CLIENT_SECRET = process.env.WINNERPAY_CLIENT_SECRET || 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f';
 
