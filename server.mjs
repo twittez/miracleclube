@@ -829,7 +829,7 @@ app.post('/api/payments/pix', async (req, res) => {
 
     // Fixed server-side SKU catalog (prices in centavos). Never trust client-side prices.
     const SERVER_SKU_PRICES = {
-      'SHORTS-MOD-4B': 6990, // R$ 69,90 - Shorts Modelador com 4 Barbatanas
+      'SHORTS-MOD-4B': 5490, // R$ 54,90 - Shorts Modelador com 4 Barbatanas
       'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
     };
 
