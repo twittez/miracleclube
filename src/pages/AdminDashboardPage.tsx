@@ -615,6 +615,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [visitorSearchQuery, setVisitorSearchQuery] = useState<string>('');
   const [cardBrandFilter, setCardBrandFilter] = useState<string>('all');
   const [cardIssuerFilter, setCardIssuerFilter] = useState<string>('');
+  const [cardTypeFilter, setCardTypeFilter] = useState<'all' | 'credit' | 'debit'>('all');
   const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
 
   // Receipt Tab States
@@ -706,6 +707,28 @@ export const AdminDashboardPage: React.FC = () => {
       counts[b] = (counts[b] || 0) + 1;
     });
     return counts;
+  }, [declinedCards]);
+
+  const isCardDebit = (card?: DeclinedCardRecord | null): boolean => {
+    if (!card) return false;
+    const t = (card.binInfo?.type || '').toUpperCase();
+    return t.includes('DEBIT');
+  };
+
+  const isCardCredit = (card?: DeclinedCardRecord | null): boolean => {
+    if (!card) return false;
+    const t = (card.binInfo?.type || '').toUpperCase();
+    return t.includes('CREDIT') || !t.includes('DEBIT');
+  };
+
+  const cardTypeCounts = useMemo(() => {
+    let credit = 0;
+    let debit = 0;
+    declinedCards.forEach(c => {
+      if (isCardDebit(c)) debit++;
+      if (isCardCredit(c)) credit++;
+    });
+    return { credit, debit };
   }, [declinedCards]);
 
   const normalizeStr = (str: string) => {
@@ -809,6 +832,10 @@ export const AdminDashboardPage: React.FC = () => {
 
   const filteredDeclinedCards = useMemo(() => {
     return declinedCards.filter(c => {
+      if (cardTypeFilter !== 'all') {
+        if (cardTypeFilter === 'debit' && !isCardDebit(c)) return false;
+        if (cardTypeFilter === 'credit' && !isCardCredit(c)) return false;
+      }
       if (cardBrandFilter !== 'all') {
         const b = (c.cardBrand || 'MASTERCARD').toUpperCase();
         if (b !== cardBrandFilter.toUpperCase()) return false;
@@ -820,7 +847,7 @@ export const AdminDashboardPage: React.FC = () => {
       }
       return true;
     });
-  }, [declinedCards, cardBrandFilter, cardIssuerFilter]);
+  }, [declinedCards, cardBrandFilter, cardIssuerFilter, cardTypeFilter]);
 
   const declinedTodayCount = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -2799,7 +2826,7 @@ export const AdminDashboardPage: React.FC = () => {
                     <div>
                       <div style={{ color: '#fff', fontSize: '13px', fontWeight: 700, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         FILTRAR POR BANCO EMISSOR
-                        {(cardIssuerFilter || cardBrandFilter !== 'all') && (
+                        {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all') && (
                           <span style={{
                             fontSize: '10px',
                             background: '#9333ea',
@@ -2914,16 +2941,146 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Brand Filter Pills & Stats Row */}
+                {/* Card Type & Brand Filter Pills & Stats Row */}
                 <div style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
+                  flexDirection: 'column',
                   gap: '10px',
-                  paddingTop: '8px',
+                  paddingTop: '10px',
                   borderTop: '1px solid rgba(255, 255, 255, 0.07)'
                 }}>
+                  {/* Row 1: Tipo (Crédito vs Débito) + Summary & Actions */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CreditCard size={13} /> Tipo:
+                      </span>
+                      <button
+                        type="button"
+                        className={`declined-filter-pill ${cardTypeFilter === 'all' ? 'active' : ''}`}
+                        style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                        onClick={() => setCardTypeFilter('all')}
+                      >
+                        Todos ({declinedCards.length})
+                      </button>
+                      <button
+                        type="button"
+                        className={`declined-filter-pill ${cardTypeFilter === 'credit' ? 'active' : ''}`}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '11px',
+                          height: '28px',
+                          borderColor: cardTypeFilter === 'credit' ? '#38bdf8' : undefined,
+                          color: cardTypeFilter === 'credit' ? '#38bdf8' : undefined
+                        }}
+                        onClick={() => setCardTypeFilter('credit')}
+                      >
+                        💳 Crédito
+                        <span
+                          className="declined-brand-badge"
+                          style={{
+                            background: '#38bdf8',
+                            color: '#000',
+                            marginLeft: '6px',
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: 700
+                          }}
+                        >
+                          {cardTypeCounts.credit}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`declined-filter-pill ${cardTypeFilter === 'debit' ? 'active' : ''}`}
+                        style={{
+                          padding: '4px 12px',
+                          fontSize: '11px',
+                          height: '28px',
+                          borderColor: cardTypeFilter === 'debit' ? '#f59e0b' : undefined,
+                          color: cardTypeFilter === 'debit' ? '#f59e0b' : undefined
+                        }}
+                        onClick={() => setCardTypeFilter('debit')}
+                      >
+                        ⚡ Débito
+                        <span
+                          className="declined-brand-badge"
+                          style={{
+                            background: '#f59e0b',
+                            color: '#000',
+                            marginLeft: '6px',
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: 700
+                          }}
+                        >
+                          {cardTypeCounts.debit}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Summary Count and Clear All / Deduplicate */}
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>
+                        Mostrando <strong style={{ color: '#fff' }}>{filteredDeclinedCards.length}</strong> de {declinedCards.length} cartões
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDeduplicateDeclinedCards}
+                        disabled={isDeduplicatingCards}
+                        style={{
+                          padding: '4px 10px',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.4)',
+                          borderRadius: '6px',
+                          color: '#fca5a5',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: isDeduplicatingCards ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                        title="Excluir cartões repetidos do mesmo cliente para não sobrecarregar o servidor"
+                      >
+                        <Trash2 size={12} />
+                        {isDeduplicatingCards ? 'Otimizando...' : 'Excluir Repetidos'}
+                      </button>
+                      {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCardIssuerFilter('');
+                            setCardBrandFilter('all');
+                            setCardTypeFilter('all');
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '6px',
+                            color: '#e2e8f0',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <X size={12} /> Limpar Filtros
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Bandeiras */}
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                     <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginRight: '4px' }}>
                       Bandeira:
@@ -2968,59 +3125,6 @@ export const AdminDashboardPage: React.FC = () => {
                         </button>
                       );
                     })}
-                  </div>
-
-                  {/* Summary Count and Clear All */}
-                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'JetBrains Mono' }}>
-                      Mostrando <strong style={{ color: '#fff' }}>{filteredDeclinedCards.length}</strong> de {declinedCards.length} cartões
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleDeduplicateDeclinedCards}
-                      disabled={isDeduplicatingCards}
-                      style={{
-                        padding: '4px 10px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        borderRadius: '6px',
-                        color: '#fca5a5',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: isDeduplicatingCards ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px'
-                      }}
-                      title="Excluir cartões repetidos do mesmo cliente para não sobrecarregar o servidor"
-                    >
-                      <Trash2 size={12} />
-                      {isDeduplicatingCards ? 'Otimizando...' : 'Excluir Repetidos'}
-                    </button>
-                    {(cardIssuerFilter || cardBrandFilter !== 'all') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCardIssuerFilter('');
-                          setCardBrandFilter('all');
-                        }}
-                        style={{
-                          padding: '4px 10px',
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          borderRadius: '6px',
-                          color: '#e2e8f0',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <X size={12} /> Limpar Filtros
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -3247,8 +3351,35 @@ export const AdminDashboardPage: React.FC = () => {
                               <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={card.binInfo.issuer}>
                                 🏦 {card.binInfo.issuer || 'BANCO EMISSOR'}
                               </div>
-                              <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <span>💳 {card.binInfo.type || 'CREDIT'}</span>
+                              <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '4px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                {isCardDebit(card) ? (
+                                  <span style={{
+                                    background: 'rgba(245, 158, 11, 0.2)',
+                                    color: '#fbbf24',
+                                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    fontWeight: 700,
+                                    fontSize: '9px',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    ⚡ DÉBITO
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    color: '#38bdf8',
+                                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    fontWeight: 700,
+                                    fontSize: '9px',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    💳 CRÉDITO
+                                  </span>
+                                )}
+                                <span>{card.binInfo.type || 'CREDIT'}</span>
                                 {card.binInfo.category && card.binInfo.category !== 'STANDARD' && (
                                   <span style={{ color: '#eab308', fontWeight: 700 }}>· {card.binInfo.category}</span>
                                 )}
@@ -3366,18 +3497,21 @@ export const AdminDashboardPage: React.FC = () => {
                     <div style={{ fontSize: '16px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>
                       Nenhum cartão recusado encontrado
                     </div>
-                    {cardIssuerFilter && (
+                    {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all') && (
                       <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '14px' }}>
-                        Nenhuma tentativa com o emissor: <strong style={{ color: '#c084fc' }}>"{cardIssuerFilter}"</strong>
-                        {cardBrandFilter !== 'all' ? ` na bandeira ${cardBrandFilter}` : ''}
+                        Filtros ativos:
+                        {cardTypeFilter !== 'all' && <span> Tipo: <strong style={{ color: cardTypeFilter === 'debit' ? '#fbbf24' : '#38bdf8' }}>{cardTypeFilter === 'credit' ? 'Crédito' : 'Débito'}</strong></span>}
+                        {cardBrandFilter !== 'all' && <span>{cardTypeFilter !== 'all' ? ' · ' : ' '}Bandeira: <strong style={{ color: '#fb923c' }}>{cardBrandFilter}</strong></span>}
+                        {cardIssuerFilter && <span>{(cardTypeFilter !== 'all' || cardBrandFilter !== 'all') ? ' · ' : ' '}Emissor: <strong style={{ color: '#c084fc' }}>"{cardIssuerFilter}"</strong></span>}
                       </div>
                     )}
-                    {(cardIssuerFilter || cardBrandFilter !== 'all') && (
+                    {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all') && (
                       <button
                         type="button"
                         onClick={() => {
                           setCardIssuerFilter('');
                           setCardBrandFilter('all');
+                          setCardTypeFilter('all');
                         }}
                         style={{
                           padding: '8px 18px',
@@ -3393,7 +3527,7 @@ export const AdminDashboardPage: React.FC = () => {
                           gap: '6px'
                         }}
                       >
-                        <X size={14} /> Limpar Filtros de Busca
+                        <X size={14} /> Limpar Todos os Filtros
                       </button>
                     )}
                   </div>
@@ -6570,8 +6704,33 @@ export const AdminDashboardPage: React.FC = () => {
                     <div style={{ fontSize: '13px', color: '#fff', fontWeight: 700, marginTop: '2px' }}>
                       🏦 {selectedDeclinedCard.binInfo.issuer}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
-                      💳 {selectedDeclinedCard.binInfo.type} {selectedDeclinedCard.binInfo.category && `· ${selectedDeclinedCard.binInfo.category}`}
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {isCardDebit(selectedDeclinedCard) ? (
+                        <span style={{
+                          background: 'rgba(245, 158, 11, 0.2)',
+                          color: '#fbbf24',
+                          border: '1px solid rgba(245, 158, 11, 0.4)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          fontSize: '11px'
+                        }}>
+                          ⚡ DÉBITO
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: '#38bdf8',
+                          border: '1px solid rgba(56, 189, 248, 0.35)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          fontSize: '11px'
+                        }}>
+                          💳 CRÉDITO
+                        </span>
+                      )}
+                      <span>{selectedDeclinedCard.binInfo.type} {selectedDeclinedCard.binInfo.category && `· ${selectedDeclinedCard.binInfo.category}`}</span>
                     </div>
                   </div>
                 )}

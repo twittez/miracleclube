@@ -675,6 +675,20 @@
     "isoCode3": "BRA",
     "CountryName": "BRAZIL"
   },
+  "400260": {
+    "bin": "400260",
+    "brand": "VISA",
+    "type": "DEBIT",
+    "category": "BUSINESS",
+    "issuer": "MBH BANK NYRT",
+    "issuerPhone": "",
+    "issuerUrl": "",
+    "isoCode2": "HU",
+    "isoCode3": "HUN",
+    "countryName": "HUNGARY",
+    "countryFlag": "🇭🇺",
+    "formatted": "VISA BUSINESS DEBIT · MBH BANK NYRT (HU 🇭🇺)"
+  },
   "400268": {
     "BIN": "400268",
     "Brand": "VISA",
@@ -3952,16 +3966,18 @@
     "CountryName": "BRAZIL"
   },
   "498406": {
-    "BIN": "498406",
-    "Brand": "VISA",
-    "Type": "CREDIT",
-    "Category": "PLATINUM",
-    "Issuer": "BANCO DO BRASIL, S.A.",
-    "IssuerPhone": "",
-    "IssuerUrl": "http://www.bb.com.br",
+    "bin": "498406",
+    "brand": "VISA",
+    "type": "CREDIT",
+    "category": "PLATINUM",
+    "issuer": "BANCO DO BRASIL, S.A.",
+    "issuerPhone": "",
+    "issuerUrl": "http://www.bb.com.br",
     "isoCode2": "BR",
     "isoCode3": "BRA",
-    "CountryName": "BRAZIL"
+    "countryName": "BRAZIL",
+    "countryFlag": "🇧🇷",
+    "formatted": "VISA PLATINUM · BANCO DO BRASIL, S.A. (BR 🇧🇷)"
   },
   "498407": {
     "BIN": "498407",
@@ -5669,6 +5685,20 @@
     "isoCode2": "BR",
     "isoCode3": "BRA",
     "CountryName": "BRAZIL"
+  },
+  "530032": {
+    "bin": "530032",
+    "brand": "MASTERCARD",
+    "type": "CREDIT",
+    "category": "STANDARD",
+    "issuer": "BANCO BNP PARIBAS BRASIL, S.A.",
+    "issuerPhone": "",
+    "issuerUrl": "",
+    "isoCode2": "BR",
+    "isoCode3": "BRA",
+    "countryName": "BRAZIL",
+    "countryFlag": "🇧🇷",
+    "formatted": "MASTERCARD · BANCO BNP PARIBAS BRASIL, S.A. (BR 🇧🇷)"
   },
   "530033": {
     "BIN": "530033",
@@ -7784,16 +7814,18 @@
     "CountryName": "BRAZIL"
   },
   "554773": {
-    "BIN": "554773",
-    "Brand": "MASTERCARD",
-    "Type": "CREDIT",
-    "Category": "STANDARD",
-    "Issuer": "BANCO DE BRASILIA, S.A.",
-    "IssuerPhone": "70.072-9001",
-    "IssuerUrl": "http://www.brb.com.br",
+    "bin": "554773",
+    "brand": "MASTERCARD",
+    "type": "CREDIT",
+    "category": "STANDARD",
+    "issuer": "BANCO DE BRASILIA, S.A.",
+    "issuerPhone": "70.072-9001",
+    "issuerUrl": "http://www.brb.com.br",
     "isoCode2": "BR",
     "isoCode3": "BRA",
-    "CountryName": "BRAZIL"
+    "countryName": "BRAZIL",
+    "countryFlag": "🇧🇷",
+    "formatted": "MASTERCARD · BANCO DE BRASILIA, S.A. (BR 🇧🇷)"
   },
   "554883": {
     "BIN": "554883",
