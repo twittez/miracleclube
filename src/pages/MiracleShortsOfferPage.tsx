@@ -8,7 +8,7 @@ import { Header } from "@/components/m2/Header";
 const SKU = "SHORTS-MOD-4B";
 const NAME = "Shorts Modelador Cintura Alta";
 const COMPARE_AT = 139.9;
-const PRICE = 54.9;
+const PRICE = 47.9;
 const INSTALLMENTS = 5;
 
 const BENEFITS = [

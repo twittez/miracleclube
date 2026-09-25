@@ -829,11 +829,11 @@ app.post('/api/payments/pix', async (req, res) => {
 
     // Fixed server-side SKU catalog (prices in centavos). Never trust client-side prices.
     const SERVER_SKU_PRICES = {
-      'SHORTS-MOD-4B': 5490, // R$ 54,90 - Shorts Modelador com 4 Barbatanas
+      'SHORTS-MOD-4B': 4790, // R$ 47,90 - Shorts Modelador com 4 Barbatanas
       'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
     };
 
-    let calculatedAmountCentavos = 7990;
+    let calculatedAmountCentavos = 8990;
     if (amount && typeof amount === 'number' && amount > 0) {
       calculatedAmountCentavos = Math.round(amount * 100);
     }
@@ -1247,7 +1247,7 @@ app.post('/api/webhooks/beehive', async (req, res) => {
       }
 
       const orderId = order?.id || metaOrderId || `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-      const amountVal = order?.amount || Number(event?.amount || event?.data?.amount || 7990) / 100;
+      const amountVal = order?.amount || Number(event?.amount || event?.data?.amount || 8990) / 100;
 
       if (order) {
         order.status = 'paid';

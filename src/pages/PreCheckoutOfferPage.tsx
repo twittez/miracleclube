@@ -19,7 +19,7 @@ const COLORS = [
   { id: 'Bege', label: 'Bege', hex: '#c8ab8a' },
 ];
 
-const UNIT_PRICE = 54.90;
+const UNIT_PRICE = 47.90;
 
 export const PreCheckoutOfferPage: React.FC<PreCheckoutOfferPageProps> = ({
   onAccept,
@@ -166,10 +166,10 @@ export const PreCheckoutOfferPage: React.FC<PreCheckoutOfferPageProps> = ({
         <div className="precheckout-offer__price-block">
           <span className="precheckout-offer__price-old">R$ 139,90</span>
           <div className="precheckout-offer__price-installment">
-            5x de R$ 10,98
+            5x de R$ 9,58
           </div>
           <span className="precheckout-offer__price-cash">
-            ou R$ 54,90 à vista
+            ou R$ 47,90 à vista
           </span>
         </div>
 

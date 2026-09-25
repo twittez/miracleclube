@@ -860,7 +860,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Manual UTMify Dispatch Form State
   const [manualSaleForm, setManualSaleForm] = useState({
-    amount: '79.90',
+    amount: '89.90',
     customerName: 'Cliente Miracle VIP',
     customerEmail: 'cliente@miracle.com',
     customerPhone: '12982890411',
