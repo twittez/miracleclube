@@ -97,6 +97,7 @@ interface DeclinedCardRecord {
   utm?: Record<string, string>;
   reason?: string;
   createdAt: string;
+  tested?: boolean;
 }
 
 interface OrderItem {
@@ -511,15 +512,18 @@ export const AdminDashboardPage: React.FC = () => {
     | 'taxes'
   >('dashboard');
 
-  // Gateway Settings State (Beehive, WinnerPay & HyperCash)
+  // Gateway Settings State (Codefy, WinnerPay & HyperCash)
   const [gatewaySettings, setGatewaySettings] = useState<{
-    activeGateway: 'beehive' | 'hypercash' | 'winnerpay';
-    beehive: { apiKey: string };
+    activeGateway: 'codefy' | 'winnerpay' | 'hypercash';
+    codefy: { publicKey: string; secretKey: string };
     winnerpay: { clientId: string; clientSecret: string };
     hypercash: { secretKey: string; publicKey: string };
   }>({
-    activeGateway: 'beehive',
-    beehive: { apiKey: '' },
+    activeGateway: 'codefy',
+    codefy: {
+      publicKey: 'cfy_pk_1886de78123150db78112664da',
+      secretKey: 'cfy_sk_3bae319a5ac126443d61e8fab5058450d1cb6b'
+    },
     winnerpay: {
       clientId: '14fdd5f1-98af-4344-ad0d-944bd0998001',
       clientSecret: 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f'
@@ -617,6 +621,9 @@ export const AdminDashboardPage: React.FC = () => {
   const [cardIssuerFilter, setCardIssuerFilter] = useState<string>('');
   const [cardTypeFilter, setCardTypeFilter] = useState<'all' | 'credit' | 'debit'>('all');
   const [hiddenCards, setHiddenCards] = useState<Record<string, boolean>>({});
+  const [testedCards, setTestedCards] = useState<Record<string, boolean>>({});
+  const [cardTestedFilter, setCardTestedFilter] = useState<'all' | 'tested' | 'untested'>('all');
+
 
   // Receipt Tab States
   const [receiptSearchQuery, setReceiptSearchQuery] = useState<string>('');
@@ -642,6 +649,10 @@ export const AdminDashboardPage: React.FC = () => {
 
   const toggleHideCard = (cardId: string) => {
     setHiddenCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
+  };
+
+  const toggleTestedCard = (cardId: string) => {
+    setTestedCards(prev => ({ ...prev, [cardId]: !prev[cardId] }));
   };
 
   const handleDeleteDeclinedCard = async (cardId: string) => {
@@ -845,9 +856,15 @@ export const AdminDashboardPage: React.FC = () => {
           return false;
         }
       }
+      if (cardTestedFilter !== 'all') {
+        const isTested = !!testedCards[c.id];
+        if (cardTestedFilter === 'tested' && !isTested) return false;
+        if (cardTestedFilter === 'untested' && isTested) return false;
+      }
       return true;
     });
-  }, [declinedCards, cardBrandFilter, cardIssuerFilter, cardTypeFilter]);
+  }, [declinedCards, cardBrandFilter, cardIssuerFilter, cardTypeFilter, cardTestedFilter, testedCards]);
+
 
   const declinedTodayCount = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -1071,8 +1088,8 @@ export const AdminDashboardPage: React.FC = () => {
         const gData = await gatewayRes.value.json();
         setGatewaySettings((prev) => ({
           ...prev,
-          activeGateway: gData.activeGateway || prev.activeGateway,
-          beehive: { ...prev.beehive, ...(gData.beehive || {}) },
+          activeGateway: gData.activeGateway === 'winnerpay' ? 'winnerpay' : ((gData.activeGateway === 'hypercash' || gData.activeGateway === 'hyper') ? 'hypercash' : 'codefy'),
+          codefy: { ...prev.codefy, ...(gData.codefy || {}) },
           winnerpay: { ...prev.winnerpay, ...(gData.winnerpay || {}) },
           hypercash: { ...prev.hypercash, ...(gData.hypercash || {}) }
         }));
@@ -2166,12 +2183,12 @@ export const AdminDashboardPage: React.FC = () => {
             <span
               className="cc-nav-badge"
               style={{
-                color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4'),
-                borderColor: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#06b6d4'),
-                background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192,132,252,0.15)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56,189,248,0.15)' : 'rgba(6,182,212,0.15)')
+                color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
+                borderColor: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
+                background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249,115,22,0.15)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192,132,252,0.15)' : 'rgba(56,189,248,0.15)')
               }}
             >
-              {gatewaySettings.activeGateway === 'winnerpay' ? 'WINNER' : (gatewaySettings.activeGateway === 'hypercash' ? 'HYPER' : 'BEEHIVE')}
+              {gatewaySettings.activeGateway === 'codefy' ? 'CODEFY' : (gatewaySettings.activeGateway === 'winnerpay' ? 'WINNER' : 'HYPER')}
             </span>
           </button>
 
@@ -3052,13 +3069,14 @@ export const AdminDashboardPage: React.FC = () => {
                         <Trash2 size={12} />
                         {isDeduplicatingCards ? 'Otimizando...' : 'Excluir Repetidos'}
                       </button>
-                      {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all') && (
+                      {(cardIssuerFilter || cardBrandFilter !== 'all' || cardTypeFilter !== 'all' || cardTestedFilter !== 'all') && (
                         <button
                           type="button"
                           onClick={() => {
                             setCardIssuerFilter('');
                             setCardBrandFilter('all');
                             setCardTypeFilter('all');
+                            setCardTestedFilter('all');
                           }}
                           style={{
                             padding: '4px 10px',
@@ -3125,6 +3143,43 @@ export const AdminDashboardPage: React.FC = () => {
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* Row 3: Status de Uso — Testado / Não Testado */}
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginRight: '4px' }}>
+                      ✔️ Uso:
+                    </span>
+                    <button
+                      type="button"
+                      className={`declined-filter-pill ${cardTestedFilter === 'all' ? 'active' : ''}`}
+                      style={{ padding: '4px 12px', fontSize: '11px', height: '28px' }}
+                      onClick={() => setCardTestedFilter('all')}
+                    >
+                      Todos ({declinedCards.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`declined-filter-pill ${cardTestedFilter === 'untested' ? 'active' : ''}`}
+                      style={{
+                        padding: '4px 12px', fontSize: '11px', height: '28px',
+                        ...(cardTestedFilter === 'untested' ? { borderColor: '#94a3b8', color: '#94a3b8' } : {})
+                      }}
+                      onClick={() => setCardTestedFilter('untested')}
+                    >
+                      ⬜ Não Testados ({declinedCards.filter(c => !testedCards[c.id]).length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`declined-filter-pill ${cardTestedFilter === 'tested' ? 'active' : ''}`}
+                      style={{
+                        padding: '4px 12px', fontSize: '11px', height: '28px',
+                        ...(cardTestedFilter === 'tested' ? { borderColor: '#22c55e', color: '#22c55e' } : {})
+                      }}
+                      onClick={() => setCardTestedFilter('tested')}
+                    >
+                      ✅ Testados ({declinedCards.filter(c => !!testedCards[c.id]).length})
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3254,6 +3309,20 @@ export const AdminDashboardPage: React.FC = () => {
                           >
                             NEGADO
                           </span>
+                          {testedCards[card.id] && (
+                            <span style={{
+                              color: '#22c55e',
+                              border: '1px solid rgba(34,197,94,0.5)',
+                              background: 'rgba(34,197,94,0.12)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              letterSpacing: '0.5px'
+                            }}>
+                              ✅ TESTADO
+                            </span>
+                          )}
                           <span style={{ color: '#64748b', fontSize: '12px', fontFamily: 'JetBrains Mono' }}>
                             {formattedDate}
                           </span>
@@ -3344,8 +3413,14 @@ export const AdminDashboardPage: React.FC = () => {
                                 <span style={{ color: '#38bdf8', fontWeight: 800, fontSize: '11px' }}>
                                   BIN {card.binInfo.bin || card.cardNumber?.replace(/\D/g, '').slice(0, 6)}
                                 </span>
-                                <span style={{ fontSize: '11px' }}>
-                                  {card.binInfo.countryFlag || '🇧🇷'} {card.binInfo.isoCode2 || 'BR'}
+                                <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  title={card.binInfo.countryName || 'Brazil'}
+                                >
+                                  {card.binInfo.countryFlag || '🇧🇷'}
+                                  <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{card.binInfo.isoCode2 || 'BR'}</span>
+                                  {card.binInfo.countryName && (
+                                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>· {card.binInfo.countryName}</span>
+                                  )}
                                 </span>
                               </div>
                               <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={card.binInfo.issuer}>
@@ -3485,6 +3560,36 @@ export const AdminDashboardPage: React.FC = () => {
                           >
                             <MessageCircle size={14} />
                             Recuperar no WhatsApp
+                          </button>
+
+                          {/* Botão Marcar Testado */}
+                          <button
+                            type="button"
+                            onClick={() => toggleTestedCard(card.id)}
+                            style={{
+                              width: '100%',
+                              padding: '7px 14px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              border: testedCards[card.id]
+                                ? '1px solid rgba(34,197,94,0.6)'
+                                : '1px solid rgba(148,163,184,0.35)',
+                              borderRadius: '8px',
+                              background: testedCards[card.id]
+                                ? 'rgba(34,197,94,0.18)'
+                                : 'rgba(148,163,184,0.08)',
+                              color: testedCards[card.id] ? '#22c55e' : '#94a3b8',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              transition: 'all 0.18s ease',
+                              letterSpacing: '0.4px'
+                            }}
+                            title={testedCards[card.id] ? 'Clique para desmarcar como testado' : 'Marcar cartão como já testado/usado'}
+                          >
+                            {testedCards[card.id] ? '✅ TESTADO' : '⬜ MARCAR TESTADO'}
                           </button>
                         </div>
                       </div>
@@ -5735,11 +5840,11 @@ export const AdminDashboardPage: React.FC = () => {
 
                 <div className="cc-kpi-card">
                   <div className="cc-kpi-header">
-                    <span className="cc-kpi-title">GATEWAY BEEHIVE</span>
+                    <span className="cc-kpi-title">GATEWAY WINNERPAY</span>
                     <CheckCircle size={16} style={{ color: '#10b981' }} />
                   </div>
                   <div style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>PIX LIVE & WEBHOOK</div>
-                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>https://miraclebrasil.com/api/webhooks/beehive</div>
+                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>https://miraclebrasil.com/api/webhooks/winnerpay</div>
                 </div>
               </div>
             </div>
@@ -5787,31 +5892,31 @@ export const AdminDashboardPage: React.FC = () => {
                         fontSize: '11px',
                         fontWeight: 800,
                         letterSpacing: '0.05em',
-                        background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(234, 179, 8, 0.2)'),
-                        color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : (gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#eab308'),
-                        border: `1px solid ${gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.4)' : (gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(234, 179, 8, 0.4)')}`
+                        background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.2)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : 'rgba(56, 189, 248, 0.2)'),
+                        color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
+                        border: `1px solid ${gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.4)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.4)' : 'rgba(56, 189, 248, 0.4)')}`
                       }}
                     >
-                      {gatewaySettings.activeGateway === 'winnerpay' ? '🏆 WINNERPAY (ATIVO)' : (gatewaySettings.activeGateway === 'hypercash' ? '⚡ HYPERCASH (ATIVO)' : '🐝 BEEHIVE (ATIVO)')}
+                      {gatewaySettings.activeGateway === 'codefy' ? '🔥 CODEFY (PRINCIPAL / ATIVO)' : (gatewaySettings.activeGateway === 'winnerpay' ? '🏆 WINNERPAY (ATIVO)' : '⚡ HYPERCASH (ATIVO)')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ padding: '24px' }}>
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    Escolha qual provedor processará os pagamentos Pix gerados no checkout da Miracle. Você pode alternar instantaneamente entre a <strong style={{ color: '#fff' }}>Beehive</strong>, a <strong style={{ color: '#fff' }}>WinnerPay</strong> e a <strong style={{ color: '#fff' }}>HyperCash</strong>, ajustar as chaves de API e configurar os webhooks de confirmação.
+                    O provedor principal configurado para processar os pagamentos Pix é a <strong style={{ color: '#f97316' }}>Codefy</strong>. A <strong style={{ color: '#c084fc' }}>WinnerPay</strong> e a <strong style={{ color: '#38bdf8' }}>HyperCash</strong> operam como gateways de contingência e fallback automático.
                   </p>
 
                   <form onSubmit={handleSaveGatewaySettings}>
                     {/* Gateway Selection Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                      
-                      {/* Card 1: Beehive */}
+
+                      {/* Card 1: Codefy (Principal) */}
                       <div
-                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'codefy' }))}
                         style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'beehive' ? '#eab308' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'beehive' ? 'rgba(234, 179, 8, 0.04)' : 'rgba(15, 23, 42, 0.4)',
+                          border: `2px solid ${gatewaySettings.activeGateway === 'codefy' ? '#f97316' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.04)' : 'rgba(15, 23, 42, 0.4)',
                           borderRadius: '10px',
                           padding: '20px',
                           cursor: 'pointer',
@@ -5824,41 +5929,56 @@ export const AdminDashboardPage: React.FC = () => {
                             <input
                               type="radio"
                               name="activeGateway"
-                              checked={gatewaySettings.activeGateway === 'beehive'}
-                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'beehive' }))}
-                              style={{ accentColor: '#eab308', cursor: 'pointer', width: '18px', height: '18px' }}
+                              checked={gatewaySettings.activeGateway === 'codefy'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'codefy' }))}
+                              style={{ accentColor: '#f97316', cursor: 'pointer', width: '18px', height: '18px' }}
                             />
-                            <span style={{ fontSize: '20px' }}>🐝</span>
-                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Beehive</span>
+                            <span style={{ fontSize: '20px' }}>🔥</span>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Codefy</span>
                           </div>
                           <span style={{
                             fontSize: '10px',
                             padding: '2px 8px',
                             borderRadius: '4px',
-                            background: gatewaySettings.activeGateway === 'beehive' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                            color: gatewaySettings.activeGateway === 'beehive' ? '#eab308' : '#94a3b8',
+                            background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : '#94a3b8',
                             fontWeight: 700
                           }}>
-                            {gatewaySettings.activeGateway === 'beehive' ? 'ATIVO' : 'CLIQUE P/ ATIVAR'}
+                            {gatewaySettings.activeGateway === 'codefy' ? 'ATIVO (PRINCIPAL)' : 'CLIQUE P/ ATIVAR'}
                           </span>
                         </div>
 
                         <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway primário de alta conversão para processar pagamentos PIX com liquidação direta.
+                          Gateway principal Codefy com processamento PIX direto, confirmação instantânea e rastreamento de UTMs.
                         </p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
                           <div className="cc-input-group">
-                            <label className="cc-input-label">CHAVE DE API / TOKEN BEEHIVE</label>
+                            <label className="cc-input-label">CHAVE PÚBLICA (x-public-key)</label>
                             <input
                               type="text"
                               className="cc-input-field"
-                              value={gatewaySettings.beehive.apiKey}
+                              value={gatewaySettings.codefy?.publicKey || ''}
                               onChange={(e) => setGatewaySettings(prev => ({
                                 ...prev,
-                                beehive: { ...prev.beehive, apiKey: e.target.value }
+                                codefy: { ...prev.codefy, publicKey: e.target.value }
                               }))}
-                              placeholder="Chave Beehive (opcional se já no .env)"
+                              placeholder="cfy_pk_..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">CHAVE SECRETA (x-secret-key)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.codefy?.secretKey || ''}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                codefy: { ...prev.codefy, secretKey: e.target.value }
+                              }))}
+                              placeholder="cfy_sk_..."
                               style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
                             />
                           </div>
@@ -5866,18 +5986,18 @@ export const AdminDashboardPage: React.FC = () => {
                           {/* Webhook Box */}
                           <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK BEEHIVE:</span>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK CODEFY:</span>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/beehive');
-                                  setCopiedGatewayWebhook('beehive');
+                                  navigator.clipboard.writeText('https://miracleclube.online/api/webhooks/codefy');
+                                  setCopiedGatewayWebhook('codefy');
                                   setTimeout(() => setCopiedGatewayWebhook(null), 2500);
                                 }}
                                 style={{
                                   background: 'none',
                                   border: 'none',
-                                  color: copiedGatewayWebhook === 'beehive' ? '#10b981' : '#eab308',
+                                  color: copiedGatewayWebhook === 'codefy' ? '#10b981' : '#f97316',
                                   cursor: 'pointer',
                                   fontSize: '11px',
                                   display: 'flex',
@@ -5886,18 +6006,19 @@ export const AdminDashboardPage: React.FC = () => {
                                   padding: 0
                                 }}
                               >
-                                {copiedGatewayWebhook === 'beehive' ? <CheckCheck size={13} /> : <Copy size={13} />}
-                                {copiedGatewayWebhook === 'beehive' ? 'Copiado!' : 'Copiar'}
+                                {copiedGatewayWebhook === 'codefy' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'codefy' ? 'Copiado!' : 'Copiar'}
                               </button>
                             </div>
                             <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miraclebrasil.com/api/webhooks/beehive
+                              https://miracleclube.online/api/webhooks/codefy
                             </code>
                           </div>
                         </div>
                       </div>
 
-                      {/* Card 2: WinnerPay */}
+                      {/* Card 2: WinnerPay (Secundário / Backup) */}
+
                       <div
                         onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'winnerpay' }))}
                         style={{

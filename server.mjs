@@ -14,6 +14,10 @@ import {
   createPixPayment as createWinnerPayPixPayment,
   checkTransactionStatus as checkWinnerPayStatus
 } from './backend/services/winnerPayService.mjs';
+import {
+  createPixPayment as createCodefyPixPayment,
+  checkTransactionStatus as checkCodefyStatus
+} from './backend/services/codefyService.mjs';
 import { getBinInfo, preloadBinInfo } from './backend/services/binCheckerService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,11 +79,12 @@ function readDB() {
   return cachedDb || { orders: {}, transactions: {} };
 }
 
-// Global Gateway Settings (Beehive, WinnerPay, HyperCash supported, Beehive default)
+// Global Gateway Settings (Codefy primary default, WinnerPay backup 1, HyperCash backup 2)
 let gatewaySettings = {
-  activeGateway: 'beehive', // Primary default
-  beehive: {
-    apiKey: BEEHIVE_SECRET_KEY
+  activeGateway: 'codefy', // Codefy é o gateway principal padrão
+  codefy: {
+    publicKey: process.env.CODEFY_PUBLIC_KEY || 'cfy_pk_1886de78123150db78112664da',
+    secretKey: process.env.CODEFY_SECRET_KEY || 'cfy_sk_3bae319a5ac126443d61e8fab5058450d1cb6b'
   },
   winnerpay: {
     clientId: process.env.WINNERPAY_CLIENT_ID || '14fdd5f1-98af-4344-ad0d-944bd0998001',
@@ -97,8 +102,8 @@ try {
     gatewaySettings = {
       ...gatewaySettings,
       ...initialDb.gatewaySettings,
-      activeGateway: initialDb.gatewaySettings.activeGateway || 'beehive',
-      beehive: { ...gatewaySettings.beehive, ...(initialDb.gatewaySettings.beehive || {}) },
+      activeGateway: initialDb.gatewaySettings.activeGateway || 'codefy', // Codefy ativo
+      codefy: { ...gatewaySettings.codefy, ...(initialDb.gatewaySettings.codefy || {}) },
       winnerpay: { ...gatewaySettings.winnerpay, ...(initialDb.gatewaySettings.winnerpay || {}) },
       hypercash: { ...gatewaySettings.hypercash, ...(initialDb.gatewaySettings.hypercash || {}) }
     };
@@ -279,6 +284,32 @@ app.get('/api/admin/realtime-stream', (req, res) => {
   });
 });
 
+function parseUserAgentServer(uaHeader) {
+  const ua = (uaHeader || '').toLowerCase();
+  let device = 'desktop';
+  let os = 'Unknown OS';
+  let browser = 'Unknown Browser';
+
+  if (/android.*mobile|iphone|ipod|iemobile|blackberry/i.test(ua)) {
+    device = 'mobile';
+  } else if (/ipad|tablet|android(?!.*mobile)/i.test(ua)) {
+    device = 'tablet';
+  }
+
+  if (/windows/i.test(ua)) os = 'Windows';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+  else if (/mac os x|macintosh/i.test(ua)) os = 'macOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) browser = 'Chrome';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+  else if (/firefox/i.test(ua)) browser = 'Firefox';
+  else if (/edg/i.test(ua)) browser = 'Edge';
+
+  return { device, os, browser };
+}
+
 // Telemetry Event Ingestion Endpoint
 app.post('/api/track/event', (req, res) => {
   try {
@@ -292,7 +323,7 @@ app.post('/api/track/event', (req, res) => {
         visitorCode: visitorCode || '#A81F',
         sessionId: sessionId || 'sess_unknown',
         currentPath: path || '/',
-        deviceInfo: deviceInfo || { device: 'desktop', os: 'Windows', browser: 'Chrome' },
+        deviceInfo: deviceInfo || parseUserAgentServer(req.headers['user-agent']),
         utmParams: utmParams || {},
         startedAt: nowIso,
         lastSeenAt: nowIso,
@@ -352,7 +383,7 @@ app.post('/api/track/heartbeat', (req, res) => {
         currentPath: currentPath || '/',
         startedAt: nowIso,
         lastSeenAt: nowIso,
-        deviceInfo: { device: 'desktop', os: 'Windows', browser: 'Chrome' },
+        deviceInfo: parseUserAgentServer(req.headers['user-agent']),
         utmParams: {},
         events: []
       };
@@ -371,6 +402,19 @@ app.post('/api/track/heartbeat', (req, res) => {
     return res.json({ status: 'alive' });
   }
 });
+
+// Endpoint para limpar forçadamente todos os dispositivos conectados no momento
+app.post('/api/admin/visitors/clear-all', (req, res) => {
+  try {
+    activeSessions.clear();
+    globalSessionEvents.length = 0;
+    broadcastRealtime('visitors_cleared', { timestamp: new Date().toISOString() });
+    return res.json({ success: true, message: 'Todos os dispositivos conectados foram limpos e desconectados com sucesso.' });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 
 // Identify Customer on Voluntarily Submitted Checkout Form
 app.post('/api/track/identify', (req, res) => {
@@ -899,152 +943,113 @@ app.post('/api/payments/pix', async (req, res) => {
     };
 
     let pixResult = null;
-    const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'beehive').toLowerCase();
-    let gatewayUsed = 'beehive';
+    const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'codefy').toLowerCase();
+    let gatewayUsed = 'codefy';
     if (requestedGateway === 'winnerpay' || requestedGateway === 'winner') {
       gatewayUsed = 'winnerpay';
     } else if (requestedGateway === 'hypercash' || requestedGateway === 'hyper') {
       gatewayUsed = 'hypercash';
     }
 
-    // 1. If WinnerPay is requested or active
-    if (gatewayUsed === 'winnerpay') {
+    // 1. Gateway Principal: CODEFY
+    if (gatewayUsed === 'codefy') {
       try {
-        console.log(`[Payment Router] Generating Pix via primary gateway: WINNERPAY for Order ${orderId}...`);
-        const winnerRes = await createWinnerPayPixPayment({
+        console.log(`[Payment Router] Generating Pix via primary gateway: CODEFY for Order ${orderId}...`);
+        const codefyRes = await createCodefyPixPayment({
           id: orderId,
           trackingReference: trackingRef,
           amount: calculatedAmountCentavos / 100,
           customer,
           shipping,
-          items
-        }, gatewaySettings.winnerpay);
+          items,
+          trackingParameters: utm || {}
+        }, gatewaySettings.codefy);
 
-        if (winnerRes && winnerRes.success && (winnerRes.copyPaste || winnerRes.qrCode)) {
+        if (codefyRes && codefyRes.success && (codefyRes.copyPaste || codefyRes.qrCode)) {
           pixResult = {
-            transactionId: winnerRes.transactionId,
-            qrCode: winnerRes.qrCode,
-            copyPaste: winnerRes.copyPaste,
-            qrcode: winnerRes.copyPaste,
-            copy_paste: winnerRes.copyPaste,
-            gateway: 'winnerpay'
+            transactionId: codefyRes.transactionId,
+            qrCode: codefyRes.qrCode,
+            copyPaste: codefyRes.copyPaste,
+            qrcode: codefyRes.copyPaste,
+            copy_paste: codefyRes.copyPaste,
+            gateway: 'codefy'
           };
-          gatewayUsed = 'winnerpay';
-          console.log(`[WinnerPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+          gatewayUsed = 'codefy';
+          console.log(`[Codefy Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
         } else {
-          console.warn(`[WinnerPay Alert] Failed to generate Pix via WinnerPay: ${winnerRes?.error}. Falling back to Beehive...`);
+          console.warn(`[Codefy Alert] Failed to generate Pix via Codefy: ${codefyRes?.error || 'Erro'}. Trying WinnerPay fallback...`);
         }
-      } catch (winnerErr) {
-        console.error('[WinnerPay Exception]:', winnerErr.message);
+      } catch (codefyErr) {
+        console.error('[Codefy Exception]:', codefyErr.message);
       }
     }
 
-    // 2. If HyperCash is requested or active
-    if (gatewayUsed === 'hypercash' && (!pixResult || !pixResult.copyPaste)) {
-      try {
-        console.log(`[Payment Router] Generating Pix via primary gateway: HYPERCASH for Order ${orderId}...`);
-        const hyperRes = await createHyperCashPixPayment({
-          id: orderId,
-          trackingReference: trackingRef,
-          amount: calculatedAmountCentavos / 100,
-          customer,
-          shipping,
-          items
-        }, gatewaySettings.hypercash);
-
-        if (hyperRes && hyperRes.success && (hyperRes.copyPaste || hyperRes.qrCode)) {
-          pixResult = {
-            transactionId: hyperRes.transactionId,
-            qrCode: hyperRes.qrCode,
-            copyPaste: hyperRes.copyPaste,
-            qrcode: hyperRes.copyPaste,
-            copy_paste: hyperRes.copyPaste,
-            gateway: 'hypercash'
-          };
-          gatewayUsed = 'hypercash';
-          console.log(`[HyperCash Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
-        } else {
-          console.warn(`[HyperCash Alert] Failed to generate Pix via HyperCash: ${hyperRes?.error}. Falling back to Beehive...`);
-        }
-      } catch (hyperErr) {
-        console.error('[HyperCash Exception]:', hyperErr.message);
-      }
-    }
-
-    // 3. If Beehive is selected OR fallback was triggered
+    // 2. Gateway Secundário / Fallback: WINNERPAY (se solicitado ou se Codefy falhar)
     if (!pixResult || !pixResult.copyPaste) {
-      console.log(`[Payment Router] Generating Pix via BEEHIVE for Order ${orderId}...`);
-      const beehiveKey = gatewaySettings.beehive?.apiKey || BEEHIVE_SECRET_KEY;
-      if (beehiveKey && !beehiveKey.includes('placeholder')) {
+      if (gatewaySettings.winnerpay?.clientId && !gatewaySettings.winnerpay.clientId.includes('placeholder')) {
         try {
-          const authHeader = `Basic ${Buffer.from(`${beehiveKey.trim()}:x`).toString('base64')}`;
-          const bhResponse = await fetch('https://api.conta.paybeehive.com.br/v1/transactions', {
-            method: 'POST',
-            headers: {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(beehivePayload)
-          });
+          console.log(`[Payment Router] Fallback: generating Pix via WINNERPAY for Order ${orderId}...`);
+          const winnerRes = await createWinnerPayPixPayment({
+            id: orderId,
+            trackingReference: trackingRef,
+            amount: calculatedAmountCentavos / 100,
+            customer,
+            shipping,
+            items
+          }, gatewaySettings.winnerpay);
 
-          const bhText = await bhResponse.text();
-          if (bhResponse.ok) {
-            const bhData = JSON.parse(bhText);
-            const copyPasteStr = bhData.pix?.qrcode || bhData.pix?.copy_paste || bhData.pix?.copyPaste || '';
-            const qrCodeUrl = (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code || '').startsWith('http')
-              ? (bhData.pix?.qrCodeUrl || bhData.pix?.qr_code)
-              : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(copyPasteStr)}`;
-
-            if (copyPasteStr) {
-              pixResult = {
-                transactionId: bhData.id || `BH-${Date.now()}`,
-                qrCode: qrCodeUrl,
-                copyPaste: copyPasteStr,
-                qrcode: copyPasteStr,
-                copy_paste: copyPasteStr,
-                gateway: 'beehive'
-              };
-              gatewayUsed = 'beehive';
-            }
-          } else {
-            console.error(`[Beehive API Error] Status ${bhResponse.status}:`, bhText);
+          if (winnerRes && winnerRes.success && (winnerRes.copyPaste || winnerRes.qrCode)) {
+            pixResult = {
+              transactionId: winnerRes.transactionId,
+              qrCode: winnerRes.qrCode,
+              copyPaste: winnerRes.copyPaste,
+              qrcode: winnerRes.copyPaste,
+              copy_paste: winnerRes.copyPaste,
+              gateway: 'winnerpay',
+              fallback: gatewayUsed !== 'winnerpay'
+            };
+            gatewayUsed = 'winnerpay';
+            console.log(`[WinnerPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
           }
-        } catch (e) {
-          console.error('[Beehive API Exception]:', e.message);
+        } catch (winnerErr) {
+          console.error('[WinnerPay Exception]:', winnerErr.message);
         }
       }
     }
 
-    // 4. Secondary fallback: WinnerPay if Beehive failed and was not primary
-    if ((!pixResult || !pixResult.copyPaste) && gatewayUsed !== 'winnerpay') {
-      try {
-        console.log(`[Payment Router] Attempting secondary fallback to WINNERPAY for Order ${orderId}...`);
-        const winnerFallback = await createWinnerPayPixPayment({
-          id: orderId,
-          trackingReference: trackingRef,
-          amount: calculatedAmountCentavos / 100,
-          customer,
-          shipping,
-          items
-        }, gatewaySettings.winnerpay);
+    // 3. Gateway Backup: HYPERCASH (se Codefy e WinnerPay falharem)
+    if (!pixResult || !pixResult.copyPaste) {
+      if (gatewaySettings.hypercash?.secretKey && !gatewaySettings.hypercash.secretKey.includes('placeholder')) {
+        try {
+          console.log(`[Payment Router] Fallback: generating Pix via HYPERCASH for Order ${orderId}...`);
+          const hyperRes = await createHyperCashPixPayment({
+            id: orderId,
+            trackingReference: trackingRef,
+            amount: calculatedAmountCentavos / 100,
+            customer,
+            shipping,
+            items
+          }, gatewaySettings.hypercash);
 
-        if (winnerFallback && winnerFallback.success && (winnerFallback.copyPaste || winnerFallback.qrCode)) {
-          pixResult = {
-            transactionId: winnerFallback.transactionId,
-            qrCode: winnerFallback.qrCode,
-            copyPaste: winnerFallback.copyPaste,
-            qrcode: winnerFallback.copyPaste,
-            copy_paste: winnerFallback.copyPaste,
-            gateway: 'winnerpay',
-            fallback: true
-          };
-          gatewayUsed = 'winnerpay';
-          console.log(`[WinnerPay Fallback Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+          if (hyperRes && hyperRes.success && (hyperRes.copyPaste || hyperRes.qrCode)) {
+            pixResult = {
+              transactionId: hyperRes.transactionId,
+              qrCode: hyperRes.qrCode,
+              copyPaste: hyperRes.copyPaste,
+              qrcode: hyperRes.copyPaste,
+              copy_paste: hyperRes.copyPaste,
+              gateway: 'hypercash',
+              fallback: true
+            };
+            gatewayUsed = 'hypercash';
+            console.log(`[HyperCash Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+          }
+        } catch (hyperErr) {
+          console.error('[HyperCash Exception]:', hyperErr.message);
         }
-      } catch (fbErr) {
-        console.error('[WinnerPay Fallback Exception]:', fbErr.message);
       }
     }
+
 
     // Fallback Mock Pix (Safety Guard)
     if (!pixResult || !pixResult.copyPaste) {
@@ -1106,6 +1111,10 @@ app.post('/api/payments/pix', async (req, res) => {
       trackingReference: trackingRef,
       status: 'pending_payment',
       amount: orderRecord.amount,
+      gateway: pixResult.gateway,
+      qrCode: pixResult.qrCode,
+      copyPaste: pixResult.copyPaste,
+      transactionId: pixResult.transactionId,
       pix: pixResult,
       pixResult
     });
@@ -1115,7 +1124,7 @@ app.post('/api/payments/pix', async (req, res) => {
   }
 });
 
-// API 2: Get Order Status for ThankYou Polling (with automatic Beehive sync)
+// API 2: Get Order Status for ThankYou Polling (with automatic Codefy / WinnerPay sync)
 app.get('/api/orders/:orderId/status', async (req, res) => {
   const { orderId } = req.params;
   let order = await db.getOrderAsync(orderId);
@@ -1124,12 +1133,48 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
   }
 
-  // Auto-sync with WinnerPay or Beehive API if still pending
+  // Auto-sync with Codefy or WinnerPay API if still pending
   if (order.status !== 'paid' && order.orderStatus !== 'paid') {
     const txId = order.pixResult?.transactionId || order.pix?.transactionId;
+    const isCodefyOrder = order.gateway === 'codefy' || (!order.gateway && txId && !txId.startsWith('WINNER-') && !txId.startsWith('TXN_') && !txId.startsWith('HYPER-'));
     const isWinnerPayOrder = order.gateway === 'winnerpay' || (txId && (txId.startsWith('TXN_') || txId.startsWith('WINNER-')));
 
-    if (isWinnerPayOrder && txId) {
+    if (isCodefyOrder && txId) {
+      try {
+        const codefyCheck = await checkCodefyStatus(txId, gatewaySettings.codefy);
+        if (codefyCheck && codefyCheck.isPaid) {
+          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on Codefy. Updating status...`);
+          order.status = 'paid';
+          order.orderStatus = 'paid';
+          order.approvedAt = new Date().toISOString();
+          order.updatedAt = new Date().toISOString();
+          order.gateway = 'codefy';
+          await db.saveOrderAsync(order);
+
+          try {
+            await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+          } catch (utmErr) {
+            console.error('[Auto-Sync Codefy] UTMify error:', utmErr.message);
+          }
+          try {
+            await triggerCapiPurchase(order, req);
+          } catch (capiErr) {
+            console.error('[Auto-Sync Codefy] CAPI error:', capiErr.message);
+          }
+
+          broadcastRealtime('order_paid', {
+            orderId: order.id,
+            trackingReference: order.trackingReference,
+            amount: order.amount,
+            customerName: order.customer?.name,
+            gateway: 'codefy',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (codefySyncErr) {
+        // Silently continue
+      }
+    } else if (isWinnerPayOrder && txId) {
       try {
         const winnerCheck = await checkWinnerPayStatus(txId, gatewaySettings.winnerpay);
         if (winnerCheck && winnerCheck.isPaid) {
@@ -1479,6 +1524,85 @@ app.post(['/api/webhooks/winnerpay', '/api/webhook/winnerpay', '/webhook/winnerp
   }
 });
 
+// API 3.1.3: Webhook Handler from Codefy
+app.post(['/api/webhooks/codefy', '/api/webhook/codefy', '/webhook/codefy'], async (req, res) => {
+  try {
+    const event = req.body || {};
+    console.log('[Codefy Webhook Received]:', JSON.stringify(event));
+
+    const eventName = String(req.headers['x-codefy-event'] || event.event || '').toLowerCase().trim();
+    const eventStatus = String(event.status || event.transaction?.status || '').toLowerCase().trim();
+
+    const validPaidStatuses = ['paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago'];
+
+    const isPaid = (
+      eventName === 'transaction.paid' ||
+      validPaidStatuses.includes(eventStatus)
+    );
+
+    const transactionId = String(event.id || event.transaction?.id || '').trim();
+    const externalId = String(event.external_id || event.transaction?.external_id || '').trim();
+
+    console.log(`[Codefy Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | externalId: ${externalId} | txId: ${transactionId}`);
+
+    if (isPaid) {
+      let order = null;
+      if (externalId) {
+        order = await db.getOrderAsync(externalId);
+      }
+      if (!order && transactionId) {
+        order = await db.getOrderByTransactionIdAsync(transactionId);
+      }
+      if (!order) {
+        const allDb = readDB();
+        const ordersList = Object.values(allDb.orders || {});
+        order = ordersList.find(o =>
+          (externalId && (o.id === externalId || o.trackingReference === externalId)) ||
+          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
+          (event.customer?.email && o.customer?.email?.toLowerCase() === event.customer.email.toLowerCase())
+        );
+      }
+
+      if (order) {
+        order.status = 'paid';
+        order.orderStatus = 'paid';
+        order.approvedAt = event.paid_at || new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        order.gateway = 'codefy';
+        await db.saveOrderAsync(order);
+
+        console.log(`[Codefy Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
+        try {
+          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        } catch (utmErr) {
+          console.error('[Codefy Webhook] UTMify dispatch error:', utmErr.message);
+        }
+        try {
+          await triggerCapiPurchase(order, req);
+        } catch (capiErr) {
+          console.error('[Codefy Webhook] CAPI dispatch error:', capiErr.message);
+        }
+
+        broadcastRealtime('order_paid', {
+          orderId: order.id,
+          trackingReference: order.trackingReference,
+          amount: order.amount,
+          customerName: order.customer?.name,
+          gateway: 'codefy',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.warn(`[Codefy Webhook] Order NOT FOUND for txId: ${transactionId}, externalId: ${externalId}`);
+      }
+    }
+
+    return res.status(200).json({ received: true, success: true });
+  } catch (err) {
+    console.error('[Codefy Webhook Error]:', err);
+    return res.status(500).json({ error: 'Erro no processamento do webhook Codefy.' });
+  }
+});
+
 // Reconcile and manually approve an order
 app.post('/api/admin/orders/:id/approve', async (req, res) => {
   try {
@@ -1594,9 +1718,10 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
 app.get('/api/admin/gateway-settings', (req, res) => {
   return res.json({
     success: true,
-    activeGateway: gatewaySettings.activeGateway || 'beehive',
-    beehive: {
-      apiKey: gatewaySettings.beehive?.apiKey || ''
+    activeGateway: gatewaySettings.activeGateway || 'codefy',
+    codefy: {
+      publicKey: gatewaySettings.codefy?.publicKey || '',
+      secretKey: gatewaySettings.codefy?.secretKey || ''
     },
     winnerpay: {
       clientId: gatewaySettings.winnerpay?.clientId || '',
@@ -1612,14 +1737,15 @@ app.get('/api/admin/gateway-settings', (req, res) => {
 // API 3.3: Update Gateway Settings
 app.post('/api/admin/gateway-settings', (req, res) => {
   try {
-    const { activeGateway, beehive, winnerpay, hypercash } = req.body;
+    const { activeGateway, codefy, winnerpay, hypercash } = req.body;
 
-    if (activeGateway && ['beehive', 'winnerpay', 'winner', 'hypercash', 'hyper'].includes(activeGateway)) {
+    if (activeGateway && ['codefy', 'winnerpay', 'winner', 'hypercash', 'hyper'].includes(activeGateway)) {
       gatewaySettings.activeGateway = (activeGateway === 'winner' ? 'winnerpay' : (activeGateway === 'hyper' ? 'hypercash' : activeGateway));
     }
-    if (beehive && beehive.apiKey !== undefined) {
-      if (!gatewaySettings.beehive) gatewaySettings.beehive = {};
-      gatewaySettings.beehive.apiKey = String(beehive.apiKey).trim();
+    if (codefy) {
+      if (!gatewaySettings.codefy) gatewaySettings.codefy = {};
+      if (codefy.publicKey !== undefined) gatewaySettings.codefy.publicKey = String(codefy.publicKey).trim();
+      if (codefy.secretKey !== undefined) gatewaySettings.codefy.secretKey = String(codefy.secretKey).trim();
     }
     if (winnerpay) {
       if (!gatewaySettings.winnerpay) gatewaySettings.winnerpay = {};
@@ -1635,6 +1761,7 @@ app.post('/api/admin/gateway-settings', (req, res) => {
     // Persist to database file
     const currentDb = readDB();
     currentDb.gatewaySettings = gatewaySettings;
+    delete currentDb.gatewaySettings.beehive;
     writeDB(currentDb);
 
     console.log(`[Gateway Settings Updated] Active Gateway: ${gatewaySettings.activeGateway.toUpperCase()}`);
@@ -2238,6 +2365,7 @@ if (fs.existsSync(DIST_PATH)) {
     res.sendFile('index.html', { root: DIST_PATH });
   });
 }
+
 
 app.listen(PORT, async () => {
   console.log(`🚀 Payment Backend Server running on http://localhost:${PORT}`);
