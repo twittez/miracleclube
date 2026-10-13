@@ -25,7 +25,7 @@ export async function createPixPayment(order, credentials = {}) {
   const rawAmount = Number(order.amount || 87.90);
   const cleanCpf = String(order.customer?.cpf || '').replace(/\D/g, '') || '05698635200';
   const customerName = String(order.customer?.name || 'Cliente Miracle').trim();
-  const customerEmail = String(order.customer?.email || 'cliente@miracleclube.online').trim();
+  const customerEmail = String(order.customer?.email || 'cliente@miraclebrasil.com').trim();
   const orderId = String(order.id || order.orderId || `ORD-${Date.now()}`);
 
   const phoneDigits = String(order.customer?.phone || '').replace(/\D/g, '');
@@ -44,9 +44,9 @@ export async function createPixPayment(order, credentials = {}) {
   const payload = {
     amount: Number(rawAmount.toFixed(2)),
     description: `Cinta Modeladora Miracle Pedido ${orderId}`,
-    origin_url: 'https://miracleclube.online',
+    origin_url: 'https://miraclebrasil.com',
     external_id: orderId,
-    callbackUrl: 'https://miracleclube.online/api/webhooks/codefy',
+    callbackUrl: 'https://miraclebrasil.com/api/webhooks/codefy',
     customer: {
       name: customerName,
       cpf: cleanCpf,

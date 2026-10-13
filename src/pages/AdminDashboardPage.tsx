@@ -5990,7 +5990,7 @@ export const AdminDashboardPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigator.clipboard.writeText('https://miracleclube.online/api/webhooks/codefy');
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/codefy');
                                   setCopiedGatewayWebhook('codefy');
                                   setTimeout(() => setCopiedGatewayWebhook(null), 2500);
                                 }}
@@ -6011,7 +6011,7 @@ export const AdminDashboardPage: React.FC = () => {
                               </button>
                             </div>
                             <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miracleclube.online/api/webhooks/codefy
+                              https://miraclebrasil.com/api/webhooks/codefy
                             </code>
                           </div>
                         </div>
