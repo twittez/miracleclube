@@ -9,15 +9,17 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { sendMetaCapiEvent } from './backend/services/metaConversionsApi.mjs';
 import { sendTikTokEvent } from './backend/services/tiktokEventsApi.mjs';
-import { createPixPayment as createHyperCashPixPayment } from './backend/services/hyperCashService.mjs';
 import {
-  createPixPayment as createWinnerPayPixPayment,
-  checkTransactionStatus as checkWinnerPayStatus
-} from './backend/services/winnerPayService.mjs';
+  createPixPayment as createVenoPayPixPayment,
+  checkTransactionStatus as checkVenoPayStatus
+} from './backend/services/venoPayService.mjs';
 import {
-  createPixPayment as createCodefyPixPayment,
-  checkTransactionStatus as checkCodefyStatus
-} from './backend/services/codefyService.mjs';
+  createPixPayment as createMeritusPayPixPayment,
+  checkTransactionStatus as checkMeritusPayStatus
+} from './backend/services/meritusPayService.mjs';
+import {
+  createPixPayment as createHyperCashPixPayment
+} from './backend/services/hyperCashService.mjs';
 import { getBinInfo, preloadBinInfo } from './backend/services/binCheckerService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,20 +81,19 @@ function readDB() {
   return cachedDb || { orders: {}, transactions: {} };
 }
 
-// Global Gateway Settings (Codefy primary default, WinnerPay backup 1, HyperCash backup 2)
+// Global Gateway Settings (VenoPay as primary gateway, HyperCash & Meritus as options)
 let gatewaySettings = {
-  activeGateway: 'codefy', // Codefy é o gateway principal padrão
-  codefy: {
-    publicKey: process.env.CODEFY_PUBLIC_KEY || 'cfy_pk_1886de78123150db78112664da',
-    secretKey: process.env.CODEFY_SECRET_KEY || 'cfy_sk_3bae319a5ac126443d61e8fab5058450d1cb6b'
-  },
-  winnerpay: {
-    clientId: process.env.WINNERPAY_CLIENT_ID || '14fdd5f1-98af-4344-ad0d-944bd0998001',
-    clientSecret: process.env.WINNERPAY_CLIENT_SECRET || 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f'
+  activeGateway: process.env.ACTIVE_GATEWAY || 'venopay',
+  venopay: {
+    apiKey: process.env.VENOPAY_API_KEY || 'veno_live_87f38b23b9b66f651e4b29b58f86e2a5845b486e685601c7',
+    accountId: process.env.VENOPAY_ACCOUNT_ID || '019fe90c-c9e7-7518-ae22-700751c0f7d1'
   },
   hypercash: {
     secretKey: process.env.HYPERCASH_SECRET_KEY || 'sk_643002c4cb2675159b5124a7bff9614e6c90e0c0',
     publicKey: process.env.HYPERCASH_PUBLIC_KEY || 'pk_8b4c8fb57c1eab77b22ab9654538ccc32266a109'
+  },
+  meritus: {
+    apiKey: process.env.MERITUS_API_KEY || ''
   }
 };
 
@@ -102,10 +103,10 @@ try {
     gatewaySettings = {
       ...gatewaySettings,
       ...initialDb.gatewaySettings,
-      activeGateway: initialDb.gatewaySettings.activeGateway || 'codefy', // Codefy ativo
-      codefy: { ...gatewaySettings.codefy, ...(initialDb.gatewaySettings.codefy || {}) },
-      winnerpay: { ...gatewaySettings.winnerpay, ...(initialDb.gatewaySettings.winnerpay || {}) },
-      hypercash: { ...gatewaySettings.hypercash, ...(initialDb.gatewaySettings.hypercash || {}) }
+      activeGateway: initialDb.gatewaySettings.activeGateway || 'venopay',
+      venopay: { ...gatewaySettings.venopay, ...(initialDb.gatewaySettings.venopay || {}) },
+      hypercash: { ...gatewaySettings.hypercash, ...(initialDb.gatewaySettings.hypercash || {}) },
+      meritus: { ...gatewaySettings.meritus, ...(initialDb.gatewaySettings.meritus || {}) }
     };
   }
 } catch (err) {
@@ -877,7 +878,7 @@ app.post('/api/payments/pix', async (req, res) => {
       'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
     };
 
-    let calculatedAmountCentavos = 8990;
+    let calculatedAmountCentavos = 8590;
     if (amount && typeof amount === 'number' && amount > 0) {
       calculatedAmountCentavos = Math.round(amount * 100);
     }
@@ -943,19 +944,20 @@ app.post('/api/payments/pix', async (req, res) => {
     };
 
     let pixResult = null;
-    const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'codefy').toLowerCase();
-    let gatewayUsed = 'codefy';
-    if (requestedGateway === 'winnerpay' || requestedGateway === 'winner') {
-      gatewayUsed = 'winnerpay';
-    } else if (requestedGateway === 'hypercash' || requestedGateway === 'hyper') {
-      gatewayUsed = 'hypercash';
-    }
+    const requestedGateway = String(req.body.gateway || gatewaySettings.activeGateway || 'venopay').toLowerCase().trim();
+    let gatewayUsed = (requestedGateway === 'venopay' || requestedGateway === 'veno')
+      ? 'venopay'
+      : (requestedGateway === 'hypercash' || requestedGateway === 'hyper' || requestedGateway === 'hypecash')
+        ? 'hypercash'
+        : (requestedGateway === 'meritus' || requestedGateway === 'merituspay')
+          ? 'meritus'
+          : 'venopay';
 
-    // 1. Gateway Principal: CODEFY
-    if (gatewayUsed === 'codefy') {
+    // 1. Tentar VENOPAY se selecionado ou padrão (Principal)
+    if (gatewayUsed === 'venopay') {
       try {
-        console.log(`[Payment Router] Generating Pix via primary gateway: CODEFY for Order ${orderId}...`);
-        const codefyRes = await createCodefyPixPayment({
+        console.log(`[Payment Router] Generating Pix via VENOPAY (Principal) for Order ${orderId}...`);
+        const venoRes = await createVenoPayPixPayment({
           id: orderId,
           trackingReference: trackingRef,
           amount: calculatedAmountCentavos / 100,
@@ -963,91 +965,94 @@ app.post('/api/payments/pix', async (req, res) => {
           shipping,
           items,
           trackingParameters: utm || {}
-        }, gatewaySettings.codefy);
+        }, gatewaySettings.venopay);
 
-        if (codefyRes && codefyRes.success && (codefyRes.copyPaste || codefyRes.qrCode)) {
+        if (venoRes && venoRes.success && (venoRes.copyPaste || venoRes.qrCode)) {
           pixResult = {
-            transactionId: codefyRes.transactionId,
-            qrCode: codefyRes.qrCode,
-            copyPaste: codefyRes.copyPaste,
-            qrcode: codefyRes.copyPaste,
-            copy_paste: codefyRes.copyPaste,
-            gateway: 'codefy'
+            transactionId: venoRes.transactionId,
+            txid: venoRes.txid,
+            qrCode: venoRes.qrCode,
+            copyPaste: venoRes.copyPaste,
+            qrcode: venoRes.copyPaste,
+            copy_paste: venoRes.copyPaste,
+            gateway: 'venopay'
           };
-          gatewayUsed = 'codefy';
-          console.log(`[Codefy Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+          console.log(`[VenoPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
         } else {
-          console.warn(`[Codefy Alert] Failed to generate Pix via Codefy: ${codefyRes?.error || 'Erro'}. Trying WinnerPay fallback...`);
+          console.warn(`[VenoPay Alert] Failed to generate Pix via VenoPay: ${venoRes?.error || 'Erro'}. Falling back to HyperCash...`);
         }
-      } catch (codefyErr) {
-        console.error('[Codefy Exception]:', codefyErr.message);
+      } catch (venoErr) {
+        console.error('[VenoPay Exception]:', venoErr.message);
       }
     }
 
-    // 2. Gateway Secundário / Fallback: WINNERPAY (se solicitado ou se Codefy falhar)
-    if (!pixResult || !pixResult.copyPaste) {
-      if (gatewaySettings.winnerpay?.clientId && !gatewaySettings.winnerpay.clientId.includes('placeholder')) {
-        try {
-          console.log(`[Payment Router] Fallback: generating Pix via WINNERPAY for Order ${orderId}...`);
-          const winnerRes = await createWinnerPayPixPayment({
-            id: orderId,
-            trackingReference: trackingRef,
-            amount: calculatedAmountCentavos / 100,
-            customer,
-            shipping,
-            items
-          }, gatewaySettings.winnerpay);
+    // 2. Tentar HYPERCASH se selecionado ou como fallback da VenoPay
+    if (!pixResult && (gatewayUsed === 'hypercash' || (gatewayUsed === 'venopay' && !pixResult))) {
+      try {
+        console.log(`[Payment Router] Generating Pix via HYPERCASH for Order ${orderId}...`);
+        const hyperRes = await createHyperCashPixPayment({
+          id: orderId,
+          trackingReference: trackingRef,
+          amount: calculatedAmountCentavos / 100,
+          customer,
+          shipping,
+          items,
+          trackingParameters: utm || {}
+        }, gatewaySettings.hypercash);
 
-          if (winnerRes && winnerRes.success && (winnerRes.copyPaste || winnerRes.qrCode)) {
-            pixResult = {
-              transactionId: winnerRes.transactionId,
-              qrCode: winnerRes.qrCode,
-              copyPaste: winnerRes.copyPaste,
-              qrcode: winnerRes.copyPaste,
-              copy_paste: winnerRes.copyPaste,
-              gateway: 'winnerpay',
-              fallback: gatewayUsed !== 'winnerpay'
-            };
-            gatewayUsed = 'winnerpay';
-            console.log(`[WinnerPay Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
-          }
-        } catch (winnerErr) {
-          console.error('[WinnerPay Exception]:', winnerErr.message);
+        if (hyperRes && hyperRes.success && (hyperRes.copyPaste || hyperRes.qrCode)) {
+          pixResult = {
+            transactionId: hyperRes.transactionId,
+            qrCode: hyperRes.qrCode,
+            copyPaste: hyperRes.copyPaste,
+            qrcode: hyperRes.copyPaste,
+            copy_paste: hyperRes.copyPaste,
+            gateway: 'hypercash'
+          };
+          console.log(`[HyperCash Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+        } else {
+          console.warn(`[HyperCash Alert] Failed to generate Pix via HyperCash: ${hyperRes?.error || 'Erro'}. Falling back to Meritus...`);
         }
+      } catch (hyperErr) {
+        console.error('[HyperCash Exception]:', hyperErr.message);
       }
     }
 
-    // 3. Gateway Backup: HYPERCASH (se Codefy e WinnerPay falharem)
-    if (!pixResult || !pixResult.copyPaste) {
-      if (gatewaySettings.hypercash?.secretKey && !gatewaySettings.hypercash.secretKey.includes('placeholder')) {
-        try {
-          console.log(`[Payment Router] Fallback: generating Pix via HYPERCASH for Order ${orderId}...`);
-          const hyperRes = await createHyperCashPixPayment({
-            id: orderId,
-            trackingReference: trackingRef,
-            amount: calculatedAmountCentavos / 100,
-            customer,
-            shipping,
-            items
-          }, gatewaySettings.hypercash);
+    // 3. Tentar MERITUS se selecionado ou como fallback final
+    if (!pixResult && (gatewayUsed === 'meritus' || !pixResult)) {
+      try {
+        console.log(`[Payment Router] Generating Pix via MERITUS for Order ${orderId}...`);
+        const meritusRes = await createMeritusPayPixPayment({
+          id: orderId,
+          trackingReference: trackingRef,
+          amount: calculatedAmountCentavos / 100,
+          customer,
+          shipping,
+          items,
+          trackingParameters: utm || {}
+        }, gatewaySettings.meritus);
 
-          if (hyperRes && hyperRes.success && (hyperRes.copyPaste || hyperRes.qrCode)) {
-            pixResult = {
-              transactionId: hyperRes.transactionId,
-              qrCode: hyperRes.qrCode,
-              copyPaste: hyperRes.copyPaste,
-              qrcode: hyperRes.copyPaste,
-              copy_paste: hyperRes.copyPaste,
-              gateway: 'hypercash',
-              fallback: true
-            };
-            gatewayUsed = 'hypercash';
-            console.log(`[HyperCash Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
-          }
-        } catch (hyperErr) {
-          console.error('[HyperCash Exception]:', hyperErr.message);
+        if (meritusRes && meritusRes.success && (meritusRes.copyPaste || meritusRes.qrCode)) {
+          pixResult = {
+            transactionId: meritusRes.transactionId,
+            paymentId: meritusRes.paymentId,
+            qrCode: meritusRes.qrCode,
+            copyPaste: meritusRes.copyPaste,
+            qrcode: meritusRes.copyPaste,
+            copy_paste: meritusRes.copyPaste,
+            gateway: 'meritus'
+          };
+          console.log(`[Meritus Pix Created Successfully] Transaction ID: ${pixResult.transactionId}`);
+        } else {
+          console.warn(`[Meritus Alert] Failed to generate Pix via Meritus: ${meritusRes?.error || 'Erro'}.`);
         }
+      } catch (meritusErr) {
+        console.error('[Meritus Exception]:', meritusErr.message);
       }
+    }
+
+    if (pixResult?.gateway) {
+      gatewayUsed = pixResult.gateway;
     }
 
 
@@ -1124,7 +1129,7 @@ app.post('/api/payments/pix', async (req, res) => {
   }
 });
 
-// API 2: Get Order Status for ThankYou Polling (with automatic Codefy / WinnerPay sync)
+// API 2: Get Order Status for ThankYou Polling (with automatic VenoPay sync)
 app.get('/api/orders/:orderId/status', async (req, res) => {
   const { orderId } = req.params;
   let order = await db.getOrderAsync(orderId);
@@ -1133,33 +1138,33 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
     return res.status(404).json({ error: 'Pedido não encontrado.' });
   }
 
-  // Auto-sync with Codefy or WinnerPay API if still pending
+  // Auto-sync with HyperCash, Meritus, or VenoPay API if still pending
   if (order.status !== 'paid' && order.orderStatus !== 'paid') {
-    const txId = order.pixResult?.transactionId || order.pix?.transactionId;
-    const isCodefyOrder = order.gateway === 'codefy' || (!order.gateway && txId && !txId.startsWith('WINNER-') && !txId.startsWith('TXN_') && !txId.startsWith('HYPER-'));
-    const isWinnerPayOrder = order.gateway === 'winnerpay' || (txId && (txId.startsWith('TXN_') || txId.startsWith('WINNER-')));
+    const txId = order.pixResult?.transactionId || order.pix?.transactionId || order.pixResult?.txid;
+    const isMeritusOrder = order.gateway === 'meritus' || (!order.gateway && txId && (txId.length === 36 && txId.includes('-')));
+    const isVenoPayOrder = order.gateway === 'venopay' || order.gateway === 'codefy';
 
-    if (isCodefyOrder && txId) {
+    if (isMeritusOrder && txId) {
       try {
-        const codefyCheck = await checkCodefyStatus(txId, gatewaySettings.codefy);
-        if (codefyCheck && codefyCheck.isPaid) {
-          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on Codefy. Updating status...`);
+        const meritusCheck = await checkMeritusPayStatus(txId, gatewaySettings.meritus);
+        if (meritusCheck && meritusCheck.isPaid) {
+          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on Meritus. Updating status...`);
           order.status = 'paid';
           order.orderStatus = 'paid';
-          order.approvedAt = new Date().toISOString();
+          order.approvedAt = meritusCheck.paidAt || new Date().toISOString();
           order.updatedAt = new Date().toISOString();
-          order.gateway = 'codefy';
+          order.gateway = 'meritus';
           await db.saveOrderAsync(order);
 
           try {
             await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
           } catch (utmErr) {
-            console.error('[Auto-Sync Codefy] UTMify error:', utmErr.message);
+            console.error('[Auto-Sync Meritus] UTMify error:', utmErr.message);
           }
           try {
             await triggerCapiPurchase(order, req);
           } catch (capiErr) {
-            console.error('[Auto-Sync Codefy] CAPI error:', capiErr.message);
+            console.error('[Auto-Sync Meritus] CAPI error:', capiErr.message);
           }
 
           broadcastRealtime('order_paid', {
@@ -1167,34 +1172,34 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
             trackingReference: order.trackingReference,
             amount: order.amount,
             customerName: order.customer?.name,
-            gateway: 'codefy',
+            gateway: 'meritus',
             timestamp: new Date().toISOString()
           });
         }
-      } catch (codefySyncErr) {
+      } catch (meritusSyncErr) {
         // Silently continue
       }
-    } else if (isWinnerPayOrder && txId) {
+    } else if (isVenoPayOrder && txId) {
       try {
-        const winnerCheck = await checkWinnerPayStatus(txId, gatewaySettings.winnerpay);
-        if (winnerCheck && winnerCheck.isPaid) {
-          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on WinnerPay. Updating status...`);
+        const venoCheck = await checkVenoPayStatus(txId, gatewaySettings.venopay);
+        if (venoCheck && venoCheck.isPaid) {
+          console.log(`[Auto-Sync] Order ${order.id} detected as PAID on VenoPay. Updating status...`);
           order.status = 'paid';
           order.orderStatus = 'paid';
           order.approvedAt = new Date().toISOString();
           order.updatedAt = new Date().toISOString();
-          order.gateway = 'winnerpay';
+          order.gateway = 'venopay';
           await db.saveOrderAsync(order);
 
           try {
             await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
           } catch (utmErr) {
-            console.error('[Auto-Sync WinnerPay] UTMify error:', utmErr.message);
+            console.error('[Auto-Sync VenoPay] UTMify error:', utmErr.message);
           }
           try {
             await triggerCapiPurchase(order, req);
           } catch (capiErr) {
-            console.error('[Auto-Sync WinnerPay] CAPI error:', capiErr.message);
+            console.error('[Auto-Sync VenoPay] CAPI error:', capiErr.message);
           }
 
           broadcastRealtime('order_paid', {
@@ -1202,11 +1207,11 @@ app.get('/api/orders/:orderId/status', async (req, res) => {
             trackingReference: order.trackingReference,
             amount: order.amount,
             customerName: order.customer?.name,
-            gateway: 'winnerpay',
+            gateway: 'venopay',
             timestamp: new Date().toISOString()
           });
         }
-      } catch (winnerSyncErr) {
+      } catch (venoSyncErr) {
         // Silently continue
       }
     } else if (txId && BEEHIVE_SECRET_KEY && !BEEHIVE_SECRET_KEY.includes('placeholder')) {
@@ -1292,7 +1297,7 @@ app.post('/api/webhooks/beehive', async (req, res) => {
       }
 
       const orderId = order?.id || metaOrderId || `ORD-2026-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-      const amountVal = order?.amount || Number(event?.amount || event?.data?.amount || 8990) / 100;
+      const amountVal = order?.amount || Number(event?.amount || event?.data?.amount || 8590) / 100;
 
       if (order) {
         order.status = 'paid';
@@ -1346,8 +1351,89 @@ app.post('/api/webhooks/beehive', async (req, res) => {
   }
 });
 
-// API 3.1.1: Webhook Handler from HyperCash
-app.post('/api/webhooks/hypercash', async (req, res) => {
+
+
+// API 3.1.1: Webhook Handler from Meritus Hub (MeritusPay)
+app.post(['/api/webhooks/meritus', '/api/webhook/meritus', '/webhook/meritus', '/api/webhooks/merituspay', '/api/webhook/merituspay'], async (req, res) => {
+  try {
+    const event = req.body || {};
+    console.log('[Meritus Webhook Received]:', JSON.stringify(event));
+
+    const eventName = String(req.headers['x-webhook-event-id'] || event.event || '').toLowerCase().trim();
+    const eventStatus = String(event.status || '').toLowerCase().trim();
+
+    const isPaid = (
+      eventName === 'payment.paid' ||
+      eventName.includes('paid') ||
+      eventStatus === 'paid' ||
+      Boolean(event.paid_at) ||
+      Boolean(event.end_to_end_id)
+    );
+
+    const paymentId = String(event.payment_id || event.id || '').trim();
+    const metadataOrderId = event.metadata?.order_id || null;
+
+    console.log(`[Meritus Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | paymentId: ${paymentId}`);
+
+    if (isPaid && paymentId) {
+      let order = null;
+      if (metadataOrderId) {
+        order = await db.getOrderAsync(metadataOrderId);
+      }
+      if (!order) {
+        order = await db.getOrderByTransactionIdAsync(paymentId);
+      }
+      if (!order) {
+        const allDb = readDB();
+        const ordersList = Object.values(allDb.orders || {});
+        order = ordersList.find(o =>
+          (o.pixResult?.transactionId === paymentId || o.pixResult?.paymentId === paymentId || o.pix?.transactionId === paymentId) ||
+          (metadataOrderId && (o.id === metadataOrderId || o.trackingReference === metadataOrderId))
+        );
+      }
+
+      if (order) {
+        order.status = 'paid';
+        order.orderStatus = 'paid';
+        order.approvedAt = event.paid_at || new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        order.gateway = 'meritus';
+        await db.saveOrderAsync(order);
+
+        console.log(`[Meritus Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
+        try {
+          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
+        } catch (utmErr) {
+          console.error('[Meritus Webhook] UTMify dispatch error:', utmErr.message);
+        }
+        try {
+          await triggerCapiPurchase(order, req);
+        } catch (capiErr) {
+          console.error('[Meritus Webhook] CAPI dispatch error:', capiErr.message);
+        }
+
+        broadcastRealtime('order_paid', {
+          orderId: order.id,
+          trackingReference: order.trackingReference,
+          amount: order.amount,
+          customerName: order.customer?.name,
+          gateway: 'meritus',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.warn(`[Meritus Webhook] Order NOT FOUND for paymentId: ${paymentId}`);
+      }
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('[Meritus Webhook Error]:', err);
+    return res.status(500).json({ error: 'Erro no processamento do webhook Meritus.' });
+  }
+});
+
+// API 3.1.1.2: Webhook Handler from HyperCash
+app.post(['/api/webhooks/hypercash', '/api/webhook/hypercash', '/webhook/hypercash'], async (req, res) => {
   try {
     const event = req.body;
     console.log('[HyperCash Webhook Received]:', JSON.stringify(event));
@@ -1429,121 +1515,28 @@ app.post('/api/webhooks/hypercash', async (req, res) => {
   }
 });
 
-// API 3.1.2: Webhook Handler from WinnerPay
-app.post(['/api/webhooks/winnerpay', '/api/webhook/winnerpay', '/webhook/winnerpay'], async (req, res) => {
+// API 3.1.3: Webhook Handler from VenoPay
+app.post(['/api/webhooks/venopay', '/api/webhook/venopay', '/webhook/venopay', '/api/webhooks/codefy', '/api/webhook/codefy'], async (req, res) => {
   try {
-    const event = req.body || {};
-    console.log('[WinnerPay Webhook Received]:', JSON.stringify(event));
+    const body = req.body || {};
+    console.log('[VenoPay Webhook Received]:', JSON.stringify(body));
 
-    const eventName = String(req.headers['x-winnerpay-event'] || event.event || '').toLowerCase().trim();
-    const eventStatus = String(event.status || event.transaction?.status || '').toLowerCase().trim();
+    const eventName = String(body.event || req.headers['x-event'] || req.headers['x-codefy-event'] || '').toLowerCase().trim();
+    const data = body.data || body.transaction || body;
+    const eventStatus = String(data.status || body.status || '').toLowerCase().trim();
 
-    const validPaidStatuses = [
-      'paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago'
-    ];
+    const validPaidStatuses = ['paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago', 'captured'];
 
     const isPaid = (
-      eventName === 'payment.approved' ||
-      eventName === 'transaction.completed' ||
-      validPaidStatuses.includes(eventStatus)
-    );
-
-    const transactionId = String(
-      event.transaction_id ||
-      event.external_id ||
-      event.transaction?.transaction_id ||
-      event.id ||
-      ''
-    ).trim();
-
-    const metaOrderId = (
-      event.metadata?.order_id ||
-      event.metadata?.user_metadata?.order_id ||
-      event.transaction?.metadata?.order_id ||
-      event.external_id ||
-      null
-    );
-
-    console.log(`[WinnerPay Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | orderId: ${metaOrderId} | txId: ${transactionId}`);
-
-    if (isPaid) {
-      let order = null;
-      if (metaOrderId) {
-        order = await db.getOrderAsync(metaOrderId);
-      }
-      if (!order && transactionId) {
-        order = await db.getOrderByTransactionIdAsync(transactionId);
-      }
-      if (!order) {
-        const allDb = readDB();
-        const ordersList = Object.values(allDb.orders || {});
-        order = ordersList.find(o =>
-          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
-          (metaOrderId && (o.id === metaOrderId || o.trackingReference === metaOrderId)) ||
-          (event.payer?.email && o.customer?.email?.toLowerCase() === event.payer.email.toLowerCase())
-        );
-      }
-
-      if (order) {
-        order.status = 'paid';
-        order.orderStatus = 'paid';
-        order.approvedAt = new Date().toISOString();
-        order.updatedAt = new Date().toISOString();
-        order.gateway = 'winnerpay';
-        await db.saveOrderAsync(order);
-
-        console.log(`[WinnerPay Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
-        try {
-          await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
-        } catch (utmErr) {
-          console.error('[WinnerPay Webhook] UTMify dispatch error:', utmErr.message);
-        }
-        try {
-          await triggerCapiPurchase(order, req);
-        } catch (capiErr) {
-          console.error('[WinnerPay Webhook] CAPI dispatch error:', capiErr.message);
-        }
-
-        broadcastRealtime('order_paid', {
-          orderId: order.id,
-          trackingReference: order.trackingReference,
-          amount: order.amount,
-          customerName: order.customer?.name,
-          gateway: 'winnerpay',
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        console.warn(`[WinnerPay Webhook] Order NOT FOUND for txId: ${transactionId}, orderId: ${metaOrderId}`);
-      }
-    }
-
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[WinnerPay Webhook Error]:', err);
-    return res.status(500).json({ error: 'Erro no processamento do webhook WinnerPay.' });
-  }
-});
-
-// API 3.1.3: Webhook Handler from Codefy
-app.post(['/api/webhooks/codefy', '/api/webhook/codefy', '/webhook/codefy'], async (req, res) => {
-  try {
-    const event = req.body || {};
-    console.log('[Codefy Webhook Received]:', JSON.stringify(event));
-
-    const eventName = String(req.headers['x-codefy-event'] || event.event || '').toLowerCase().trim();
-    const eventStatus = String(event.status || event.transaction?.status || '').toLowerCase().trim();
-
-    const validPaidStatuses = ['paid', 'approved', 'finished', 'settled', 'completed', 'success', 'pago'];
-
-    const isPaid = (
+      eventName === 'deposit.paid' ||
       eventName === 'transaction.paid' ||
       validPaidStatuses.includes(eventStatus)
     );
 
-    const transactionId = String(event.id || event.transaction?.id || '').trim();
-    const externalId = String(event.external_id || event.transaction?.external_id || '').trim();
+    const transactionId = String(data.id || data.txid || body.id || '').trim();
+    const externalId = String(data.external_id || body.external_id || '').trim();
 
-    console.log(`[Codefy Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | externalId: ${externalId} | txId: ${transactionId}`);
+    console.log(`[VenoPay Webhook Parsed] isPaid: ${isPaid} | status: ${eventStatus} | event: ${eventName} | externalId: ${externalId} | txId: ${transactionId}`);
 
     if (isPaid) {
       let order = null;
@@ -1558,29 +1551,30 @@ app.post(['/api/webhooks/codefy', '/api/webhook/codefy', '/webhook/codefy'], asy
         const ordersList = Object.values(allDb.orders || {});
         order = ordersList.find(o =>
           (externalId && (o.id === externalId || o.trackingReference === externalId)) ||
-          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId)) ||
-          (event.customer?.email && o.customer?.email?.toLowerCase() === event.customer.email.toLowerCase())
+          (transactionId && (o.pixResult?.transactionId === transactionId || o.pix?.transactionId === transactionId || o.pixResult?.txid === transactionId)) ||
+          (data.payer?.email && o.customer?.email?.toLowerCase() === data.payer.email.toLowerCase()) ||
+          (data.payer?.document && o.customer?.cpf?.replace(/\D/g, '') === data.payer.document.replace(/\D/g, ''))
         );
       }
 
       if (order) {
         order.status = 'paid';
         order.orderStatus = 'paid';
-        order.approvedAt = event.paid_at || new Date().toISOString();
+        order.approvedAt = data.paid_at || new Date().toISOString();
         order.updatedAt = new Date().toISOString();
-        order.gateway = 'codefy';
+        order.gateway = 'venopay';
         await db.saveOrderAsync(order);
 
-        console.log(`[Codefy Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
+        console.log(`[VenoPay Webhook] Order ${order.id} confirmed as PAID! Dispatching to UTMify, Meta CAPI & TikTok...`);
         try {
           await sendUtmifyOrder(order, 'paid', { clientIp: req.ip });
         } catch (utmErr) {
-          console.error('[Codefy Webhook] UTMify dispatch error:', utmErr.message);
+          console.error('[VenoPay Webhook] UTMify dispatch error:', utmErr.message);
         }
         try {
           await triggerCapiPurchase(order, req);
         } catch (capiErr) {
-          console.error('[Codefy Webhook] CAPI dispatch error:', capiErr.message);
+          console.error('[VenoPay Webhook] CAPI dispatch error:', capiErr.message);
         }
 
         broadcastRealtime('order_paid', {
@@ -1588,18 +1582,18 @@ app.post(['/api/webhooks/codefy', '/api/webhook/codefy', '/webhook/codefy'], asy
           trackingReference: order.trackingReference,
           amount: order.amount,
           customerName: order.customer?.name,
-          gateway: 'codefy',
+          gateway: 'venopay',
           timestamp: new Date().toISOString()
         });
       } else {
-        console.warn(`[Codefy Webhook] Order NOT FOUND for txId: ${transactionId}, externalId: ${externalId}`);
+        console.warn(`[VenoPay Webhook] Order NOT FOUND for txId: ${transactionId}, externalId: ${externalId}`);
       }
     }
 
     return res.status(200).json({ received: true, success: true });
   } catch (err) {
-    console.error('[Codefy Webhook Error]:', err);
-    return res.status(500).json({ error: 'Erro no processamento do webhook Codefy.' });
+    console.error('[VenoPay Webhook Error]:', err);
+    return res.status(500).json({ error: 'Erro no processamento do webhook VenoPay.' });
   }
 });
 
@@ -1718,18 +1712,17 @@ app.post('/api/admin/dispatch-test-sale', async (req, res) => {
 app.get('/api/admin/gateway-settings', (req, res) => {
   return res.json({
     success: true,
-    activeGateway: gatewaySettings.activeGateway || 'codefy',
-    codefy: {
-      publicKey: gatewaySettings.codefy?.publicKey || '',
-      secretKey: gatewaySettings.codefy?.secretKey || ''
-    },
-    winnerpay: {
-      clientId: gatewaySettings.winnerpay?.clientId || '',
-      clientSecret: gatewaySettings.winnerpay?.clientSecret || ''
+    activeGateway: gatewaySettings.activeGateway || 'venopay',
+    meritus: {
+      apiKey: gatewaySettings.meritus?.apiKey || ''
     },
     hypercash: {
       secretKey: gatewaySettings.hypercash?.secretKey || '',
       publicKey: gatewaySettings.hypercash?.publicKey || ''
+    },
+    venopay: {
+      apiKey: gatewaySettings.venopay?.apiKey || '',
+      accountId: gatewaySettings.venopay?.accountId || ''
     }
   });
 });
@@ -1737,31 +1730,38 @@ app.get('/api/admin/gateway-settings', (req, res) => {
 // API 3.3: Update Gateway Settings
 app.post('/api/admin/gateway-settings', (req, res) => {
   try {
-    const { activeGateway, codefy, winnerpay, hypercash } = req.body;
+    const { activeGateway, meritus, hypercash, venopay } = req.body;
 
-    if (activeGateway && ['codefy', 'winnerpay', 'winner', 'hypercash', 'hyper'].includes(activeGateway)) {
-      gatewaySettings.activeGateway = (activeGateway === 'winner' ? 'winnerpay' : (activeGateway === 'hyper' ? 'hypercash' : activeGateway));
+    if (activeGateway && ['meritus', 'merituspay', 'hypercash', 'hyper', 'hypecash', 'venopay', 'veno'].includes(activeGateway)) {
+      gatewaySettings.activeGateway = (activeGateway === 'meritus' || activeGateway === 'merituspay')
+        ? 'meritus'
+        : (activeGateway === 'hypercash' || activeGateway === 'hyper' || activeGateway === 'hypecash')
+          ? 'hypercash'
+          : 'venopay';
     }
-    if (codefy) {
-      if (!gatewaySettings.codefy) gatewaySettings.codefy = {};
-      if (codefy.publicKey !== undefined) gatewaySettings.codefy.publicKey = String(codefy.publicKey).trim();
-      if (codefy.secretKey !== undefined) gatewaySettings.codefy.secretKey = String(codefy.secretKey).trim();
-    }
-    if (winnerpay) {
-      if (!gatewaySettings.winnerpay) gatewaySettings.winnerpay = {};
-      if (winnerpay.clientId !== undefined) gatewaySettings.winnerpay.clientId = String(winnerpay.clientId).trim();
-      if (winnerpay.clientSecret !== undefined) gatewaySettings.winnerpay.clientSecret = String(winnerpay.clientSecret).trim();
+    if (meritus) {
+      if (!gatewaySettings.meritus) gatewaySettings.meritus = {};
+      if (meritus.apiKey !== undefined) gatewaySettings.meritus.apiKey = String(meritus.apiKey).trim();
     }
     if (hypercash) {
       if (!gatewaySettings.hypercash) gatewaySettings.hypercash = {};
       if (hypercash.secretKey !== undefined) gatewaySettings.hypercash.secretKey = String(hypercash.secretKey).trim();
       if (hypercash.publicKey !== undefined) gatewaySettings.hypercash.publicKey = String(hypercash.publicKey).trim();
     }
+    if (venopay) {
+      if (!gatewaySettings.venopay) gatewaySettings.venopay = {};
+      if (venopay.apiKey !== undefined) gatewaySettings.venopay.apiKey = String(venopay.apiKey).trim();
+      if (venopay.accountId !== undefined) gatewaySettings.venopay.accountId = String(venopay.accountId).trim();
+    }
 
     // Persist to database file
     const currentDb = readDB();
-    currentDb.gatewaySettings = gatewaySettings;
-    delete currentDb.gatewaySettings.beehive;
+    currentDb.gatewaySettings = {
+      activeGateway: gatewaySettings.activeGateway,
+      meritus: gatewaySettings.meritus,
+      hypercash: gatewaySettings.hypercash,
+      venopay: gatewaySettings.venopay
+    };
     writeDB(currentDb);
 
     console.log(`[Gateway Settings Updated] Active Gateway: ${gatewaySettings.activeGateway.toUpperCase()}`);
@@ -1773,8 +1773,17 @@ app.post('/api/admin/gateway-settings', (req, res) => {
 
     return res.json({
       success: true,
-      message: `Configuração atualizada com sucesso! Gateway ativo: ${gatewaySettings.activeGateway.toUpperCase()}`,
-      gatewaySettings
+      message: `Configurações atualizadas com sucesso! Gateway ativo: ${gatewaySettings.activeGateway.toUpperCase()}`,
+      activeGateway: gatewaySettings.activeGateway,
+      meritus: gatewaySettings.meritus,
+      hypercash: gatewaySettings.hypercash,
+      venopay: gatewaySettings.venopay,
+      gatewaySettings: {
+        activeGateway: gatewaySettings.activeGateway,
+        meritus: gatewaySettings.meritus,
+        hypercash: gatewaySettings.hypercash,
+        venopay: gatewaySettings.venopay
+      }
     });
   } catch (err) {
     console.error('[Gateway Settings Error]:', err);

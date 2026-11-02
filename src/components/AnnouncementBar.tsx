@@ -8,8 +8,8 @@ interface AnnouncementBarProps {
 }
 
 export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({
-  installmentText = "5X DE R$ 17,98 SEM JUROS",
-  offerText = "OFERTA POR R$ 89,90",
+  installmentText = "5X DE R$ 17,18 SEM JUROS",
+  offerText = "OFERTA POR R$ 85,90",
 }) => {
   return (
     <div className="announcement-bar">

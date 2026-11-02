@@ -15,8 +15,8 @@ interface PriceBlockProps {
 export const PriceBlock: React.FC<PriceBlockProps> = ({
   originalPrice = 299.90,
   price = 159.90,
-  pixPrice = 143.91,
-  pixDiscountPercent = 10,
+  pixPrice = 81.61,
+  pixDiscountPercent = 5,
   installmentsMax = 5,
   installmentValue,
 }) => {

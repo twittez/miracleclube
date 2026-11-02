@@ -163,7 +163,7 @@ export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) =>
   const [cogsFormList, setCogsFormList] = useState<ProductCostItem[]>([]);
 
   // Simulation Tool State
-  const [simAmount, setSimAmount] = useState<string>('89.90');
+  const [simAmount, setSimAmount] = useState<string>('85.90');
   const [simPaymentMethod, setSimPaymentMethod] = useState<'Pix' | 'Cartão de Crédito'>('Pix');
 
   // Load from Backend on mount
@@ -789,7 +789,7 @@ export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) =>
               className="tax-sim-input"
               value={simAmount}
               onChange={(e) => setSimAmount(e.target.value)}
-              placeholder="89,90"
+              placeholder="85,90"
             />
           </div>
 

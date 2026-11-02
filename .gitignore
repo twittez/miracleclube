@@ -18,6 +18,8 @@ lerna-debug.log*
 # Dependencies and build outputs
 node_modules
 dist-ssr
+dist.tar.gz
+update_env_ec2.js
 
 # Editor directories and files
 .vscode/*

@@ -512,25 +512,24 @@ export const AdminDashboardPage: React.FC = () => {
     | 'taxes'
   >('dashboard');
 
-  // Gateway Settings State (Codefy, WinnerPay & HyperCash)
+  // Gateway Settings State (HyperCash, Meritus Hub & VenoPay)
   const [gatewaySettings, setGatewaySettings] = useState<{
-    activeGateway: 'codefy' | 'winnerpay' | 'hypercash';
-    codefy: { publicKey: string; secretKey: string };
-    winnerpay: { clientId: string; clientSecret: string };
+    activeGateway: 'hypercash' | 'meritus' | 'venopay';
     hypercash: { secretKey: string; publicKey: string };
+    meritus: { apiKey: string };
+    venopay: { apiKey: string; accountId: string };
   }>({
-    activeGateway: 'codefy',
-    codefy: {
-      publicKey: 'cfy_pk_1886de78123150db78112664da',
-      secretKey: 'cfy_sk_3bae319a5ac126443d61e8fab5058450d1cb6b'
-    },
-    winnerpay: {
-      clientId: '14fdd5f1-98af-4344-ad0d-944bd0998001',
-      clientSecret: 'e11d80779f19927a26a443dacb3fa23c32304090617cc84563bca61a3295242f'
-    },
+    activeGateway: 'hypercash',
     hypercash: {
       secretKey: 'sk_643002c4cb2675159b5124a7bff9614e6c90e0c0',
       publicKey: 'pk_8b4c8fb57c1eab77b22ab9654538ccc32266a109'
+    },
+    meritus: {
+      apiKey: ''
+    },
+    venopay: {
+      apiKey: 'veno_live_87f38b23b9b66f651e4b29b58f86e2a5845b486e685601c7',
+      accountId: '019fe90c-c9e7-7518-ae22-700751c0f7d1'
     }
   });
   const [isSavingGateway, setIsSavingGateway] = useState<boolean>(false);
@@ -877,7 +876,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Manual UTMify Dispatch Form State
   const [manualSaleForm, setManualSaleForm] = useState({
-    amount: '89.90',
+    amount: '85.90',
     customerName: 'Cliente Miracle VIP',
     customerEmail: 'cliente@miracle.com',
     customerPhone: '12982890411',
@@ -1088,10 +1087,10 @@ export const AdminDashboardPage: React.FC = () => {
         const gData = await gatewayRes.value.json();
         setGatewaySettings((prev) => ({
           ...prev,
-          activeGateway: gData.activeGateway === 'winnerpay' ? 'winnerpay' : ((gData.activeGateway === 'hypercash' || gData.activeGateway === 'hyper') ? 'hypercash' : 'codefy'),
-          codefy: { ...prev.codefy, ...(gData.codefy || {}) },
-          winnerpay: { ...prev.winnerpay, ...(gData.winnerpay || {}) },
-          hypercash: { ...prev.hypercash, ...(gData.hypercash || {}) }
+          activeGateway: (['hypercash', 'meritus', 'venopay'].includes(gData.activeGateway) ? gData.activeGateway : 'hypercash'),
+          hypercash: { ...prev.hypercash, ...(gData.hypercash || {}) },
+          meritus: { ...prev.meritus, ...(gData.meritus || {}) },
+          venopay: { ...prev.venopay, ...(gData.venopay || {}) }
         }));
       }
     } catch (err) {
@@ -1275,7 +1274,7 @@ export const AdminDashboardPage: React.FC = () => {
             name: 'Cliente Teste Miracle',
             email: 'teste@miraclebrasil.com',
             phone: '11999999999',
-            cpf: '05284345105'
+            cpf: '11570583960'
           },
           shipping: {
             street: 'Avenida Paulista',
@@ -2183,12 +2182,12 @@ export const AdminDashboardPage: React.FC = () => {
             <span
               className="cc-nav-badge"
               style={{
-                color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
-                borderColor: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
-                background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249,115,22,0.15)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192,132,252,0.15)' : 'rgba(56,189,248,0.15)')
+                color: gatewaySettings.activeGateway === 'hypercash' ? '#10b981' : (gatewaySettings.activeGateway === 'meritus' ? '#017BFC' : '#f97316'),
+                borderColor: gatewaySettings.activeGateway === 'hypercash' ? '#10b981' : (gatewaySettings.activeGateway === 'meritus' ? '#017BFC' : '#f97316'),
+                background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(16, 185, 129, 0.15)' : (gatewaySettings.activeGateway === 'meritus' ? 'rgba(1, 123, 252, 0.15)' : 'rgba(249,115,22,0.15)')
               }}
             >
-              {gatewaySettings.activeGateway === 'codefy' ? 'CODEFY' : (gatewaySettings.activeGateway === 'winnerpay' ? 'WINNER' : 'HYPER')}
+              {gatewaySettings.activeGateway.toUpperCase()}
             </span>
           </button>
 
@@ -5840,11 +5839,13 @@ export const AdminDashboardPage: React.FC = () => {
 
                 <div className="cc-kpi-card">
                   <div className="cc-kpi-header">
-                    <span className="cc-kpi-title">GATEWAY WINNERPAY</span>
+                    <span className="cc-kpi-title">GATEWAY {gatewaySettings.activeGateway.toUpperCase()}</span>
                     <CheckCircle size={16} style={{ color: '#10b981' }} />
                   </div>
                   <div style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>PIX LIVE & WEBHOOK</div>
-                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>https://miraclebrasil.com/api/webhooks/winnerpay</div>
+                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>
+                    {gatewaySettings.activeGateway === 'hypercash' ? 'https://miraclebrasil.com/api/webhooks/hypercash' : (gatewaySettings.activeGateway === 'meritus' ? 'https://miraclebrasil.com/api/webhooks/meritus' : 'https://miraclebrasil.com/api/webhooks/venopay')}
+                  </div>
                 </div>
               </div>
             </div>
@@ -5892,244 +5893,31 @@ export const AdminDashboardPage: React.FC = () => {
                         fontSize: '11px',
                         fontWeight: 800,
                         letterSpacing: '0.05em',
-                        background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.2)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : 'rgba(56, 189, 248, 0.2)'),
-                        color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : (gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#38bdf8'),
-                        border: `1px solid ${gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.4)' : (gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.4)' : 'rgba(56, 189, 248, 0.4)')}`
+                        background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(16, 185, 129, 0.2)' : (gatewaySettings.activeGateway === 'meritus' ? 'rgba(1, 123, 252, 0.2)' : 'rgba(249, 115, 22, 0.2)'),
+                        color: gatewaySettings.activeGateway === 'hypercash' ? '#10b981' : (gatewaySettings.activeGateway === 'meritus' ? '#017BFC' : '#f97316'),
+                        border: `1px solid ${gatewaySettings.activeGateway === 'hypercash' ? 'rgba(16, 185, 129, 0.4)' : (gatewaySettings.activeGateway === 'meritus' ? 'rgba(1, 123, 252, 0.4)' : 'rgba(249, 115, 22, 0.4)')}`
                       }}
                     >
-                      {gatewaySettings.activeGateway === 'codefy' ? '🔥 CODEFY (PRINCIPAL / ATIVO)' : (gatewaySettings.activeGateway === 'winnerpay' ? '🏆 WINNERPAY (ATIVO)' : '⚡ HYPERCASH (ATIVO)')}
+                      💚 GATEWAY ATIVO: {gatewaySettings.activeGateway.toUpperCase()}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ padding: '24px' }}>
                   <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    O provedor principal configurado para processar os pagamentos Pix é a <strong style={{ color: '#f97316' }}>Codefy</strong>. A <strong style={{ color: '#c084fc' }}>WinnerPay</strong> e a <strong style={{ color: '#38bdf8' }}>HyperCash</strong> operam como gateways de contingência e fallback automático.
+                    Configure os provedores de pagamento Pix do checkout da Miracle. A <strong style={{ color: '#10b981' }}>HyperCash</strong> está definida como o gateway <strong style={{ color: '#10b981' }}>principal</strong> ativo, com a <strong style={{ color: '#017BFC' }}>Meritus Hub</strong> e a <strong style={{ color: '#f97316' }}>VenoPay</strong> disponíveis para alternância imediata e contingência. Clique no card desejado para alternar o gateway ativo e clique em salvar.
                   </p>
 
                   <form onSubmit={handleSaveGatewaySettings}>
                     {/* Gateway Selection Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px', marginBottom: '24px' }}>
 
-                      {/* Card 1: Codefy (Principal) */}
-                      <div
-                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'codefy' }))}
-                        style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'codefy' ? '#f97316' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.04)' : 'rgba(15, 23, 42, 0.4)',
-                          borderRadius: '10px',
-                          padding: '20px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                              type="radio"
-                              name="activeGateway"
-                              checked={gatewaySettings.activeGateway === 'codefy'}
-                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'codefy' }))}
-                              style={{ accentColor: '#f97316', cursor: 'pointer', width: '18px', height: '18px' }}
-                            />
-                            <span style={{ fontSize: '20px' }}>🔥</span>
-                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Codefy</span>
-                          </div>
-                          <span style={{
-                            fontSize: '10px',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: gatewaySettings.activeGateway === 'codefy' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                            color: gatewaySettings.activeGateway === 'codefy' ? '#f97316' : '#94a3b8',
-                            fontWeight: 700
-                          }}>
-                            {gatewaySettings.activeGateway === 'codefy' ? 'ATIVO (PRINCIPAL)' : 'CLIQUE P/ ATIVAR'}
-                          </span>
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway principal Codefy com processamento PIX direto, confirmação instantânea e rastreamento de UTMs.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">CHAVE PÚBLICA (x-public-key)</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.codefy?.publicKey || ''}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                codefy: { ...prev.codefy, publicKey: e.target.value }
-                              }))}
-                              placeholder="cfy_pk_..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">CHAVE SECRETA (x-secret-key)</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.codefy?.secretKey || ''}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                codefy: { ...prev.codefy, secretKey: e.target.value }
-                              }))}
-                              placeholder="cfy_sk_..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          {/* Webhook Box */}
-                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK CODEFY:</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/codefy');
-                                  setCopiedGatewayWebhook('codefy');
-                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: copiedGatewayWebhook === 'codefy' ? '#10b981' : '#f97316',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: 0
-                                }}
-                              >
-                                {copiedGatewayWebhook === 'codefy' ? <CheckCheck size={13} /> : <Copy size={13} />}
-                                {copiedGatewayWebhook === 'codefy' ? 'Copiado!' : 'Copiar'}
-                              </button>
-                            </div>
-                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miraclebrasil.com/api/webhooks/codefy
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card 2: WinnerPay (Secundário / Backup) */}
-
-                      <div
-                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'winnerpay' }))}
-                        style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.04)' : 'rgba(15, 23, 42, 0.4)',
-                          borderRadius: '10px',
-                          padding: '20px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                              type="radio"
-                              name="activeGateway"
-                              checked={gatewaySettings.activeGateway === 'winnerpay'}
-                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'winnerpay' }))}
-                              style={{ accentColor: '#c084fc', cursor: 'pointer', width: '18px', height: '18px' }}
-                            />
-                            <span style={{ fontSize: '20px' }}>🏆</span>
-                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>WinnerPay</span>
-                          </div>
-                          <span style={{
-                            fontSize: '10px',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: gatewaySettings.activeGateway === 'winnerpay' ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                            color: gatewaySettings.activeGateway === 'winnerpay' ? '#c084fc' : '#94a3b8',
-                            fontWeight: 700
-                          }}>
-                            {gatewaySettings.activeGateway === 'winnerpay' ? 'ATIVO' : 'CLIQUE P/ ATIVAR'}
-                          </span>
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway secundário WinnerPay para processar pagamentos PIX com alta aprovação e QR Code dinâmico.
-                        </p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">CLIENT ID</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.winnerpay.clientId}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                winnerpay: { ...prev.winnerpay, clientId: e.target.value }
-                              }))}
-                              placeholder="14fdd5f1-..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          <div className="cc-input-group">
-                            <label className="cc-input-label">CLIENT SECRET</label>
-                            <input
-                              type="text"
-                              className="cc-input-field"
-                              value={gatewaySettings.winnerpay.clientSecret}
-                              onChange={(e) => setGatewaySettings(prev => ({
-                                ...prev,
-                                winnerpay: { ...prev.winnerpay, clientSecret: e.target.value }
-                              }))}
-                              placeholder="e11d80779..."
-                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
-                            />
-                          </div>
-
-                          {/* Webhook Box */}
-                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK WINNERPAY:</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/winnerpay');
-                                  setCopiedGatewayWebhook('winnerpay');
-                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: copiedGatewayWebhook === 'winnerpay' ? '#10b981' : '#c084fc',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: 0
-                                }}
-                              >
-                                {copiedGatewayWebhook === 'winnerpay' ? <CheckCheck size={13} /> : <Copy size={13} />}
-                                {copiedGatewayWebhook === 'winnerpay' ? 'Copiado!' : 'Copiar'}
-                              </button>
-                            </div>
-                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
-                              https://miraclebrasil.com/api/webhooks/winnerpay
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card 3: HyperCash */}
+                      {/* Card 1: HyperCash (Principal) */}
                       <div
                         onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'hypercash' }))}
                         style={{
-                          border: `2px solid ${gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)'}`,
-                          background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.04)' : 'rgba(15, 23, 42, 0.4)',
+                          border: `2px solid ${gatewaySettings.activeGateway === 'hypercash' ? '#10b981' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(15, 23, 42, 0.4)',
                           borderRadius: '10px',
                           padding: '20px',
                           cursor: 'pointer',
@@ -6144,34 +5932,34 @@ export const AdminDashboardPage: React.FC = () => {
                               name="activeGateway"
                               checked={gatewaySettings.activeGateway === 'hypercash'}
                               onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'hypercash' }))}
-                              style={{ accentColor: '#38bdf8', cursor: 'pointer', width: '18px', height: '18px' }}
+                              style={{ accentColor: '#10b981', cursor: 'pointer', width: '18px', height: '18px' }}
                             />
-                            <span style={{ fontSize: '20px' }}>⚡</span>
+                            <span style={{ fontSize: '20px' }}>💚</span>
                             <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>HyperCash</span>
                           </div>
                           <span style={{
                             fontSize: '10px',
                             padding: '2px 8px',
                             borderRadius: '4px',
-                            background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                            color: gatewaySettings.activeGateway === 'hypercash' ? '#38bdf8' : '#94a3b8',
+                            background: gatewaySettings.activeGateway === 'hypercash' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: gatewaySettings.activeGateway === 'hypercash' ? '#10b981' : '#94a3b8',
                             fontWeight: 700
                           }}>
-                            {gatewaySettings.activeGateway === 'hypercash' ? 'ATIVO' : 'CLIQUE P/ ATIVAR'}
+                            {gatewaySettings.activeGateway === 'hypercash' ? 'ATIVO (PRINCIPAL)' : 'CLIQUE P/ ATIVAR'}
                           </span>
                         </div>
 
                         <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Gateway HyperCash com proteção total de dados do lead (telefone mascarado, item SUTIÃ e sem link da oferta).
+                          Gateway principal HyperCash com liquidação instantânea via Pix, alta taxa de aprovação e conciliação em tempo real.
                         </p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
                           <div className="cc-input-group">
-                            <label className="cc-input-label">SECRET KEY (sk_...)</label>
+                            <label className="cc-input-label">SECRET KEY</label>
                             <input
                               type="text"
                               className="cc-input-field"
-                              value={gatewaySettings.hypercash.secretKey}
+                              value={gatewaySettings.hypercash?.secretKey || ''}
                               onChange={(e) => setGatewaySettings(prev => ({
                                 ...prev,
                                 hypercash: { ...prev.hypercash, secretKey: e.target.value }
@@ -6182,11 +5970,11 @@ export const AdminDashboardPage: React.FC = () => {
                           </div>
 
                           <div className="cc-input-group">
-                            <label className="cc-input-label">PUBLIC KEY (pk_...)</label>
+                            <label className="cc-input-label">PUBLIC KEY</label>
                             <input
                               type="text"
                               className="cc-input-field"
-                              value={gatewaySettings.hypercash.publicKey}
+                              value={gatewaySettings.hypercash?.publicKey || ''}
                               onChange={(e) => setGatewaySettings(prev => ({
                                 ...prev,
                                 hypercash: { ...prev.hypercash, publicKey: e.target.value }
@@ -6210,7 +5998,7 @@ export const AdminDashboardPage: React.FC = () => {
                                 style={{
                                   background: 'none',
                                   border: 'none',
-                                  color: copiedGatewayWebhook === 'hypercash' ? '#10b981' : '#38bdf8',
+                                  color: copiedGatewayWebhook === 'hypercash' ? '#10b981' : '#10b981',
                                   cursor: 'pointer',
                                   fontSize: '11px',
                                   display: 'flex',
@@ -6225,6 +6013,203 @@ export const AdminDashboardPage: React.FC = () => {
                             </div>
                             <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
                               https://miraclebrasil.com/api/webhooks/hypercash
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 2: Meritus Hub (Secundário) */}
+                      <div
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'meritus' }))}
+                        style={{
+                          border: `2px solid ${gatewaySettings.activeGateway === 'meritus' ? '#017BFC' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'meritus' ? 'rgba(1, 123, 252, 0.05)' : 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="radio"
+                              name="activeGateway"
+                              checked={gatewaySettings.activeGateway === 'meritus'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'meritus' }))}
+                              style={{ accentColor: '#017BFC', cursor: 'pointer', width: '18px', height: '18px' }}
+                            />
+                            <span style={{ fontSize: '20px' }}>⚡</span>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>Meritus Hub</span>
+                          </div>
+                          <span style={{
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: gatewaySettings.activeGateway === 'meritus' ? 'rgba(1, 123, 252, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: gatewaySettings.activeGateway === 'meritus' ? '#017BFC' : '#94a3b8',
+                            fontWeight: 700
+                          }}>
+                            {gatewaySettings.activeGateway === 'meritus' ? 'ATIVO' : 'CLIQUE P/ ATIVAR'}
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                          Gateway secundário Meritus Hub com geração instantânea de PIX dinâmico, QR Code com imagem Base64 e conciliação em tempo real.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">CHAVE SECRETA DE API (Secret Key Bearer)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.meritus?.apiKey || ''}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                meritus: { ...prev.meritus, apiKey: e.target.value }
+                              }))}
+                              placeholder="sk_live_..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          {/* Webhook Box */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK MERITUS:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/meritus');
+                                  setCopiedGatewayWebhook('meritus');
+                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: copiedGatewayWebhook === 'meritus' ? '#10b981' : '#017BFC',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: 0
+                                }}
+                              >
+                                {copiedGatewayWebhook === 'meritus' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'meritus' ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                              https://miraclebrasil.com/api/webhooks/meritus
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 2: VenoPay (Secundário / Backup) */}
+                      <div
+                        onClick={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'venopay' }))}
+                        style={{
+                          border: `2px solid ${gatewaySettings.activeGateway === 'venopay' ? '#f97316' : 'rgba(255, 255, 255, 0.08)'}`,
+                          background: gatewaySettings.activeGateway === 'venopay' ? 'rgba(249, 115, 22, 0.05)' : 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="radio"
+                              name="activeGateway"
+                              checked={gatewaySettings.activeGateway === 'venopay'}
+                              onChange={() => setGatewaySettings(prev => ({ ...prev, activeGateway: 'venopay' }))}
+                              style={{ accentColor: '#f97316', cursor: 'pointer', width: '18px', height: '18px' }}
+                            />
+                            <span style={{ fontSize: '20px' }}>🔥</span>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em' }}>VenoPay</span>
+                          </div>
+                          <span style={{
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: gatewaySettings.activeGateway === 'venopay' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            color: gatewaySettings.activeGateway === 'venopay' ? '#f97316' : '#94a3b8',
+                            fontWeight: 700
+                          }}>
+                            {gatewaySettings.activeGateway === 'venopay' ? 'ATIVO' : 'BACKUP / CONTINGÊNCIA'}
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+                          Gateway secundário com liquidação PIX direta, confirmação instantânea via webhook e fallback automático caso necessário.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">TOKEN DE ACESSO (API Key Bearer)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.venopay?.apiKey || ''}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                venopay: { ...prev.venopay, apiKey: e.target.value }
+                              }))}
+                              placeholder="veno_live_..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          <div className="cc-input-group">
+                            <label className="cc-input-label">ID DA CONTA (Account UUID)</label>
+                            <input
+                              type="text"
+                              className="cc-input-field"
+                              value={gatewaySettings.venopay?.accountId || ''}
+                              onChange={(e) => setGatewaySettings(prev => ({
+                                ...prev,
+                                venopay: { ...prev.venopay, accountId: e.target.value }
+                              }))}
+                              placeholder="019fe90c-..."
+                              style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}
+                            />
+                          </div>
+
+                          {/* Webhook Box */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>URL DO WEBHOOK VENOPAY:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText('https://miraclebrasil.com/api/webhooks/venopay');
+                                  setCopiedGatewayWebhook('venopay');
+                                  setTimeout(() => setCopiedGatewayWebhook(null), 2500);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: copiedGatewayWebhook === 'venopay' ? '#10b981' : '#f97316',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: 0
+                                }}
+                              >
+                                {copiedGatewayWebhook === 'venopay' ? <CheckCheck size={13} /> : <Copy size={13} />}
+                                {copiedGatewayWebhook === 'venopay' ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <code style={{ fontSize: '11px', color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'JetBrains Mono, monospace' }}>
+                              https://miraclebrasil.com/api/webhooks/venopay
                             </code>
                           </div>
                         </div>
