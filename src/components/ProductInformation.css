@@ -77,3 +77,107 @@
 .wa-icon-emoji {
   font-size: 0.9rem;
 }
+
+/* 2-Unit Bundle Selector Cards */
+.bundle-units-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.bundle-units-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: linear-gradient(135deg, #fdf2f7 0%, #fce7f3 100%);
+  border: 1px solid #f9a8d4;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.bundle-units-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  background-color: #d8158a;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.bundle-units-subtitle {
+  font-size: 0.82rem;
+  color: #374151;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.bundle-unit-card {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px 4px;
+  background-color: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bundle-unit-card--ready {
+  border-color: #f472b6;
+  background-color: #fffbfd;
+}
+
+.bundle-unit-card--error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.bundle-unit-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.bundle-unit-card__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bundle-unit-card__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #d8158a;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.bundle-unit-card__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.bundle-unit-card__summary {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #d8158a;
+  background-color: #fdf2f8;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+

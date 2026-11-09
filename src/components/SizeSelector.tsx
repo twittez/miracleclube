@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Ruler, AlertCircle } from "lucide-react";
-import type { ProductSize } from "../data/product";
+import type { ProductSize, ProductData } from "../data/product";
 import { SizeGuideModal } from "./SizeGuideModal";
 import "./SizeSelector.css";
 
@@ -9,6 +9,7 @@ interface SizeSelectorProps {
   selectedSize: ProductSize | null;
   onSelect: (size: ProductSize) => void;
   showError?: boolean;
+  sizeGuide?: ProductData["sizeGuide"];
 }
 
 export const SizeSelector: React.FC<SizeSelectorProps> = ({
@@ -16,6 +17,7 @@ export const SizeSelector: React.FC<SizeSelectorProps> = ({
   selectedSize,
   onSelect,
   showError = false,
+  sizeGuide,
 }) => {
   const [guideModalOpen, setGuideModalOpen] = useState(false);
 
@@ -60,7 +62,7 @@ export const SizeSelector: React.FC<SizeSelectorProps> = ({
       )}
 
       {/* Size Guide Modal */}
-      <SizeGuideModal isOpen={guideModalOpen} onClose={() => setGuideModalOpen(false)} />
+      <SizeGuideModal isOpen={guideModalOpen} onClose={() => setGuideModalOpen(false)} sizeGuide={sizeGuide} />
     </div>
   );
 };

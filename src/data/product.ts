@@ -74,6 +74,7 @@ export interface ProductData {
   pixDiscountPercent: number;
   installmentsMax: number;
   installmentValue: number;
+  bundleUnits?: number;
   rating: number;
   reviewCount: number;
   images: string[];
@@ -324,3 +325,215 @@ export const productTikTok: ProductData = {
   installmentValue: 19.58,
 };
 
+
+// Produto: Sutiã Premium Sustentação (https://www.miraclebelt.com.br/sutia-premium-sustentacao)
+export const productSutia: ProductData = {
+  id: "SUTIA-PREMIUM-SUSTENTACAO",
+  name: "Sutiã Premium Sustentação - 2 Unidades",
+  subtitle: "Kit com 2 Unidades — Escolha a cor e o tamanho de cada sutiã. Modelagem anatômica em cetinete de alta compressão, sustentação firme sem aro e cobertura ampliada",
+  sku: "SPS",
+  category: "Modeladores",
+  breadcrumb: ["Início", "Modeladores", "Sutiã Premium Sustentação (2 Unidades)"],
+  originalPrice: 239.90,
+  price: 69.90,
+  pixPrice: 67.80,
+  pixDiscountPercent: 3,
+  installmentsMax: 5,
+  installmentValue: 13.98,
+  bundleUnits: 2,
+  rating: 4.9,
+  reviewCount: 296,
+  images: [
+    "/images/product/sutia-premium/01.jpg",
+    "/images/product/sutia-premium/02.png",
+    "/images/product/sutia-premium/03.jpg",
+    "/images/product/sutia-premium/04.png",
+    "/images/product/sutia-premium/05.png",
+    "/images/product/sutia-premium/06.png",
+    "/images/product/sutia-premium/07.jpg",
+    "/images/product/sutia-premium/08.jpg",
+    "/images/product/sutia-premium/09-tabela.png"
+  ],
+  variations: [
+    { id: "akaroa", name: "Akaroa", colorCode: "#D4C4A8", imageIndex: 0 },
+    { id: "preto", name: "Preto", colorCode: "#111111", imageIndex: 6 }
+  ],
+  sizes: [
+    { id: "pp", label: "PP", subtext: "Veste 40", available: true },
+    { id: "p", label: "P", subtext: "42 - 44", available: true },
+    { id: "m", label: "M", subtext: "Veste 46", available: true },
+    { id: "g", label: "G", subtext: "Veste 48", available: true },
+    { id: "gg", label: "GG", subtext: "50 - 52", available: true },
+    { id: "xg", label: "XG", subtext: "54 - 56", available: true }
+  ],
+  sizeGuide: {
+    title: "Guia de Medidas – Sutiã Premium Sustentação",
+    instructions: [
+      "Atenção: O bojo Miracle Belt não segue o tamanho convencional de outras marcas. Compre o tamanho que equivale ao seu busto convencional.",
+      "Você que veste 40, compre o nosso PP.",
+      "Você que veste 42/44, compre o nosso P.",
+      "Você que veste 46, compre o nosso M.",
+      "Você que veste 48, compre o nosso G.",
+      "Você que usa 50/52, compre o nosso GG.",
+      "Você que veste 54/56, compre o nosso XG."
+    ],
+    table: [
+      { tam: "PP", busto: "Veste 40", cintura: "64 - 70 cm", quadril: "-", peso: "45 - 54 kg" },
+      { tam: "P", busto: "Veste 42 / 44", cintura: "71 - 78 cm", quadril: "-", peso: "55 - 64 kg" },
+      { tam: "M", busto: "Veste 46", cintura: "79 - 86 cm", quadril: "-", peso: "65 - 74 kg" },
+      { tam: "G", busto: "Veste 48", cintura: "87 - 94 cm", quadril: "-", peso: "75 - 84 kg" },
+      { tam: "GG", busto: "Veste 50 / 52", cintura: "95 - 104 cm", quadril: "-", peso: "85 - 96 kg" },
+      { tam: "XG", busto: "Veste 54 / 56", cintura: "105 - 116 cm", quadril: "-", peso: "97 - 112 kg" }
+    ]
+  },
+  features: [
+    {
+      id: "sf1",
+      iconName: "Sparkles",
+      title: "Alta Sustentação com Conforto",
+      description: "Modelagem anatômica que oferece sustentação firme ao busto sem comprometer o conforto diário."
+    },
+    {
+      id: "sf2",
+      iconName: "ShieldCheck",
+      title: "Cobertura Ampliada",
+      description: "Laterais e costas largas em cetinete de alta compressão que modelam sem enrolar ou marcar."
+    },
+    {
+      id: "sf3",
+      iconName: "Feather",
+      title: "Alças Largas & Sem Aro",
+      description: "Alças largas que distribuem o peso com leveza e estrutura sem aro agradável ao toque."
+    },
+    {
+      id: "sf4",
+      iconName: "Zap",
+      title: "Fecho Frontal Reforçado",
+      description: "Fechamento frontal prático com colchetes em dupla regulagem para ajuste fácil e seguro."
+    }
+  ],
+  visualSections: [
+    {
+      id: "s-section1",
+      tag: "SUSTENTAÇÃO & ELEGÂNCIA",
+      title: "Suporte Firme, Conforto e Sofisticação em uma Única Peça",
+      subtitle: "Desenvolvido com modelagem anatômica e tecido de alta compressão",
+      description: "O Sutiã Premium Sustentação foi desenvolvido para mulheres que buscam suporte, conforto e elegância em uma única peça. Com modelagem anatômica e tecido em cetinete de alta compressão, ele oferece sustentação firme ao busto, além de cobertura ampliada na região das costas e laterais.",
+      bullets: [
+        "Alta sustentação com conforto para uso durante todo o dia",
+        "Cobertura ampliada nas costas e laterais que disfarça gordurinhas",
+        "Acabamento delicado em renda que une praticidade e sofisticação"
+      ],
+      image: "/images/product/sutia-premium/02.png",
+      imagePosition: "right",
+      bgStyle: "white"
+    },
+    {
+      id: "s-section2",
+      tag: "CONFORTO ABSOLUTO",
+      title: "Alças Largas e Design Sem Aro para Segurança Total",
+      subtitle: "Distribuição ideal do peso sem machucar os ombros",
+      description: "Ideal para o uso diário, o sutiã proporciona segurança sem comprometer o conforto, graças às alças largas e ao design sem aro. Sua estrutura reforçada valoriza a silhueta de forma natural e discreta sob qualquer roupa.",
+      bullets: [
+        "Alças largas que distribuem o peso com leveza e aliviam a tensão nos ombros",
+        "Estrutura sem aro, com suporte firme e agradável ao toque",
+        "Fecho frontal com regulagem que facilita vestir e retirar a peça"
+      ],
+      image: "/images/product/sutia-premium/03.jpg",
+      imagePosition: "left",
+      bgStyle: "light"
+    },
+    {
+      id: "s-section3",
+      tag: "DIFERENCIAIS MIRACLE BELT",
+      title: "Cetinete de Alta Compressão e Durabilidade Superior",
+      subtitle: "Perfeito para o dia a dia ou sob roupas que pedem suporte extra",
+      description: "Confeccionado em cetinete de alta compressão, tecido resistente que oferece suporte e ajuste perfeito ao corpo. Mantém a postura alinhada e o busto firme com total liberdade de movimentos.",
+      bullets: [
+        "Confeccionado em cetinete de alta compressão de alta durabilidade",
+        "Modelagem anatômica que se adapta perfeitamente às curvas do corpo",
+        "Este produto adverte: não há evidências científicas de que esta peça ofereça benefícios terapêuticos, trate, previna ou cure doenças"
+      ],
+      image: "/images/product/sutia-premium/07.jpg",
+      imagePosition: "right",
+      bgStyle: "white"
+    }
+  ],
+  faqs: [
+    {
+      id: "sfaq1",
+      question: "Como escolher o tamanho correto do Sutiã Premium Sustentação?",
+      answer: "O bojo Miracle Belt possui modelagem específica: quem veste 40 deve escolher o PP; 42/44 escolha o P; 46 escolha o M; 48 escolha o G; 50/52 escolha o GG; e 54/56 escolha o XG. Consulte também a foto da tabela de medidas na galeria."
+    },
+    {
+      id: "sfaq2",
+      question: "O Sutiã Premium Sustentação possui aro metálico?",
+      answer: "Não! Ele possui estrutura anatômica reforçada sem aro, garantindo sustentação firme ao busto com total conforto, sem espetar ou incomodar ao longo do dia."
+    },
+    {
+      id: "sfaq3",
+      question: "Como funciona o fechamento da peça?",
+      answer: "O fechamento é frontal por colchetes reforçados com regulagem, facilitando muito o momento de vestir e proporcionando ajuste firme na região torácica."
+    },
+    {
+      id: "sfaq4",
+      question: "Ele ajuda a esconder as gordurinhas das costas e laterais?",
+      answer: "Sim! Graças à sua base alongada e cobertura ampliada nas costas e nas laterais em cetinete de alta compressão, ele modela a região de forma uniforme sem marcar sob a roupa."
+    },
+    {
+      id: "sfaq5",
+      question: "Qual é o prazo de entrega e como funciona a troca?",
+      answer: "Você pode consultar o prazo exato para o seu CEP na calculadora de frete acima. Oferecemos a 1ª Troca Grátis em até 7 dias após o recebimento caso precise trocar o tamanho."
+    }
+  ],
+  reviews: [
+    {
+      id: "sr1",
+      author: "Helena C.",
+      rating: 5,
+      date: "Há 2 dias",
+      verified: true,
+      size: "G",
+      color: "Akaroa",
+      title: "Sustentação maravilhosa e super confortável!",
+      comment: "Eu visto 48 e peguei o G seguindo a tabela de medidas. Ficou perfeito! As alças largas não machucam o ombro e o fecho na frente é muito prático.",
+      likes: 29
+    },
+    {
+      id: "sr2",
+      author: "Rosângela M.",
+      rating: 5,
+      date: "Há 5 dias",
+      verified: true,
+      size: "GG",
+      color: "Preto",
+      title: "O melhor sutiã que já comprei",
+      comment: "O tecido é bem firme, segura tudo nas laterais e nas costas sem apertar demais. A renda na frente dá um charme lindo. Já vou pedir o bege também!",
+      likes: 21
+    },
+    {
+      id: "sr3",
+      author: "Cláudia F.",
+      rating: 5,
+      date: "Há 1 semana",
+      verified: true,
+      size: "M",
+      color: "Akaroa",
+      title: "Não enrola e dá muita segurança",
+      comment: "Comprei para usar no dia a dia no trabalho e amei. Não tem aro para incomodar e mesmo assim sustenta super bem. Entrega rápida!",
+      likes: 18
+    },
+    {
+      id: "sr4",
+      author: "Beatriz T.",
+      rating: 5,
+      date: "Há 2 semanas",
+      verified: true,
+      size: "P",
+      color: "Preto",
+      title: "Qualidade impecável",
+      comment: "Acabamento de primeira, costuras reforçadas e veste exatamente como mostra na tabela. Recomendo demais!",
+      likes: 15
+    }
+  ]
+};

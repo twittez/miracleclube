@@ -47,7 +47,19 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, navLink
                 <a
                   href={link.href}
                   className={`mobile-menu-drawer__link ${link.highlight ? "mobile-menu-drawer__link--highlight" : ""}`}
-                  onClick={onClose}
+                  onClick={(e) => {
+                    if (link.href.startsWith("/")) {
+                      e.preventDefault();
+                      onClose();
+                      if (window.location.pathname !== link.href) {
+                        window.history.pushState({}, "", link.href);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                        window.scrollTo(0, 0);
+                      }
+                    } else {
+                      onClose();
+                    }
+                  }}
                 >
                   <span>{link.label}</span>
                   <ChevronRight size={16} />

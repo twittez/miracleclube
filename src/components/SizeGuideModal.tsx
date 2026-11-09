@@ -1,14 +1,16 @@
 import React from "react";
 import { X, Ruler, CheckCircle2 } from "lucide-react";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import "./SizeGuideModal.css";
 
 interface SizeGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
+  sizeGuide?: ProductData["sizeGuide"];
 }
 
-export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose }) => {
+export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, sizeGuide: propSizeGuide }) => {
+  const sizeGuide = propSizeGuide || defaultProduct.sizeGuide;
   if (!isOpen) return null;
 
   return (
@@ -18,7 +20,7 @@ export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose 
         <div className="size-guide-modal__header">
           <div className="size-guide-modal__title-box">
             <Ruler className="size-guide-modal__icon" size={22} />
-            <h3 className="size-guide-modal__title">{product.sizeGuide.title}</h3>
+            <h3 className="size-guide-modal__title">{sizeGuide.title}</h3>
           </div>
           <button className="size-guide-modal__close" onClick={onClose} aria-label="Fechar guia de medidas">
             <X size={22} />
@@ -29,7 +31,7 @@ export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose 
         <div className="size-guide-modal__instructions">
           <h4 className="size-guide-modal__section-subtitle">Como medir o seu corpo:</h4>
           <ul className="size-guide-modal__steps-list">
-            {product.sizeGuide.instructions.map((step, idx) => (
+            {sizeGuide.instructions.map((step, idx) => (
               <li key={idx} className="size-guide-modal__step-item">
                 <CheckCircle2 size={16} className="size-guide-modal__check-icon" />
                 <span>{step}</span>
@@ -51,7 +53,7 @@ export const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose 
               </tr>
             </thead>
             <tbody>
-              {product.sizeGuide.table.map((row, idx) => (
+              {sizeGuide.table.map((row, idx) => (
                 <tr key={idx}>
                   <td className="size-guide-modal__tam-cell">{row.tam}</td>
                   <td>{row.busto}</td>

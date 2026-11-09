@@ -1,9 +1,14 @@
 import React from "react";
 import { CheckCircle2 } from "lucide-react";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import "./ProductDescription.css";
 
-export const ProductDescription: React.FC = () => {
+interface ProductDescriptionProps {
+  product?: ProductData;
+}
+
+export const ProductDescription: React.FC<ProductDescriptionProps> = ({ product: propProduct }) => {
+  const product = propProduct || defaultProduct;
   return (
     <section className="product-description" id="descricao">
       <div className="container">

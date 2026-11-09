@@ -9,6 +9,7 @@ export interface CartItem {
   price: number;
   image: string;
   noPixDiscount?: boolean;
+  pixDiscountPercent?: number;
 }
 
 interface CartContextType {

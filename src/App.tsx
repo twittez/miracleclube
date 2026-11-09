@@ -7,13 +7,14 @@ import { TrackingPage } from "./pages/TrackingPage";
 import { RefundPolicyPage } from "./pages/RefundPolicyPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { PreCheckoutOfferPage } from "./pages/PreCheckoutOfferPage";
+import { SutiaSustentacaoPage } from "./pages/SutiaSustentacaoPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
 import { initTikTokPixel, trackTikTokPageView } from "./services/tiktokPixel";
 import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveTracker";
 import { captureUTMParams } from "./utils/utm";
 
 // Rotas que são exclusivas para mobile (bloqueadas no desktop)
-const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial", "/produtotiktok", "/produto-tiktok"];
+const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial", "/produtotiktok", "/produto-tiktok", "/sutia-premium-sustentacao", "/sutia-sustentacao", "/sutia"];
 
 function isMobile(): boolean {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
@@ -157,6 +158,19 @@ export function App() {
     return (
       <RefundPolicyPage
         onNavigateHome={() => navigateTo("/")}
+      />
+    );
+  }
+
+  if (
+    currentPath === "/sutia-premium-sustentacao" ||
+    currentPath === "/sutia-sustentacao" ||
+    currentPath === "/sutia"
+  ) {
+    return (
+      <SutiaSustentacaoPage
+        onNavigateToCheckout={() => navigateTo("/oferta-especial")}
+        onNavigateToTracking={() => navigateTo("/rastreio")}
       />
     );
   }

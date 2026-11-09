@@ -1,10 +1,15 @@
 import React, { useState } from "react";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import { ReviewSummary } from "../components/ReviewSummary";
 import { ReviewCard } from "../components/ReviewCard";
 import "./ReviewsSection.css";
 
-export const ReviewsSection: React.FC = () => {
+interface ReviewsSectionProps {
+  product?: ProductData;
+}
+
+export const ReviewsSection: React.FC<ReviewsSectionProps> = ({ product: propProduct }) => {
+  const product = propProduct || defaultProduct;
   const [displayedCount, setDisplayedCount] = useState<number>(3);
 
   const handleLoadMore = () => {

@@ -876,6 +876,8 @@ app.post('/api/payments/pix', async (req, res) => {
     const SERVER_SKU_PRICES = {
       'SHORTS-MOD-4B': 4790, // R$ 47,90 - Shorts Modelador com 4 Barbatanas
       'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
+      'SPS': 6990, // R$ 69,90 - Sutiã Premium Sustentação (2 Unidades)
+      'SUTIA-PREMIUM-SUSTENTACAO': 6990, // R$ 69,90 - Sutiã Premium Sustentação (2 Unidades)
     };
 
     let calculatedAmountCentavos = 8590;

@@ -45,10 +45,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const navLinks = [
-    { label: "Cinta Body", href: "#product-section" },
+    { label: "Cinta Body", href: "/" },
+    { label: "Sutiã Sustentação", href: "/sutia-premium-sustentacao" },
     { label: "Combos", href: "#product-section" },
     { label: "Linha Plus Size", href: "#product-section" },
-    { label: "Nossos Queridinhos", href: "#product-section" },
   ];
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -160,6 +160,17 @@ export const Header: React.FC<HeaderProps> = ({
                   className="site-header__subnav-link"
                   onClick={(e) => {
                     e.preventDefault();
+                    if (link.href.startsWith("/")) {
+                      if (window.location.pathname !== link.href) {
+                        window.history.pushState({}, "", link.href);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                        window.scrollTo(0, 0);
+                      } else {
+                        const elem = document.querySelector(".product-main-section");
+                        if (elem) elem.scrollIntoView({ behavior: "smooth" });
+                      }
+                      return;
+                    }
                     if (onOpenCategory) onOpenCategory(link.label);
                     const elem = document.querySelector(".product-main-section");
                     if (elem) elem.scrollIntoView({ behavior: "smooth" });

@@ -9,10 +9,15 @@ interface ProductMainSectionProps {
   onAddToCart?: (qty: number, variation: ProductVariation, size: ProductSize) => void;
   selectedVariant?: ProductVariation;
   selectedSize?: ProductSize | null;
+  selectedVariant2?: ProductVariation;
+  selectedSize2?: ProductSize | null;
   quantity?: number;
   showSizeError?: boolean;
+  showSize2Error?: boolean;
   onVariantChange?: (variation: ProductVariation) => void;
   onSizeChange?: (size: ProductSize | null) => void;
+  onVariant2Change?: (variation: ProductVariation) => void;
+  onSize2Change?: (size: ProductSize | null) => void;
   onQuantityChange?: (qty: number) => void;
 }
 
@@ -21,10 +26,15 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({
   onAddToCart,
   selectedVariant,
   selectedSize,
+  selectedVariant2,
+  selectedSize2,
   quantity,
   showSizeError,
+  showSize2Error,
   onVariantChange,
   onSizeChange,
+  onVariant2Change,
+  onSize2Change,
   onQuantityChange,
 }) => {
   const product = propProduct || defaultProduct;
@@ -33,6 +43,11 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({
   const handleVariantChange = (variant: ProductVariation) => {
     setSelectedGalleryIdx(variant.imageIndex);
     if (onVariantChange) onVariantChange(variant);
+  };
+
+  const handleVariant2Change = (variant: ProductVariation) => {
+    setSelectedGalleryIdx(variant.imageIndex);
+    if (onVariant2Change) onVariant2Change(variant);
   };
 
   return (
@@ -54,10 +69,15 @@ export const ProductMainSection: React.FC<ProductMainSectionProps> = ({
             product={product}
             selectedVariant={selectedVariant}
             selectedSize={selectedSize}
+            selectedVariant2={selectedVariant2}
+            selectedSize2={selectedSize2}
             quantity={quantity}
             showSizeError={showSizeError}
+            showSize2Error={showSize2Error}
             onVariantChange={handleVariantChange}
             onSizeChange={onSizeChange}
+            onVariant2Change={handleVariant2Change}
+            onSize2Change={onSize2Change}
             onQuantityChange={onQuantityChange}
             onBuySuccess={(qty, varObj, sizeObj) => {
               if (onAddToCart) onAddToCart(qty, varObj, sizeObj);

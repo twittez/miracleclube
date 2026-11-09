@@ -1,6 +1,6 @@
 import React from "react";
 import { Sparkles, ShieldCheck, Feather, Zap } from "lucide-react";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import "./BenefitsSection.css";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -10,13 +10,19 @@ const iconMap: Record<string, React.ReactNode> = {
   Zap: <Zap size={24} />,
 };
 
-export const BenefitsSection: React.FC = () => {
+interface BenefitsSectionProps {
+  product?: ProductData;
+  title?: string;
+}
+
+export const BenefitsSection: React.FC<BenefitsSectionProps> = ({ product: propProduct, title }) => {
+  const product = propProduct || defaultProduct;
   return (
     <section className="benefits-section">
       <div className="container">
         <div className="benefits-section__header">
           <span className="benefits-section__tag">DIFERENCIAIS EXCLUSIVOS</span>
-          <h2 className="benefits-section__title">Por que escolher o nosso Body Modelador?</h2>
+          <h2 className="benefits-section__title">{title || "Por que escolher o nosso Body Modelador?"}</h2>
         </div>
 
         <div className="benefits-section__grid">

@@ -1,9 +1,14 @@
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { product } from "../data/product";
+import { product as defaultProduct, type ProductData } from "../data/product";
 import "./FAQ.css";
 
-export const FAQ: React.FC = () => {
+interface FAQProps {
+  product?: ProductData;
+}
+
+export const FAQ: React.FC<FAQProps> = ({ product: propProduct }) => {
+  const product = propProduct || defaultProduct;
   const [openId, setOpenId] = useState<string | null>(product.faqs[0]?.id || null);
 
   const toggleItem = (id: string) => {
