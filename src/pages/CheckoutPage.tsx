@@ -144,15 +144,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   const shippingCost = shippingOption === "express" ? 16.89 : 0.00;
   const activePixPercent =
     cartItems.length > 0 &&
-    cartItems.every(
-      (item) => item.pixDiscountPercent === 3 || item.productId === "SUTIA-PREMIUM-SUSTENTACAO"
-    )
-      ? 3
-      : 5;
+    cartItems.some((item) => item.pixDiscountPercent === 5)
+      ? 5
+      : 3;
   const pixDiscount =
     paymentMethod === "pix" && !isNoPixDiscount
       ? cartItems.reduce((acc, item) => {
-          const pct = item.pixDiscountPercent ?? (item.productId === "SUTIA-PREMIUM-SUSTENTACAO" ? 3 : 5);
+          const pct = item.pixDiscountPercent ?? 3;
           return acc + item.price * item.quantity * (pct / 100);
         }, 0) +
         bumpsTotal * (activePixPercent / 100)

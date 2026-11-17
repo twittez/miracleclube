@@ -36,9 +36,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Sanitize: ensure quantity is always a valid positive integer
+        // Sanitize: ensure quantity is always a valid positive integer and sync Cinta Modeladora price/discount
         const sanitized = (Array.isArray(parsed) ? parsed : []).map((item: CartItem) => ({
           ...item,
+          price: item.productId === 'CMFBPM001-bfpp2' ? 79.90 : item.price,
+          pixDiscountPercent: item.productId === 'CMFBPM001-bfpp2' ? 3 : item.pixDiscountPercent,
           quantity: Math.max(1, parseInt(String(item.quantity), 10) || 1),
         }));
         setCartItems(sanitized);

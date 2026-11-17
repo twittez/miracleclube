@@ -71,6 +71,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       quantity: qty,
       price: product.price,
       image: product.images[variation.imageIndex],
+      pixDiscountPercent: product.pixDiscountPercent,
     });
 
     // Track AddToCart ONLY when product is actually added
