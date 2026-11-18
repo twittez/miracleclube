@@ -46,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navLinks = [
     { label: "Cinta Body", href: "/" },
+    { label: "Cinta 4 Fechos", href: "/cinta-modeladora-feminina-4-fechos" },
     { label: "Sutiã Sustentação", href: "/sutia-premium-sustentacao" },
     { label: "Combos", href: "#product-section" },
     { label: "Linha Plus Size", href: "#product-section" },

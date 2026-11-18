@@ -537,3 +537,219 @@ export const productSutia: ProductData = {
     }
   ]
 };
+
+// Produto: Cinta Modeladora Feminina 4 Regulagens / 4 Fechos (https://www.miraclebelt.com.br/cinta-modeladora-feminina-4-fechos)
+export const productCinta4Fechos: ProductData = {
+  id: "CMF4F001",
+  name: "Cinta Modeladora Feminina 4 Regulagens",
+  subtitle: "4 regulagens de fechos e 16 barbatanas siliconadas em cetinete de alta compressão revestido com cotton",
+  sku: "CMF4F001",
+  category: "Modeladores",
+  breadcrumb: ["Início", "Modeladores", "Cinta Modeladora Feminina 4 Regulagens"],
+  originalPrice: 399.90,
+  price: 59.90,
+  pixPrice: 56.91,
+  pixDiscountPercent: 5,
+  installmentsMax: 5,
+  installmentValue: 11.98,
+  rating: 4.9,
+  reviewCount: 1975,
+  images: [
+    "/images/product/cinta-4-fechos/08.png",
+    "/images/product/cinta-4-fechos/09.png",
+    "/images/product/cinta-4-fechos/10.png",
+    "/images/product/cinta-4-fechos/05.png",
+    "/images/product/cinta-4-fechos/06.png",
+    "/images/product/cinta-4-fechos/07.png",
+    "/images/product/cinta-4-fechos/01.png",
+    "/images/product/cinta-4-fechos/02.png",
+    "/images/product/cinta-4-fechos/03.png",
+    "/images/product/cinta-4-fechos/04.png",
+    "/images/product/cinta-4-fechos/11.png",
+    "/images/product/cinta-4-fechos/12-tabela.png"
+  ],
+  variations: [
+    { id: "preto", name: "Preto", colorCode: "#000000", imageIndex: 0 },
+    { id: "akaroa", name: "Akaroa", colorCode: "#D4C4A8", imageIndex: 3 },
+    { id: "azalea", name: "Azalea", colorCode: "#F7C8DA", imageIndex: 6 }
+  ],
+  sizes: [
+    { id: "pp", label: "PP", subtext: "34 - 36", available: true },
+    { id: "p", label: "P", subtext: "38 - 40", available: true },
+    { id: "m", label: "M", subtext: "40 - 42", available: true },
+    { id: "g", label: "G", subtext: "44 - 46", available: true },
+    { id: "gg", label: "GG", subtext: "48 - 50", available: true },
+    { id: "xg", label: "XG", subtext: "52 - 54", available: true }
+  ],
+  sizeGuide: {
+    title: "Guia de Medidas da Faixa Miracle Belt",
+    instructions: [
+      "Atenção: As costas deste modelo são mais altas devido ao design anatômico.",
+      "Meça a circunferência da sua cintura cerca de 2 dedos acima do umbigo.",
+      "Com 4 níveis de regulagem nos colchetes frontais, você consegue ajustar a compressão conforme reduz medidas."
+    ],
+    table: [
+      { tam: "PP", busto: "Frente: 29 cm", cintura: "60 - 66 cm", quadril: "Costas: 34,5 cm", peso: "45 - 54 kg" },
+      { tam: "P", busto: "Frente: 31 cm", cintura: "67 - 73 cm", quadril: "Costas: 36,5 cm", peso: "55 - 64 kg" },
+      { tam: "M", busto: "Frente: 31,5 cm", cintura: "74 - 80 cm", quadril: "Costas: 37 cm", peso: "65 - 74 kg" },
+      { tam: "G", busto: "Frente: 32 cm", cintura: "81 - 87 cm", quadril: "Costas: 38 cm", peso: "75 - 84 kg" },
+      { tam: "GG", busto: "Frente: 33 cm", cintura: "88 - 94 cm", quadril: "Costas: 39 cm", peso: "85 - 95 kg" },
+      { tam: "XG", busto: "Frente: 34,5 cm", cintura: "95 - 104 cm", quadril: "Costas: 41 cm", peso: "96 - 110 kg" }
+    ]
+  },
+  features: [
+    {
+      id: "c4f1",
+      iconName: "Zap",
+      title: "4 Regulagens de Fechos",
+      description: "Quatro níveis de ajuste frontal que acompanham a evolução das suas medidas com firmeza e praticidade."
+    },
+    {
+      id: "c4f2",
+      iconName: "ShieldCheck",
+      title: "16 Barbatanas Siliconadas",
+      description: "Estrutura reforçada que modela a cintura sem dobrar ou enrolar, garantindo sustentação à região lombar."
+    },
+    {
+      id: "c4f3",
+      iconName: "Feather",
+      title: "Cetinete Revestido com Cotton",
+      description: "Tecido cetinete de alta compressão com revestimento interno em cotton macio para conforto durante todo o dia."
+    },
+    {
+      id: "c4f4",
+      iconName: "Sparkles",
+      title: "Correção Postural & Silhueta",
+      description: "Costas mais altas com design anatômico que auxilia na postura e proporciona redução imediata de medidas."
+    }
+  ],
+  visualSections: [
+    {
+      id: "c4-section1",
+      tag: "4 NÍVEIS DE COMPRESSÃO",
+      title: "Redução de Medidas e Silhueta Definida no Dia a Dia",
+      subtitle: "Acabamento único e sofisticado projetado para o máximo conforto",
+      description: "Nossa Cinta Modeladora Feminina 4 Fechos atende às necessidades do dia a dia de forma confortável e com acabamento único e sofisticado. Adapta-se perfeitamente ao corpo e oferece efeito imediato de redução de medidas, valorizando a silhueta.",
+      bullets: [
+        "4 regulagens de fechos frontais para ajuste progressivo",
+        "Possui 16 barbatanas siliconadas flexíveis que não machucam",
+        "Costas mais altas devido ao design anatômico exclusivo"
+      ],
+      image: "/images/product/cinta-4-fechos/10.png",
+      imagePosition: "right",
+      bgStyle: "white"
+    },
+    {
+      id: "c4-section2",
+      tag: "ESTRUTURA REFORÇADA",
+      title: "Sustentação Lombar e Auxílio na Correção Postural",
+      subtitle: "Segurança e ajuste anatômico com 16 barbatanas siliconadas",
+      description: "A estrutura reforçada proporciona sustentação firme à região lombar e pode auxiliar na correção postural durante a rotina de trabalho ou atividades diárias, sem enrolar e sem marcar sob a roupa.",
+      bullets: [
+        "Sustentação completa da região lombar e abdominal",
+        "Composição premium: 90,4% Poliamida e 9,6% Elastano",
+        "Barbatanas de silicone de alta resistência e flexibilidade"
+      ],
+      image: "/images/product/cinta-4-fechos/07.png",
+      imagePosition: "left",
+      bgStyle: "light"
+    },
+    {
+      id: "c4-section3",
+      tag: "ALTA TECNOLOGIA TÊXTIL",
+      title: "Cetinete de Alta Compressão Revestido com Cotton",
+      subtitle: "Toque macio na pele com compressão na medida certa",
+      description: "Todas as peças são confeccionadas com tecido cetinete de alta compressão revestido com cotton, proporcionando segurança, respirabilidade e ajuste impecável ao corpo. Este produto adverte: não há evidências científicas que comprovem que esta peça ofereça benefícios terapêuticos, trate, previna ou cure doenças.",
+      bullets: [
+        "Cetinete de alta compressão com interior revestido em cotton",
+        "Acabamento reforçado que valoriza as curvas naturais",
+        "Fácil cuidado: lavagem manual com sabão neutro e secagem à sombra"
+      ],
+      image: "/images/product/cinta-4-fechos/04.png",
+      imagePosition: "right",
+      bgStyle: "white"
+    }
+  ],
+  faqs: [
+    {
+      id: "c4faq1",
+      question: "Quantas regulagens e barbatanas possui a Cinta Modeladora 4 Fechos?",
+      answer: "Ela conta com 4 fileiras de regulagens de fechos frontais e 16 barbatanas siliconadas distribuídas estrategicamente para modelar sem enrolar e acompanhar sua redução de medidas."
+    },
+    {
+      id: "c4faq2",
+      question: "Qual é o tecido da Cinta Modeladora Feminina 4 Regulagens?",
+      answer: "A peça é confeccionada em tecido cetinete de alta compressão (90,4% Poliamida e 9,6% Elastano) revestido com cotton, garantindo firmeza por fora e toque macio na pele."
+    },
+    {
+      id: "c4faq3",
+      question: "Ela ajuda na postura e na sustentação das costas?",
+      answer: "Sim! Suas costas são mais altas devido ao design anatômico e, junto às 16 barbatanas siliconadas, proporcionam excelente sustentação à região lombar e auxílio na correção postural."
+    },
+    {
+      id: "c4faq4",
+      question: "Como devo lavar e conservar minha cinta modeladora?",
+      answer: "Lave sempre à mão com movimentos suaves e sabão neutro. Não utilize máquina de lavar, alvejantes ou amaciantes, não torça a peça e seque sempre à sombra em superfície plana ou varal sem prendedores."
+    },
+    {
+      id: "c4faq5",
+      question: "Como funciona o prazo de entrega e a 1ª Troca Grátis?",
+      answer: "Você pode simular o prazo exato para o seu CEP na calculadora acima. Caso precise trocar o tamanho, oferecemos a 1ª Troca Grátis em até 7 dias após o recebimento."
+    }
+  ],
+  reviews: [
+    {
+      id: "c4r1",
+      author: "Juliana M.",
+      rating: 5,
+      date: "Há 2 dias",
+      verified: true,
+      size: "M",
+      color: "Preto",
+      title: "As 4 regulagens fazem toda a diferença!",
+      comment: "Comecei usando no primeiro fecho e em duas semanas já passei para o segundo. As 16 barbatanas seguram super bem, não enrola nada e o forro em cotton é muito confortável!",
+      likes: 42,
+      video: "https://down-bs-br.vod.susercontent.com/api/v4/11110103/mms/br-11110103-6jrno-ljlq7f92zj1ie2.16000051690226498.mp4"
+    },
+    {
+      id: "c4r2",
+      author: "Renata S.",
+      rating: 5,
+      date: "Há 4 dias",
+      verified: true,
+      size: "G",
+      color: "Akaroa",
+      title: "Sustentação incrível nas costas",
+      comment: "As costas mais altas deixam a postura certinha e escondem aquela gordurinha perto do sutiã. O tecido cetinete é super firme, qualidade impecável!",
+      likes: 35,
+      photos: [
+        "https://down-br.img.susercontent.com/file/br-11134103-7qukw-ljlq19npav7u78.webp",
+        "https://down-br.img.susercontent.com/file/br-11134103-7qukw-ljlq19np9gneba.webp"
+      ]
+    },
+    {
+      id: "c4r3",
+      author: "Amanda P.",
+      rating: 5,
+      date: "Há 1 semana",
+      verified: true,
+      size: "P",
+      color: "Azalea",
+      title: "A cor Azalea é maravilhosa!",
+      comment: "Comprei a rosa (Azalea) e a preta. A cintura fica super desenhada na hora que veste e não machuca mesmo usando o dia inteiro no trabalho.",
+      likes: 28
+    },
+    {
+      id: "c4r4",
+      author: "Carla V.",
+      rating: 5,
+      date: "Há 2 semanas",
+      verified: true,
+      size: "GG",
+      color: "Preto",
+      title: "Melhor cinta que já usei",
+      comment: "Já tive outras cintas que dobravam ao sentar, mas essa com 16 barbatanas siliconadas fica intacta. Vale cada centavo!",
+      likes: 19
+    }
+  ]
+};

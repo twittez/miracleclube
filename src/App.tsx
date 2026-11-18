@@ -8,15 +8,22 @@ import { RefundPolicyPage } from "./pages/RefundPolicyPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { PreCheckoutOfferPage } from "./pages/PreCheckoutOfferPage";
 import { SutiaSustentacaoPage } from "./pages/SutiaSustentacaoPage";
+import { CintaQuatroFechosPage } from "./pages/CintaQuatroFechosPage";
 import { initMetaPixel, trackPageView } from "./services/metaPixel";
 import { initTikTokPixel, trackTikTokPageView } from "./services/tiktokPixel";
 import { initLiveTracker, trackLiveEvent, sendHeartbeat } from "./services/liveTracker";
 import { captureUTMParams } from "./utils/utm";
 
 // Rotas que são exclusivas para mobile (bloqueadas no desktop)
-const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial", "/produtotiktok", "/produto-tiktok", "/sutia-premium-sustentacao", "/sutia-sustentacao", "/sutia"];
+const MOBILE_ONLY_PATHS = ["/", "/checkout", "/obrigado", "/rastreio", "/politica-de-reembolso", "/politica-de-devolucao", "/trocas-e-devolucoes", "/oferta-especial", "/produtotiktok", "/produto-tiktok", "/sutia-premium-sustentacao", "/sutia-sustentacao", "/sutia", "/cinta-modeladora-feminina-4-fechos", "/cinta-4-fechos", "/cinta-4-regulagens"];
 
 function isMobile(): boolean {
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
+    return true;
+  }
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
   return /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua) ||
     window.innerWidth <= 900;
@@ -158,6 +165,19 @@ export function App() {
     return (
       <RefundPolicyPage
         onNavigateHome={() => navigateTo("/")}
+      />
+    );
+  }
+
+  if (
+    currentPath === "/cinta-modeladora-feminina-4-fechos" ||
+    currentPath === "/cinta-4-fechos" ||
+    currentPath === "/cinta-4-regulagens"
+  ) {
+    return (
+      <CintaQuatroFechosPage
+        onNavigateToCheckout={() => navigateTo("/oferta-especial")}
+        onNavigateToTracking={() => navigateTo("/rastreio")}
       />
     );
   }

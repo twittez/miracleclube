@@ -878,6 +878,7 @@ app.post('/api/payments/pix', async (req, res) => {
       'sutia-renda-pos-preto': 3490, // R$ 34,90 - Sutiã com Renda Pós Preto
       'SPS': 6990, // R$ 69,90 - Sutiã Premium Sustentação (2 Unidades)
       'SUTIA-PREMIUM-SUSTENTACAO': 6990, // R$ 69,90 - Sutiã Premium Sustentação (2 Unidades)
+      'CMF4F001': 5990, // R$ 59,90 - Cinta Modeladora Feminina 4 Regulagens
     };
 
     let calculatedAmountCentavos = 8590;
