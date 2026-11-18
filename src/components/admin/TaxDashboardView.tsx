@@ -49,9 +49,10 @@ export interface TaxesSettings {
 
 interface TaxDashboardViewProps {
   orders: any[];
+  onSettingsChange?: (settings: TaxesSettings) => void;
 }
 
-const DEFAULT_TAXES_SETTINGS: TaxesSettings = {
+export const DEFAULT_TAXES_SETTINGS: TaxesSettings = {
   impostos: [
     {
       id: 'tax_meta',
@@ -108,9 +109,41 @@ const DEFAULT_TAXES_SETTINGS: TaxesSettings = {
   syncNoticeDismissed: false
 };
 
-const LOCAL_STORAGE_KEY = 'miracle_admin_taxes_settings_v1';
+export const LOCAL_STORAGE_KEY = 'miracle_admin_taxes_settings_v1';
 
-export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) => {
+export function calculateOrderNetAmount(order: any, settings?: TaxesSettings): number {
+  const orderAmount = Number(order?.amount) || 0;
+  if (orderAmount <= 0) return 0;
+  const activeSettings = settings || DEFAULT_TAXES_SETTINGS;
+  const isPix = Boolean(order?.pixResult || order?.paymentMethod === 'pix' || !order?.paymentMethod);
+
+  let feesDeducted = 0;
+  (activeSettings.taxas || []).forEach((fee) => {
+    let applies = false;
+    if (fee.paymentMethod === 'Todas') applies = true;
+    else if (fee.paymentMethod === 'Pix' && isPix) applies = true;
+    else if (fee.paymentMethod === 'Cartão de Crédito' && !isPix) applies = true;
+
+    if (applies) {
+      if (fee.rateType === 'percent') {
+        feesDeducted += orderAmount * (fee.rateValue / 100);
+      } else {
+        feesDeducted += fee.rateValue;
+      }
+    }
+  });
+
+  let taxesDeducted = 0;
+  (activeSettings.impostos || []).forEach((tax) => {
+    if (tax.configured && tax.value > 0 && tax.applyOn === 'faturamento') {
+      taxesDeducted += orderAmount * (tax.value / 100);
+    }
+  });
+
+  return Math.max(0, orderAmount - feesDeducted - taxesDeducted);
+}
+
+export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders, onSettingsChange }) => {
   // Settings State
   const [settings, setSettings] = useState<TaxesSettings>(() => {
     try {
@@ -176,6 +209,7 @@ export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) =>
           if (data.taxesSettings) {
             setSettings(data.taxesSettings);
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.taxesSettings));
+            if (onSettingsChange) onSettingsChange(data.taxesSettings);
           }
         }
       } catch (err) {
@@ -198,6 +232,7 @@ export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) =>
   const saveSettingsToStorageAndServer = async (newSettings: TaxesSettings) => {
     setSettings(newSettings);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
+    if (onSettingsChange) onSettingsChange(newSettings);
     setIsLoading(true);
 
     try {
@@ -535,12 +570,14 @@ export const TaxDashboardView: React.FC<TaxDashboardViewProps> = ({ orders }) =>
         <div className="tax-kpi-card gross">
           <div className="tax-kpi-label">
             <DollarSign size={13} style={{ color: '#38bdf8' }} />
-            Faturamento Bruto
+            Faturamento Total (Pós-Taxas)
           </div>
           <div className="tax-kpi-value">
-            R$ {financialMetrics.grossTotal.toFixed(2).replace('.', ',')}
+            R$ {financialMetrics.netReceived.toFixed(2).replace('.', ',')}
           </div>
-          <div className="tax-kpi-sub">{financialMetrics.paidOrdersCount} pedidos pagos aprovados</div>
+          <div className="tax-kpi-sub">
+            Bruto: R$ {financialMetrics.grossTotal.toFixed(2).replace('.', ',')} • {financialMetrics.paidOrdersCount} pagos
+          </div>
         </div>
 
         <div className="tax-kpi-card fees">

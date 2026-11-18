@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import '../styles/admin.css';
 import { NeuralCanvasBackground } from '../components/admin/NeuralCanvasBackground';
-import { TaxDashboardView } from '../components/admin/TaxDashboardView';
+import {
+  TaxDashboardView,
+  DEFAULT_TAXES_SETTINGS,
+  LOCAL_STORAGE_KEY as TAXES_STORAGE_KEY,
+  calculateOrderNetAmount,
+  type TaxesSettings
+} from '../components/admin/TaxDashboardView';
 import {
   Activity,
   DollarSign,
@@ -1051,16 +1057,26 @@ export const AdminDashboardPage: React.FC = () => {
     setPinInput('');
   };
 
+  // Taxes & Gateway Fees Settings State (synced with Aba de Taxas)
+  const [taxesSettings, setTaxesSettings] = useState<TaxesSettings>(() => {
+    try {
+      const cached = localStorage.getItem(TAXES_STORAGE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return DEFAULT_TAXES_SETTINGS;
+  });
+
   // Fetch Full Snapshot
   const fetchAllData = async () => {
     try {
       setRefreshing(true);
-      const [ordersRes, visitorsRes, funnelRes, declinedRes, gatewayRes] = await Promise.allSettled([
+      const [ordersRes, visitorsRes, funnelRes, declinedRes, gatewayRes, taxesRes] = await Promise.allSettled([
         fetch('/api/admin/orders'),
         fetch('/api/admin/visitors/live'),
         fetch('/api/admin/funnel'),
         fetch('/api/admin/declined-cards'),
-        fetch('/api/admin/gateway-settings')
+        fetch('/api/admin/gateway-settings'),
+        fetch('/api/admin/taxes-settings')
       ]);
 
       if (ordersRes.status === 'fulfilled' && ordersRes.value.ok) {
@@ -1092,6 +1108,14 @@ export const AdminDashboardPage: React.FC = () => {
           meritus: { ...prev.meritus, ...(gData.meritus || {}) },
           venopay: { ...prev.venopay, ...(gData.venopay || {}) }
         }));
+      }
+
+      if (taxesRes.status === 'fulfilled' && taxesRes.value.ok) {
+        const tData = await taxesRes.value.json();
+        if (tData.taxesSettings) {
+          setTaxesSettings(tData.taxesSettings);
+          localStorage.setItem(TAXES_STORAGE_KEY, JSON.stringify(tData.taxesSettings));
+        }
       }
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
@@ -1198,6 +1222,11 @@ export const AdminDashboardPage: React.FC = () => {
           } else if (parsed.type === 'gateway_updated') {
             if (parsed.data?.activeGateway) {
               setGatewaySettings((prev) => ({ ...prev, activeGateway: parsed.data.activeGateway }));
+            }
+          } else if (parsed.type === 'taxes_updated') {
+            if (parsed.data?.taxesSettings) {
+              setTaxesSettings(parsed.data.taxesSettings);
+              localStorage.setItem(TAXES_STORAGE_KEY, JSON.stringify(parsed.data.taxesSettings));
             }
           }
         } catch {}
@@ -1487,15 +1516,15 @@ export const AdminDashboardPage: React.FC = () => {
   const pendingOrders = useMemo(() => orders.filter((o) => o.status === 'pending_payment'), [orders]);
 
   const totalRevenue = useMemo(() => {
-    return paidOrders.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
-  }, [paidOrders]);
+    return paidOrders.reduce((sum, o) => sum + calculateOrderNetAmount(o, taxesSettings), 0);
+  }, [paidOrders, taxesSettings]);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayRevenue = useMemo(() => {
     return paidOrders
       .filter((o) => (o.createdAt || '').startsWith(todayStr) || (o.approvedAt || '').startsWith(todayStr))
-      .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
-  }, [paidOrders, todayStr]);
+      .reduce((sum, o) => sum + calculateOrderNetAmount(o, taxesSettings), 0);
+  }, [paidOrders, todayStr, taxesSettings]);
 
   const conversionRate = useMemo(() => {
     if (orders.length === 0) return 0;
@@ -1660,9 +1689,9 @@ export const AdminDashboardPage: React.FC = () => {
     const tiktokPaid = tiktokOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
     const otherPaid = otherOrders.filter((o) => o.status === 'paid' || o.orderStatus === 'paid');
 
-    const metaRevenue = metaPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
-    const tiktokRevenue = tiktokPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
-    const otherRevenue = otherPaid.reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+    const metaRevenue = metaPaid.reduce((acc, o) => acc + calculateOrderNetAmount(o, taxesSettings), 0);
+    const tiktokRevenue = tiktokPaid.reduce((acc, o) => acc + calculateOrderNetAmount(o, taxesSettings), 0);
+    const otherRevenue = otherPaid.reduce((acc, o) => acc + calculateOrderNetAmount(o, taxesSettings), 0);
     const totalPaidRevenue = metaRevenue + tiktokRevenue + otherRevenue;
 
     // Top campaigns Meta
@@ -1671,7 +1700,7 @@ export const AdminDashboardPage: React.FC = () => {
       const camp = o.utm?.utm_campaign || 'Direto / Sem Campanha';
       if (!metaCampMap[camp]) metaCampMap[camp] = { count: 0, revenue: 0 };
       metaCampMap[camp].count++;
-      metaCampMap[camp].revenue += Number(o.amount) || 0;
+      metaCampMap[camp].revenue += calculateOrderNetAmount(o, taxesSettings);
     });
     const metaCampaigns = Object.entries(metaCampMap)
       .map(([name, data]) => ({ name, ...data }))
@@ -1683,7 +1712,7 @@ export const AdminDashboardPage: React.FC = () => {
       const camp = o.utm?.utm_campaign || 'Direto / Sem Campanha';
       if (!tiktokCampMap[camp]) tiktokCampMap[camp] = { count: 0, revenue: 0 };
       tiktokCampMap[camp].count++;
-      tiktokCampMap[camp].revenue += Number(o.amount) || 0;
+      tiktokCampMap[camp].revenue += calculateOrderNetAmount(o, taxesSettings);
     });
     const tiktokCampaigns = Object.entries(tiktokCampMap)
       .map(([name, data]) => ({ name, ...data }))
@@ -1718,7 +1747,7 @@ export const AdminDashboardPage: React.FC = () => {
       totalPaidRevenue,
       totalPaidCount: metaPaid.length + tiktokPaid.length + otherPaid.length
     };
-  }, [dateFilteredTrafficOrders]);
+  }, [dateFilteredTrafficOrders, taxesSettings]);
 
   // Daily breakdown of sales by origin (Meta vs TikTok vs Other per day)
   const dailyTrafficStats = useMemo(() => {
@@ -1765,7 +1794,7 @@ export const AdminDashboardPage: React.FC = () => {
         };
       }
 
-      const amount = Number(order.amount) || 0;
+      const amount = calculateOrderNetAmount(order, taxesSettings);
       const origin = order.trafficOrigin;
 
       if (origin === 'meta') {
@@ -1792,7 +1821,7 @@ export const AdminDashboardPage: React.FC = () => {
         tiktokShare: day.totalRevenue > 0 ? (day.tiktokRevenue / day.totalRevenue) * 100 : 0
       }))
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-  }, [trafficOrders]);
+  }, [trafficOrders, taxesSettings]);
 
   // Filtered Daily Stats (matches date preset or custom range, unless specific day is selected)
   const filteredDailyStats = useMemo(() => {
@@ -6363,7 +6392,7 @@ export const AdminDashboardPage: React.FC = () => {
               TAB: DASHBOARD DE TAXAS, IMPOSTOS E CUSTOS DE PRODUTO
               ========================================================= */}
           {activeTab === 'taxes' && (
-            <TaxDashboardView orders={orders} />
+            <TaxDashboardView orders={orders} onSettingsChange={setTaxesSettings} />
           )}
         </main>
       </div>
