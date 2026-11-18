@@ -17,7 +17,6 @@ import {
   Truck,
 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { useCart } from "@/lib/cart";
 import { PRODUCT, brl } from "@/lib/product";
 import { ProductGallery } from "@/components/m2/ProductGallery";
@@ -364,17 +363,6 @@ export function MiracleHomePage({
               className="mt-2 w-full rounded border-2 border-primary py-3 text-base font-semibold text-primary"
             >
               {added ? "Adicionado ao carrinho ✓" : "Adicionar ao carrinho"}
-            </button>
-            <button
-              onClick={() =>
-                toast.info("Todos os nossos atendentes estão ocupados no momento.", {
-                  description: "Por favor, finalize sua compra pelo site. Assim que um atendente ficar livre, entraremos em contato.",
-                  duration: 5000,
-                })
-              }
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-whats-bg py-3 text-base font-semibold text-whats"
-            >
-              Comprar pelo whatsapp 💬
             </button>
 
             <div className="mt-5 rounded border border-border p-4">

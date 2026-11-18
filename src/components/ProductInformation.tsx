@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { product as defaultProduct, type ProductVariation, type ProductSize, type ProductData } from "../data/product";
-import { brand } from "../config/brand";
 import { RatingHeader } from "./RatingHeader";
 import { PriceBlock } from "./PriceBlock";
 import { VariantSelector } from "./VariantSelector";
@@ -261,15 +260,6 @@ export const ProductInformation: React.FC<ProductInformationProps> = ({
 
         <div className="product-info__buttons">
           <BuyButton onClick={handleBuyClick} success={justPurchased} />
-          <a 
-            href={`https://wa.me/${brand.company.whatsappLink}?text=${encodeURIComponent(`Olá! Gostaria de comprar o ${product.name}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="product-info__whatsapp-btn"
-          >
-            <span>Comprar pelo whatsapp</span>
-            <span className="wa-icon-emoji">💬</span>
-          </a>
         </div>
       </div>
 
