@@ -60,6 +60,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
   const [cardDeclinedAlert, setCardDeclinedAlert] = useState(false);
 
   const [loadingCep, setLoadingCep] = useState(false);
+  const [cepLoaded, setCepLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -183,8 +184,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
     setCep(formatted);
     const clean = formatted.replace(/\D/g, "");
 
+    if (clean.length < 8) {
+      setCepLoaded(false);
+      return;
+    }
+
     if (clean.length === 8) {
       setLoadingCep(true);
+      setErrorMsg("");
       const res = await fetchAddressByCep(clean);
       setLoadingCep(false);
       if (res && !res.erro) {
@@ -192,6 +199,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
         setNeighborhood(res.bairro || "");
         setCity(res.localidade || "");
         setState(res.uf || "");
+        setCepLoaded(true);
+        setTimeout(() => {
+          const numInput = document.getElementById("number");
+          if (numInput) numInput.focus();
+        }, 80);
+      } else {
+        setCepLoaded(true);
       }
     }
   };
@@ -620,129 +634,143 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigateToThankYou
                   <Loader2 size={16} className="animate-spin" style={{ position: "absolute", right: "12px", top: "14px", color: "#d8158a" }} />
                 )}
               </div>
+              {!cepLoaded && !loadingCep && (
+                <span style={{ fontSize: "0.76rem", color: "#6B7280", marginTop: "6px", display: "block" }}>
+                  Digite seu CEP para carregar o endereço e liberar as opções de frete.
+                </span>
+              )}
+              {loadingCep && (
+                <span style={{ fontSize: "0.76rem", color: "#d8158a", fontWeight: 600, marginTop: "6px", display: "block" }}>
+                  Buscando endereço e calculando opções de frete...
+                </span>
+              )}
             </div>
 
-            <div className="form-row--3">
-              <div className="form-group">
-                <label htmlFor="street">Rua / Avenida *</label>
-                <input
-                  id="street"
-                  type="text"
-                  className="form-input"
-                  placeholder="Nome da rua"
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  required
-                />
-              </div>
+            {cepLoaded && !loadingCep && (
+              <>
+                <div className="form-row--3">
+                  <div className="form-group">
+                    <label htmlFor="street">Rua / Avenida *</label>
+                    <input
+                      id="street"
+                      type="text"
+                      className="form-input"
+                      placeholder="Nome da rua"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label htmlFor="number">Número *</label>
-                <input
-                  id="number"
-                  type="text"
-                  className="form-input"
-                  placeholder="123"
-                  value={number}
-                  onChange={(e) => setNumber(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="complement">Complemento (opcional)</label>
-                <input
-                  id="complement"
-                  type="text"
-                  className="form-input"
-                  placeholder="Apto, Bloco..."
-                  value={complement}
-                  onChange={(e) => setComplement(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="neighborhood">Bairro *</label>
-                <input
-                  id="neighborhood"
-                  type="text"
-                  className="form-input"
-                  placeholder="Seu bairro"
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-row--3">
-              <div className="form-group">
-                <label htmlFor="city">Cidade *</label>
-                <input
-                  id="city"
-                  type="text"
-                  className="form-input"
-                  placeholder="Sua cidade"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="state">UF *</label>
-                <input
-                  id="state"
-                  type="text"
-                  className="form-input"
-                  placeholder="MG"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  maxLength={2}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Freight Options Selection */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
-              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#374151" }}>Escolha o Frete:</label>
-              
-              <div
-                className={`shipping-option-card ${shippingOption === "free" ? "selected" : ""}`}
-                onClick={() => setShippingOption("free")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Truck size={18} color="#d8158a" />
-                  <div>
-                    <strong style={{ fontSize: "0.85rem", color: "#111", display: "block" }}>Frete Grátis + Seguro Entrega</strong>
-                    <span style={{ fontSize: "0.75rem", color: "#666" }}>Prazo: 8 a 10 dias úteis</span>
+                  <div className="form-group">
+                    <label htmlFor="number">Número *</label>
+                    <input
+                      id="number"
+                      type="text"
+                      className="form-input"
+                      placeholder="123"
+                      value={number}
+                      onChange={(e) => setNumber(e.target.value)}
+                      required
+                    />
                   </div>
                 </div>
-                <strong style={{ fontSize: "0.85rem", color: "#16A34A" }}>GRÁTIS</strong>
-              </div>
 
-              <div
-                className={`shipping-option-card ${shippingOption === "express" ? "selected" : ""}`}
-                onClick={() => setShippingOption("express")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Truck size={18} color="#d8158a" />
-                  <div>
-                    <strong style={{ fontSize: "0.85rem", color: "#111", display: "block" }}>Frete Expresso Prioritário</strong>
-                    <span style={{ fontSize: "0.75rem", color: "#666" }}>Prazo: 2 a 5 dias úteis</span>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="complement">Complemento (opcional)</label>
+                    <input
+                      id="complement"
+                      type="text"
+                      className="form-input"
+                      placeholder="Apto, Bloco..."
+                      value={complement}
+                      onChange={(e) => setComplement(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="neighborhood">Bairro *</label>
+                    <input
+                      id="neighborhood"
+                      type="text"
+                      className="form-input"
+                      placeholder="Seu bairro"
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                      required
+                    />
                   </div>
                 </div>
-                <strong style={{ fontSize: "0.85rem", color: "#111" }}>R$ 16,89</strong>
-              </div>
-            </div>
 
-            <button type="submit" className="checkout-submit-btn" style={{ marginTop: "8px" }}>
-              <span>IR PARA O PAGAMENTO</span>
-              <ArrowRight size={18} />
-            </button>
+                <div className="form-row--3">
+                  <div className="form-group">
+                    <label htmlFor="city">Cidade *</label>
+                    <input
+                      id="city"
+                      type="text"
+                      className="form-input"
+                      placeholder="Sua cidade"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="state">UF *</label>
+                    <input
+                      id="state"
+                      type="text"
+                      className="form-input"
+                      placeholder="MG"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      maxLength={2}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Freight Options Selection */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#374151" }}>Escolha o Frete:</label>
+                  
+                  <div
+                    className={`shipping-option-card ${shippingOption === "free" ? "selected" : ""}`}
+                    onClick={() => setShippingOption("free")}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <Truck size={18} color="#d8158a" />
+                      <div>
+                        <strong style={{ fontSize: "0.85rem", color: "#111", display: "block" }}>Frete Grátis + Seguro Entrega</strong>
+                        <span style={{ fontSize: "0.75rem", color: "#666" }}>Prazo: 5 a 7 dias úteis</span>
+                      </div>
+                    </div>
+                    <strong style={{ fontSize: "0.85rem", color: "#16A34A" }}>GRÁTIS</strong>
+                  </div>
+
+                  <div
+                    className={`shipping-option-card ${shippingOption === "express" ? "selected" : ""}`}
+                    onClick={() => setShippingOption("express")}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <Truck size={18} color="#d8158a" />
+                      <div>
+                        <strong style={{ fontSize: "0.85rem", color: "#111", display: "block" }}>Frete Expresso Prioritário</strong>
+                        <span style={{ fontSize: "0.75rem", color: "#666" }}>Prazo: 2 a 3 dias úteis</span>
+                      </div>
+                    </div>
+                    <strong style={{ fontSize: "0.85rem", color: "#111" }}>R$ 16,89</strong>
+                  </div>
+                </div>
+
+                <button type="submit" className="checkout-submit-btn" style={{ marginTop: "8px" }}>
+                  <span>IR PARA O PAGAMENTO</span>
+                  <ArrowRight size={18} />
+                </button>
+              </>
+            )}
           </form>
         )}
 
