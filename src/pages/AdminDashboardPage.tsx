@@ -1042,7 +1042,7 @@ export const AdminDashboardPage: React.FC = () => {
   // Handle Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.trim() === 'miracle2026' || pinInput.trim() === 'admin123') {
+    if (pinInput.trim() === 'miracle2026') {
       localStorage.setItem('miracle_admin_auth', 'true');
       setIsAuthenticated(true);
       setAuthError('');
