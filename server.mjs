@@ -44,6 +44,34 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+// ==============================================================================
+// SECURITY FIREWALL: BLOCKED IPS & DEVICE FINGERPRINTS
+// ==============================================================================
+const BLOCKED_IP_PREFIXES = [
+  '2804:3158:cacb:',
+  '2804:3158:cacb:4600:445d:efd8:7fd6:72e6'
+];
+
+const BLOCKED_DEVICE_TOKENS = [
+  'fb.1.1794911656237.573492609300008830',
+  '01M7MH4PNBGMDZEY0XF3RP0YCQ_.tt.1.1794911656619'
+];
+
+app.use((req, res, next) => {
+  const forwarded = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '').toLowerCase();
+  const cookieHeader = String(req.headers['cookie'] || '');
+  const bodyStr = req.body && typeof req.body === 'object' ? JSON.stringify(req.body) : '';
+
+  const isIpBlocked = BLOCKED_IP_PREFIXES.some(prefix => forwarded.includes(prefix.toLowerCase()));
+  const isDeviceBlocked = BLOCKED_DEVICE_TOKENS.some(token => cookieHeader.includes(token) || bodyStr.includes(token));
+
+  if (isIpBlocked || isDeviceBlocked) {
+    return res.status(403).send('403 Forbidden - Acesso bloqueado.');
+  }
+
+  next();
+});
+
 // Ensure upload directory for payment receipts exists
 const UPLOADS_DIR = path.join(__dirname, 'uploads', 'receipts');
 if (!fs.existsSync(UPLOADS_DIR)) {
